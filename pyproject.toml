@@ -14,15 +14,14 @@ musicbrainzngs = "0.7"
 unidecode = "1.1.1"
 eyed3 = "0.8.12"
 ipython = "7.7.0"
-python-dateutil = "2.8.0"
 pydub = "0.23.1"
 libmagic = "^1.0"
 pytest = "5.1.1"
 python-magic = "0.4.15"
 traitlets = "5.9.0"
-essentia = "^2.1b6.dev1110"
 librosa = "^0.10.1"
 speechrecognition = "^3.10.1"
+pandas = "^2.1.4"
 
 
 [build-system]
