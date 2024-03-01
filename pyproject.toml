@@ -23,6 +23,8 @@ librosa = "^0.10.1"
 speechrecognition = "^3.10.1"
 pandas = "^2.1.4"
 black = "^24.1.1"
+beautifulsoup4 = "^4.12.3"
+dill = "^0.3.8"
 
 
 [build-system]
