@@ -26,9 +26,13 @@ black = "^24.1.1"
 beautifulsoup4 = "^4.12.3"
 dill = "^0.3.8"
 youtube-search-python = "^1.6.6"
-yt-dlp = {extras = ["default"], version = "^2024.3.10"}
 regex = "^2023.12.25"
 datasets = "^2.18.0"
+transformers = "^4.39.1"
+evaluate = "^0.4.1"
+yt-dlp = "^2024.3.10"
+torch = "^2.2.1"
+accelerate = "^0.28.0"
 
 
 [build-system]
