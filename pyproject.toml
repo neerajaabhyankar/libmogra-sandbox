@@ -6,8 +6,7 @@ authors = ["Neeraja Abhyankar <neerajaabhyankar@Neerajas-MacBook-Air.local>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
-numpy = "^1.26.2"
+python = ">=3.11,<3.12"
 matplotlib = "^3.8.2"
 jupyter = "^1.0.0"
 musicbrainzngs = "0.7"
@@ -33,6 +32,7 @@ evaluate = "^0.4.1"
 yt-dlp = "^2024.3.10"
 torch = "^2.2.1"
 accelerate = "^0.28.0"
+renumics-spotlight = "^1.6.8"
 
 
 [build-system]
