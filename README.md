@@ -1,1 +1,3 @@
-# icm-shruti-analysis
+Some rough notes here:<br>
+
+https://www.withoutlossofgenerality.com/shruti-determination/
