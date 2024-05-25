@@ -4,7 +4,7 @@ from enum import Enum
 from typing import List, Dict
 import pandas as pd
 import re
-from datatypes import SSwar
+from mogra.datatypes import SSwar
 
 
 TR_TAARA_SAPTAK_MARKS = ["'", "`", "’"]

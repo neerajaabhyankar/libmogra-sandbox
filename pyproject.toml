@@ -34,6 +34,7 @@ torch = "^2.2.1"
 accelerate = "^0.28.0"
 renumics-spotlight = "^1.6.8"
 mido = "^1.3.2"
+rich = "^13.7.1"
 
 
 [build-system]
