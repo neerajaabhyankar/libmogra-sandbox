@@ -1,0 +1,12 @@
+
+# data
+clip_length: 30
+sample_rate: 8000
+
+# resnet_0.7
+model: "resnet"
+num_classes: 150
+n_blocks: 10
+n_channel: 300
+stride: 16
+max_pool_every: 1
