@@ -32,6 +32,8 @@ class PitchValidator:
     def __init__(self, audio_array: List[float], sampling_rate: float) -> None:
         self.sr = sampling_rate
         self.y = audio_array
+        self.pitch_annotations = None
+        self.tonic = None
 
     def play_sample(self, start_time, end_time):
         if start_time > end_time:
@@ -46,6 +48,17 @@ class PitchValidator:
     ) -> None:
         self.ar = int(annotation_rate)
         self.pitch_annotations = pitch_annotations
+        if self.tonic is not None:
+            print("pitch annotations have been normalized")
+            self.normalized = True
+            self.pitch_annotations = self.pitch_annotations / self.tonic
+
+    def set_tonic(self, tonic: float):
+        self.tonic = tonic
+        if self.pitch_annotations is not None:
+            print("pitch annotations have been normalized")
+            self.normalized = True
+            self.pitch_annotations = self.pitch_annotations / self.tonic
 
     def validate_annotations(self, start_time, end_time, downsample_factor=25):
         """Generate an audio clip and play it with the OG"""
@@ -87,12 +100,27 @@ class PitchValidator:
         ][0]
         h = np.histogram(nz_annotations, bins=700)
         counts = h[0]
-        hz = (h[1][:-1] + h[1][1:]) / 2
+        fro = (h[1][:-1] + h[1][1:]) / 2
 
         plt.figure()
+        if not self.normalized:
+            print("please normalize frequencies by setting the tonic")
+
         fig = px.line(
-            pd.DataFrame({"hz": hz, "count": counts}), x="hz", y="count", log_x=True
+            pd.DataFrame({"fratio": fro, "count": counts}),
+            x="fratio",
+            y="count",
+            log_x=True,
+            width=600,
+            height=200,
         )
-        # fig.update_layout(xaxis_range=[0.5, 3.1])
-        fig.update_traces(hovertemplate="frequency(hz): %{x}<br>occurence: %{y}")
+        fig.update_xaxes(range=[np.log10(0.6), np.log10(2.6)], type="log")
+        fig.update_xaxes(minor=dict(showgrid=True, nticks=10))
+        fig.update_traces(
+            hovertemplate="frequency(ratio wrt root): %{x}<br>occurence: %{y}"
+        )
+        fig.update_layout(
+            margin=dict(l=10, r=20, t=30, b=10),
+        )
+
         fig.show()
