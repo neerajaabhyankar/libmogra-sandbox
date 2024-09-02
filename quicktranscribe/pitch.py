@@ -1,5 +1,5 @@
 import json
-from typing import List
+from typing import List, Tuple
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,7 +9,7 @@ import librosa
 from IPython.display import Audio as ipy_audio
 
 
-def read_pitch(pitch_file, verbose=False) -> (List[List[float]], float):
+def read_pitch(pitch_file, verbose=False) -> Tuple[List[List[float]], float]:
     """Annotated data"""
     pitch_annotations = []
     with open(pitch_file) as pf:
