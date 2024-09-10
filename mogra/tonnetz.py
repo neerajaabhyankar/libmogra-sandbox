@@ -6,7 +6,9 @@ import itertools
 
 import plotly.graph_objects as go
 import numpy as np
-from mogra.datatypes import normalize_frequency, ratio_to_swar
+from mogra.datatypes import normalize_frequency, ratio_to_swar, Swar
+
+OCCUR_FREQ_THRESHOLD = 0.05  # a normalized probability below this => ignore this note
 
 
 """
@@ -118,8 +120,11 @@ class Tonnetz:
             y=self.coords3d[1],
             z=self.coords3d[2],
             mode="text+markers",
-            marker=dict(size=12, symbol="circle"),
-            marker_color=["gold" if mm in swar_set else "midnightblue" for mm in self.node_names],
+            marker=dict(
+                size=12,
+                symbol="circle",
+                color=["gold" if mm in swar_set else "midnightblue" for mm in self.node_names]
+            ),
             text=self.node_names,
             textposition="middle center",
             textfont=dict(family="Overpass", size=10, color="white"),
@@ -127,7 +132,25 @@ class Tonnetz:
         
         fig = self.prep_plot(fig)
         fig.show()
-
+    
+    def plot_swar_hist(self, swar_set, swar_occur):
+        fig = go.Figure(data=[go.Scatter3d(
+            x=self.coords3d[0],
+            y=self.coords3d[1],
+            z=self.coords3d[2],
+            mode="markers",
+            marker=dict(
+                size=[5 if mm not in swar_set else 100 * swar_occur[swar_set.index(mm)] for mm in self.node_names],
+                symbol="circle",
+                color=["gold" if mm in swar_set else "midnightblue" for mm in self.node_names]
+            ),
+            text=self.node_names,
+            textposition="middle center",
+            textfont=dict(family="Overpass", size=10, color="dimgray"),
+        )])
+        
+        fig = self.prep_plot(fig)
+        fig.show()
 
     def plot_cone(self):
         """
@@ -159,7 +182,6 @@ class Tonnetz:
         )
         fig.show()
         
-    
     def plot1d(self):
         """
         post octave-folding
@@ -186,7 +208,118 @@ class Tonnetz:
     def get_swar_options(self, swar):
         swar_node_indices = [nn == swar for nn in self.node_names]
         swar_node_coordinates = np.array(self.node_coordinates)[swar_node_indices]
-        return swar_node_coordinates.tolist(), self.primes
+        return [tuple(nc) for nc in swar_node_coordinates.tolist()], self.primes
+    
+    def get_neighbors(self, node: List):
+        neighbors = []
+        for nc in self.node_coordinates:
+            if sum(abs(np.array(nc)-np.array(node))) == 1:
+                neighbors.append(nc)
+        return neighbors
+
+
+class TonnetzAlgo1:
+    def __init__(self, net: Tonnetz) -> None:
+        self.net = net
+        # hyperparameters
+        # TODO(neeraja): replace placeholder penalties
+        self.prime_penalties = [np.exp(pp)/np.exp(5) for ii, pp in enumerate(self.net.primes)]
+    
+    def compute_prime_complexity(self, node):
+        # TODO(neeraja): replace placeholder formula
+        return sum([abs(node[ii])*self.prime_penalties[ii] for ii in range(len(node))])
+        
+    def set_pc12(self, pc12_distribution):
+        """ assign initial weights to all the nodes
+        """
+        assert len(pc12_distribution) == 12
+        pc12_distribution = pc12_distribution/np.sum(pc12_distribution)
+        self.pc12_distribution = pc12_distribution
+        self.node_distribution = [
+            pc12_distribution[Swar[nn].value]
+            for nn in self.net.node_names
+        ]
+    
+    def plot_swar_hist(self):
+        fig = go.Figure(data=[go.Scatter3d(
+            x=self.net.coords3d[0],
+            y=self.net.coords3d[1],
+            z=self.net.coords3d[2],
+            mode="markers",
+            marker=dict(
+                size=100 * np.array(self.node_distribution),
+                symbol="circle",
+                color=["gold" if mm > OCCUR_FREQ_THRESHOLD else "midnightblue" for mm in self.node_distribution]
+            ),
+            text=self.net.node_names,
+            textposition="middle center",
+            textfont=dict(family="Overpass", size=10, color="dimgray"),
+        )])
+        
+        fig = self.net.prep_plot(fig)
+        fig.show()
+
+    def consolidate_sa(self):
+        sa_options, primes = self.net.get_swar_options("S")
+        for sa_option in sa_options:
+            if (sa_option == np.zeros(len(primes))).all():
+                continue
+            self.node_distribution[self.net.node_coordinates.index(sa_option)] = 0
+    
+    def zero_out_below_threshold(self):
+        for ii, nn in enumerate(self.net.node_names):
+            if self.node_distribution[ii] < OCCUR_FREQ_THRESHOLD:
+                self.node_distribution[ii] = 0
+
+    def consolidate_swar(self, swar):
+        # get options
+        swar_options, primes = self.net.get_swar_options(swar)
+        # keep track of scores
+        swar_option_scores = {}
+        for swar_option in swar_options:
+            # get all the neighbors
+            nbd = self.net.get_neighbors(swar_option)
+            nbd_score = np.sum([self.node_distribution[self.net.node_coordinates.index(nbd_node)] for nbd_node in nbd])
+            # compute prime complexity
+            prime_complexity = self.compute_prime_complexity(swar_option)
+            # TODO(neeraja): replace placeholder formula
+            total_score = nbd_score + 1/prime_complexity
+            swar_option_scores[swar_option] = total_score
+        winning_option = max(swar_option_scores, key=swar_option_scores.get)
+        # zero out the rest
+        for swar_option in swar_options:
+            if swar_option == winning_option:
+                continue
+            self.node_distribution[self.net.node_coordinates.index(swar_option)] = 0
+        
+    def execute(self, plot=True):
+        if plot:
+            print("initial plot")
+            self.plot_swar_hist()
+
+        self.consolidate_sa()
+        def sort_nonsa_swars(pc12_distribution):
+            thresholded_set = np.where(pc12_distribution > OCCUR_FREQ_THRESHOLD)[0]
+            nonsa_set = "".join([Swar(ii).name for ii in thresholded_set if ii != 0])
+            nonsa_occur = [pc12_distribution[Swar[swar].value] for swar in nonsa_set]
+            decreasing = np.argsort(nonsa_occur)[::-1]
+            sorted_nonsa_set = [nonsa_set[i] for i in decreasing]
+            return sorted_nonsa_set
+
+        self.zero_out_below_threshold()
+        for ss in sort_nonsa_swars(self.pc12_distribution):
+            self.consolidate_swar(ss)
+
+        if plot:
+            print("final plot")
+            self.plot_swar_hist()
+
+        result = {}
+        for nd in self.net.node_coordinates:
+            if self.node_distribution[self.net.node_coordinates.index(nd)] > 0:
+                result[ratio_to_swar(normalize_frequency(self.net.frequency_from_coord(nd)))] = normalize_frequency(self.net.frequency_from_coord(nd))
+        result = OrderedDict(sorted(result.items(), key=lambda x: x[1]))
+        return result
 
 
 """ Unit Tests """
