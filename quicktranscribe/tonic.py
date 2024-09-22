@@ -18,6 +18,11 @@ def read_tonic(tonic_file, verbose=False) -> float:
     return tonic
 
 
+def write_tonic(tonic_file, tonic):
+    """Annotate data"""
+    np.savetxt(tonic_file, [tonic])
+
+
 def infer_tonic(audio_file) -> Dict[float, float]:
     """Return a candidate list + probabilities"""
     raise NotImplemented
