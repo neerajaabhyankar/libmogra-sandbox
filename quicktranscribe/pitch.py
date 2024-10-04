@@ -9,8 +9,27 @@ import librosa
 from IPython.display import Audio as ipy_audio
 
 
+def track_pitch_pyin(y, sr, tonic):
+    """ Simple pitch tracking (octave-folded, relative) using librosa's pyin
+    """
+    FRAME_LENGTH = 2048
+    # pitch tracking
+    f0, _, _ = librosa.pyin(
+        y, sr=sr,
+        fmin=tonic/2, fmax=tonic*4,
+        frame_length=FRAME_LENGTH
+    )
+    # convert frequency to MIDI
+    f0_midi = librosa.hz_to_midi(f0)
+    # subtract tonic + fold into octave
+    f0_relative = (f0_midi-librosa.hz_to_midi(tonic)) % 12
+    
+    return f0_relative
+
+
 def read_pitch(pitch_file, verbose=False) -> Tuple[List[List[float]], float]:
-    """Annotated data"""
+    """ Annotated data
+    """
     pitch_annotations = []
     with open(pitch_file) as pf:
         for line in pf:
@@ -24,7 +43,8 @@ def read_pitch(pitch_file, verbose=False) -> Tuple[List[List[float]], float]:
 
 
 def infer_pitch(audio_file) -> List[List[float]]:
-    """Return a list of [times, hz]"""
+    """ Return a list of [times, hz]
+    """
     raise NotImplemented
 
 
@@ -61,7 +81,8 @@ class PitchValidator:
             self.pitch_annotations = self.pitch_annotations / self.tonic
 
     def validate_annotations(self, start_time, end_time, downsample_factor=25):
-        """Generate an audio clip and play it with the OG"""
+        """ Generate an audio clip and play it with the OG
+        """
         if self.pitch_annotations is None:
             print("please set pitch annotations first")
             return None
@@ -88,7 +109,7 @@ class PitchValidator:
         return ipy_audio(data=y_from_p_sample_d, rate=self.sr)
 
     def plot_annotations_hist(self):
-        """Plot an interactive time-histogram
+        """ Plot an interactive time-histogram
         TODO: Also do a matra-normed-histogram
         """
         if self.pitch_annotations is None:

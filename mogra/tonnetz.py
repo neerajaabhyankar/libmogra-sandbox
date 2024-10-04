@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import numpy as np
 from mogra.datatypes import normalize_frequency, ratio_to_swar, Swar
 
-OCCUR_FREQ_THRESHOLD = 0.05  # a normalized probability below this => ignore this note
+OCCUR_FREQ_THRESHOLD = 0.04  # a normalized probability below this => ignore this note
 
 
 """
@@ -138,7 +138,7 @@ class Tonnetz:
             x=self.coords3d[0],
             y=self.coords3d[1],
             z=self.coords3d[2],
-            mode="markers",
+            mode="text+markers",
             marker=dict(
                 size=[5 if mm not in swar_set else 100 * swar_occur[swar_set.index(mm)] for mm in self.node_names],
                 symbol="circle",
@@ -146,11 +146,12 @@ class Tonnetz:
             ),
             text=self.node_names,
             textposition="middle center",
-            textfont=dict(family="Overpass", size=10, color="dimgray"),
+            textfont=dict(
+                # family="Overpass",
+                size=[10 if mm not in swar_set else 30 * swar_occur[swar_set.index(mm)] for mm in self.node_names],
+                color="dimgray"
+            ),
         )])
-        
-        fig = self.prep_plot(fig)
-        fig.show()
 
     def plot_cone(self):
         """
@@ -211,12 +212,34 @@ class Tonnetz:
         return [tuple(nc) for nc in swar_node_coordinates.tolist()], self.primes
     
     def get_neighbors(self, node: List):
-        neighbors = []
-        for nc in self.node_coordinates:
+        neighbor_indices = []
+        for ii, nc in enumerate(self.node_coordinates):
             if sum(abs(np.array(nc)-np.array(node))) == 1:
-                neighbors.append(nc)
-        return neighbors
+                neighbor_indices.append(ii)
+        return neighbor_indices, [self.node_coordinates[ii] for ii in neighbor_indices]
 
+    def adjacency_matrix(self):
+        """
+        len(nodes) x len(nodes) matrix; represents geometric lattice
+        """
+        mat = np.zeros((len(self.node_coordinates), len(self.node_coordinates)), dtype=int)
+        for ii, nc in enumerate(self.node_coordinates):
+            nb_indices, _ = self.get_neighbors(nc)
+            for jj in nb_indices:
+                mat[ii, jj] = 1
+        return mat
+
+    def equivalence_matrix(tn):
+        """
+        len(nodes) x 12 matrix; for each swar column, nodes (swar options) for that swar are 1
+        """
+        mat = np.zeros((len(tn.node_coordinates), 12), dtype=int)
+        for ss in range(12):
+            swar = Swar(ss).name
+            swar_node_indices = [nn == swar for nn in tn.node_names]
+            for jj in np.where(swar_node_indices)[0]:
+                mat[jj, ss] = 1
+        return mat
 
 class TonnetzAlgo1:
     def __init__(self, net: Tonnetz) -> None:
@@ -245,15 +268,14 @@ class TonnetzAlgo1:
             x=self.net.coords3d[0],
             y=self.net.coords3d[1],
             z=self.net.coords3d[2],
-            mode="markers",
-            marker=dict(
-                size=100 * np.array(self.node_distribution),
-                symbol="circle",
-                color=["gold" if mm > OCCUR_FREQ_THRESHOLD else "midnightblue" for mm in self.node_distribution]
-            ),
+            mode="text+markers",
             text=self.net.node_names,
             textposition="middle center",
-            textfont=dict(family="Overpass", size=10, color="dimgray"),
+            textfont=dict(
+                # family="Overpass",
+                size=[30 * mm if mm > OCCUR_FREQ_THRESHOLD else 10 for mm in self.node_distribution],
+                color="dimgray"
+            ),
         )])
         
         fig = self.net.prep_plot(fig)
@@ -278,7 +300,7 @@ class TonnetzAlgo1:
         swar_option_scores = {}
         for swar_option in swar_options:
             # get all the neighbors
-            nbd = self.net.get_neighbors(swar_option)
+            _, nbd = self.net.get_neighbors(swar_option)
             nbd_score = np.sum([self.node_distribution[self.net.node_coordinates.index(nbd_node)] for nbd_node in nbd])
             # compute prime complexity
             prime_complexity = self.compute_prime_complexity(swar_option)
