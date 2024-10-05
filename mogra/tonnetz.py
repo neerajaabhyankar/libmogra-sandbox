@@ -66,10 +66,14 @@ class Tonnetz:
         figure.update_layout(scene_aspectmode="data", scene_camera=camera)
         figure.update_layout(
             scene=dict(
-                xaxis_title = self.primes[0] if len(self.primes) > 0 else "null",
-                yaxis_title = self.primes[1] if len(self.primes) > 1 else "null",
-                zaxis_title = self.primes[2] if len(self.primes) > 2 else "null",
+                xaxis_title = "powers of " + str(self.primes[0]) if len(self.primes) > 0 else "null",
+                yaxis_title = "powers of " + str(self.primes[1]) if len(self.primes) > 1 else "null",
+                zaxis_title = "powers of " + str(self.primes[2]) if len(self.primes) > 2 else "null",
             ),
+            # make axis labels integers only
+            scene_xaxis_tickvals=list(range(-self.powers[0], self.powers[0]+1)) if len(self.primes) > 0 else [],
+            scene_yaxis_tickvals=list(range(-self.powers[1], self.powers[1]+1)) if len(self.primes) > 1 else [],
+            scene_zaxis_tickvals=list(range(-self.powers[2], self.powers[2]+1)) if len(self.primes) > 2 else [],
         )
         return figure
     
@@ -97,7 +101,7 @@ class Tonnetz:
             for nf in self.node_frequencies
         ]
     
-    def plot(self):        
+    def plot(self):
         # Create the 3D scatter plot
         fig = go.Figure(data=[go.Scatter3d(
             x=self.coords3d[0],
