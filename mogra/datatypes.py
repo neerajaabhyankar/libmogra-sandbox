@@ -5,6 +5,11 @@ from typing import List, Dict, Tuple, Optional
 import bisect
 
 
+PRIMES = [3, 5, 7, 11]
+SAPTAK_MARKS = OrderedDict({",,": -2, ",": -1, "": 0, "`": 1, "``": 2})
+SWAR_BOUNDARIES = [1.026749, 1.088889, 1.155093, 1.225, 1.299479, 1.378125, 1.452655, 1.540123, 1.633333, 1.732639, 1.8375, 1.949219]
+
+
 class Swar(Enum):
     S = 0
     r = 1
@@ -18,9 +23,6 @@ class Swar(Enum):
     D = 9
     n = 10
     N = 11
-
-
-SAPTAK_MARKS = OrderedDict({",,": -2, ",": -1, "": 0, "`": 1, "``": 2})
 
 
 class Saptak(Enum):
@@ -60,18 +62,12 @@ def normalize_frequency(ff):
     return float(ff)
 
 
-SWAR_BOUNDARIES = [1.026749, 1.088889, 1.155093, 1.225, 1.299479, 1.378125, 1.452655, 1.540123, 1.633333, 1.732639, 1.8375, 1.949219]
-
-
 def ratio_to_swar(ff: float):
     """
     Per the swar boundaries, returns the coarse-grained Swar symbol that ff may map to
     """
     si = bisect.bisect_left(SWAR_BOUNDARIES, ff)
     return Swar(si%12).name
-
-
-PRIMES = [3, 5, 7, 11]
 
 
 class Shruti:
