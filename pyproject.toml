@@ -20,7 +20,6 @@ python-magic = "0.4.15"
 traitlets = "5.9.0"
 librosa = "^0.10.1"
 speechrecognition = "^3.10.1"
-pandas = "^2.1.4"
 black = "^24.1.1"
 beautifulsoup4 = "^4.12.3"
 dill = "^0.3.8"
@@ -41,6 +40,7 @@ ruamel-yaml = "^0.18.6"
 emoji = "^2.13.0"
 torch-geometric = "^2.6.1"
 seaborn = "^0.13.2"
+torch-geometric-temporal = "^0.54.0"
 
 [build-system]
 requires = ["poetry-core"]
