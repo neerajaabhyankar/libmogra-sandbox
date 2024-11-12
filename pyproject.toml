@@ -12,7 +12,6 @@ jupyter = "^1.0.0"
 musicbrainzngs = "0.7"
 unidecode = "1.1.1"
 eyed3 = "0.8.12"
-ipython = "7.7.0"
 pydub = "0.23.1"
 libmagic = "^1.0"
 pytest = "5.1.1"
@@ -51,6 +50,9 @@ torchsummary = "^1.5.1"
 h5py = "^3.12.1"
 munch = "^4.0.0"
 mir-eval = "^0.7"
+compiam = "^0.4.0"
+essentia = "^2.1b6.dev1177"
+torcheval = "^0.0.7"
 
 [build-system]
 requires = ["poetry-core"]
