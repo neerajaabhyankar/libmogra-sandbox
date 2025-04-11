@@ -9,6 +9,11 @@ KDE_GBANDWIDTH = 0.1
 
 
 def extract(y, sr, tonic):
+    """
+    given a waveform and sampling rate, outputs a histogram of KDE_GRANULARITY bins that span the octave
+    that indicate the octave-folded f0 concentration at that relative frequency
+    note: we need a tonic input relative to which we set the midi scale
+    """
 
     # pitch tracking
     f0, _, _ = librosa.pyin(
