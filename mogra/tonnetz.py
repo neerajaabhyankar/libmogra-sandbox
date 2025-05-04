@@ -6,7 +6,7 @@ import itertools
 
 import plotly.graph_objects as go
 import numpy as np
-from mogra.datatypes import normalize_frequency, ratio_to_swar, Swar
+from datatypes import normalize_frequency, ratio_to_swar, Swar
 
 OCCUR_FREQ_THRESHOLD = 0.04  # a normalized probability below this => ignore this note
 
