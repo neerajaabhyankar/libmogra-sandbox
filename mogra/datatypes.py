@@ -60,6 +60,13 @@ class SSwar(object):
                 self.swar = Swar[swar_name.upper()]
 
     @staticmethod
+    def from_classes(saptak: Saptak, swar: Swar):
+        sswar = SSwar("S")
+        sswar.saptak = saptak
+        sswar.swar = swar
+        return sswar
+    
+    @staticmethod
     def from_string(string):
         string = string.strip()
         if len(string) > 1:
@@ -68,7 +75,7 @@ class SSwar(object):
             return SSwar("", string)
 
     def __str__(self):
-        return list(SAPTAK_MARKS)[self.saptak.value + 2] + self.swar.name
+        return list(SAPTAK_MARKS)[self.saptak.value + 2] + self.swar
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -92,6 +99,16 @@ def ratio_to_swar(ff: Union[float, Fraction]) -> Swar:
     """
     si = bisect.bisect_left(SWAR_BOUNDARIES, float(ff))
     return Swar(si % 12).name
+
+
+def ratio_to_sswar(ff: Union[float, Fraction]) -> Swar:
+    """
+    Given an unnormalized frequency,
+    Per the swar boundaries, returns the coarse-grained Swar symbol that ff may map to
+    """
+    nf = normalize_frequency(ff)
+    si = bisect.bisect_left(SWAR_BOUNDARIES, float(nf))
+    return Saptak.from_classes(Saptak(int(math.log2(ff/nf))), Swar(si % 12).name)
 
 
 def ratio_to_swarval(ff: Union[float, Fraction]):
