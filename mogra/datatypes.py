@@ -61,11 +61,11 @@ class SSwar(object):
 
     @staticmethod
     def from_classes(saptak: Saptak, swar: Swar):
-        sswar = SSwar("S")
+        sswar = SSwar("", "S")
         sswar.saptak = saptak
         sswar.swar = swar
         return sswar
-    
+
     @staticmethod
     def from_string(string):
         string = string.strip()
@@ -75,7 +75,7 @@ class SSwar(object):
             return SSwar("", string)
 
     def __str__(self):
-        return list(SAPTAK_MARKS)[self.saptak.value + 2] + self.swar
+        return list(SAPTAK_MARKS)[self.saptak.value + 2] + self.swar.name
 
     def __repr__(self) -> str:
         return self.__str__()
