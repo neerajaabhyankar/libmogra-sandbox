@@ -17,7 +17,7 @@ then I can use this fact to learn `J`
 ## The nature of the evaluation function
 
 **0th order**
-- collapse `b` into a histogram; `J` is not a function of a histogram on notes
+- collapse `b` into a histogram; `J` is a function of a histogram on notes
 - this ignores *movement/momentum*
 
 **arbitrary J**

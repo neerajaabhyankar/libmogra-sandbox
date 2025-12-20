@@ -4,6 +4,7 @@ This module consolidates all necessary imports for the codebase.
 """
 
 # Standard library imports
+import os
 import itertools
 import numpy as np
 import matplotlib.pyplot as plt
