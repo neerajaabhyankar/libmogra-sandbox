@@ -32,6 +32,7 @@ def pad_and_stack(paths):
     ])
     return padded, lengths
 
+
 def collate_fn(batch):
     """ Used by the dataloader
         to colalte a batch of good and bad paths
@@ -56,9 +57,6 @@ def collate_fn(batch):
     }
 
 
-        
-        
-        
 # # Option 2: For classification
 
 # class PathExamplesDataset(Dataset):

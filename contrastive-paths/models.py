@@ -1,7 +1,6 @@
 from imports import *
 
 
-
 class PathStats:
     """
     Draws statistics from the paths in the dataset using various methods

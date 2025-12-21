@@ -57,27 +57,49 @@ def main(expt_name):
     # breakpoint()
     print(f"Train batches: {len(train_dataloader)}, Val batches: {len(val_dataloader)}")
     
-    # # DEBUGGING: Can we interpolate random labels?
-    # all_samples_train_shuffled = []
-    # for phrase in all_samples_train:
-    #     goods = len(phrase["good_paths"])
-    #     bads = len(phrase["bad_paths"])
-    #     alls = goods + bads
-    #     all_paths = phrase["good_paths"] + phrase["bad_paths"]
-    #     new_good_indices = np.random.choice(range(alls), size=goods, replace=False)
-    #     new_good_paths = [all_paths[ii] for ii in range(alls) if ii in new_good_indices]
-    #     new_bad_paths = [all_paths[ii] for ii in range(alls) if ii not in new_good_indices]
-    #     all_samples_train_shuffled.append({
-    #         "good_paths": new_good_paths,
-    #         "bad_paths": new_bad_paths,
-    #     })
-    # all_samples_train = all_samples_train_shuffled
+    """
+    DEBUGGING: Can we interpolate random labels?
+    --> Yes! ROC AUC > 0.9 even on the validation set o_o
+    """
+    all_samples_train_shuffled = []
+    for phrase in all_samples_train:
+        goods = len(phrase["good_paths"])
+        bads = len(phrase["bad_paths"])
+        alls = goods + bads
+        all_paths = phrase["good_paths"] + phrase["bad_paths"]
+        # DEBUGGING: change class imbalance
+        new_good_indices = np.random.choice(range(alls), size=alls//2, replace=False)
+        new_good_paths = [all_paths[ii] for ii in range(alls) if ii in new_good_indices]
+        new_bad_paths = [all_paths[ii] for ii in range(alls) if ii not in new_good_indices]
+        all_samples_train_shuffled.append({
+            "good_paths": new_good_paths,
+            "bad_paths": new_bad_paths,
+        })
+    all_samples_train = all_samples_train_shuffled
+
+    # Randomize validation labels too -- although this shouldn't be necessary
+    all_samples_val_shuffled = []
+    for phrase in all_samples_val:
+        goods = len(phrase["good_paths"])
+        bads = len(phrase["bad_paths"])
+        alls = goods + bads
+        all_paths = phrase["good_paths"] + phrase["bad_paths"]
+        # DEBUGGING: change class imbalance
+        new_good_indices = np.random.choice(range(alls), size=alls//2, replace=False)
+        new_good_paths = [all_paths[ii] for ii in range(alls) if ii in new_good_indices]
+        new_bad_paths = [all_paths[ii] for ii in range(alls) if ii not in new_good_indices]
+        all_samples_val_shuffled.append({
+            "good_paths": new_good_paths,
+            "bad_paths": new_bad_paths,
+        })
+    all_samples_val = all_samples_val_shuffled
 
     # ============================================================================
     # Load Model + Optimizer
     # ============================================================================
     print("Initializing model...")
     model = PathScoringModel()
+    # model.to("mps")
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     num_epochs = 20
     # Sanity check: process a batch
@@ -146,6 +168,7 @@ def main(expt_name):
     # Eval
     # ============================================================================
     print("Evaluating model...")
+    model.eval()
     # get scores for all paths
     good_path_scores = []
     bad_path_scores = []
@@ -156,6 +179,10 @@ def main(expt_name):
         score_good, score_bad = model(good_path_feats, good_lens, bad_path_feats, bad_lens)
         good_path_scores.extend(score_good.detach().numpy())
         bad_path_scores.extend(score_bad.detach().numpy())
+        # DEBUGGING: random results give a bad score
+        # score_good, score_bad = np.random.randn(8), np.random.randn(8)
+        # good_path_scores.extend(score_good)
+        # bad_path_scores.extend(score_bad)
 
     # Scatter plot of scores
     plt.figure()
@@ -169,7 +196,10 @@ def main(expt_name):
     plt.savefig(expt_dir / 'score_scatter.png', dpi=150, bbox_inches='tight')
     plt.close()
     print(f"Saved score scatter plot to {expt_dir / 'score_scatter.png'}")
-
+    
+    # ===============
+    # Non Pairwise
+    # ===============
     # measure cross entropy loss using good_path_scores, bad_path_scores
     # good_path_scores have label 1, bad_path_scores have label 0
     good_labels = torch.ones(len(good_path_scores))
@@ -191,6 +221,34 @@ def main(expt_name):
     plt.savefig(expt_dir / 'roc_curve.png', dpi=150, bbox_inches='tight')
     plt.close()
     print(f"Saved ROC curve to {expt_dir / 'roc_curve.png'}")
+    
+    # # ===============
+    # # Pairwise
+    # # ===============
+    # good_path_scores = np.array(good_path_scores)
+    # bad_path_scores = np.array(bad_path_scores)
+    
+    # pairwise_clamped = np.clip(good_path_scores - bad_path_scores, 0, 1)
+    # pairwise_labels = np.ones_like(pairwise_clamped)
+    # # create the negative class by duplicating this (??)
+    # all_pairwise_scores = np.concatenate([pairwise_clamped, 1 - pairwise_clamped])
+    # all_pairwise_labels = np.concatenate([pairwise_labels, 1 - pairwise_labels])
+    
+    # auc_score = roc_auc_score(all_pairwise_labels, all_pairwise_scores)
+    # print(f"Pairwise Ranking AUC: {auc_score}")
+
+    # # plot roc curve
+    # fpr, tpr, thresholds = roc_curve(all_pairwise_labels, all_pairwise_scores)
+    # plt.figure(figsize=(8, 6))
+    # plt.plot(fpr, tpr, label=f'ROC Curve (AUC={auc_score:.4f})')
+    # plt.plot([0, 1], [0, 1], 'k--', label='Random Guessing')
+    # plt.xlabel('False Positive Rate')
+    # plt.ylabel('True Positive Rate')
+    # plt.title('ROC Curve - Pairwise Ranking')
+    # plt.legend()
+    # plt.savefig(expt_dir / 'roc_curve.png', dpi=150, bbox_inches='tight')
+    # plt.close()
+    # print(f"Saved ROC curve to {expt_dir / 'roc_curve.png'}")
 
     # ============================================================================
     # Save Model
