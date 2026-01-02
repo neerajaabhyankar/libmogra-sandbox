@@ -341,9 +341,9 @@ def check_separation(all_samples_train, all_samples_val):
     print("=" * 80)
 
 
-def classify_with_trivial_features(all_samples_train, all_samples_val):
+def compile_trivial_features(all_samples_train, all_samples_val):
     """
-    Check if the model could use trivial features to classify paths:
+    Compile trivial features for paths:
     1. Path length
     2. Distance from origin (0,0)
     3. Distance from the closest good node
@@ -467,29 +467,102 @@ def classify_with_trivial_features(all_samples_train, all_samples_val):
     train_bad_features = np.array(train_bad_features)
     val_good_features = np.array(val_good_features)
     val_bad_features = np.array(val_bad_features)
-    
+
+    return {
+        "train": {
+            "good": train_good_features,
+            "bad": train_bad_features,
+        },
+        "val": {
+            "good": val_good_features,
+            "bad": val_bad_features,
+        }
+    }
+
+FEATURE_LIST = [
+    "Path length",
+    "Distance from origin (0,0)",
+    "Distance from the closest good node",
+    "Distance from the closest bad node",
+    "Total Euclidean length",
+    "Mean turning angle",
+    "Bounding box size"
+]
+
+
+def random_forest(features_dict):
+    """
+    Check if the model could use trivial features to classify paths:
+    1. Path length
+    2. Distance from origin (0,0)
+    3. Distance from the closest good node
+    4. Distance from the closest bad node
+	5. Total Euclidean length
+    6. Mean turning angle
+    7. Bounding box size
+    """
     # sklearn for classification
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.metrics import accuracy_score
     
     clf = RandomForestClassifier()
-    clf.fit(np.vstack((train_good_features, train_bad_features)), [1]*len(train_good_features) + [0]*len(train_bad_features))
+    clf.fit(np.vstack((features_dict["train"]["good"], features_dict["train"]["bad"])), [1]*len(features_dict["train"]["good"]) + [0]*len(features_dict["train"]["bad"]))
     
     # Predict and evaluate on val set
-    val_features = np.vstack((val_good_features, val_bad_features))
-    val_labels = [1]*len(val_good_features) + [0]*len(val_bad_features)
+    val_features = np.vstack((features_dict["val"]["good"], features_dict["val"]["bad"]))
+    val_labels = [1]*len(features_dict["val"]["good"]) + [0]*len(features_dict["val"]["bad"])
     predictions = clf.predict(val_features)
     accuracy = accuracy_score(val_labels, predictions)
     print(f"Accuracy: {accuracy}")
+
+    # view relative importance of features
+    # and plot them
+    importances = clf.feature_importances_
+    plt.bar(range(len(importances)), importances)
+    plt.xlabel("Feature")
+    plt.ylabel("Importance")
+    # tilt by 45 degrees
+    plt.xticks(range(len(importances)), FEATURE_LIST, rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+
+def logistic_regression(features_dict):
+    """
+    sklearn for classification
+    """
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import accuracy_score
+    
+    clf = LogisticRegression()
+    clf.fit(np.vstack((features_dict["train"]["good"], features_dict["train"]["bad"])), [1]*len(features_dict["train"]["good"]) + [0]*len(features_dict["train"]["bad"]))
+    
+    # Predict and evaluate on val set
+    val_features = np.vstack((features_dict["val"]["good"], features_dict["val"]["bad"]))
+    val_labels = [1]*len(features_dict["val"]["good"]) + [0]*len(features_dict["val"]["bad"])
+    predictions = clf.predict(val_features)
+    accuracy = accuracy_score(val_labels, predictions)
+    print(f"Accuracy: {accuracy}")
+
+    # view relative importance of features
+    # and plot them
+    importances = clf.coef_[0]
+    plt.bar(range(len(importances)), importances)
+    plt.xlabel("Feature")
+    plt.ylabel("Importance")
+    # tilt by 45 degrees
+    plt.xticks(range(len(importances)), FEATURE_LIST, rotation=45)
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == "__main__":
     # print_stats(all_samples_train, all_samples_val)
     # check_leaks(all_samples_train, all_samples_val)
     # check_separation(all_samples_train, all_samples_val)
-    
-    classify_with_trivial_features(all_samples_train, all_samples_val)
-    
-    """
-    @neeraja: this is FABULOUS!
-    """
+
+    features_dict = compile_trivial_features(all_samples_train, all_samples_val)
+    # random_forest(features_dict)
+    logistic_regression(features_dict)
+
+    # Accuracy: 0.9897!
