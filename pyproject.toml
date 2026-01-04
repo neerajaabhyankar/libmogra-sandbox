@@ -42,6 +42,7 @@ emoji = "^2.13.0"
 torch-geometric = "^2.6.1"
 seaborn = "^0.13.2"
 rapidfuzz = "^3.13.0"
+openl3 = "^0.4.2"
 
 [build-system]
 requires = ["poetry-core"]
