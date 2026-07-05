@@ -21,7 +21,7 @@ MODEL_SIZE = "tiny"
 
 
 def extract_relative_pitch_crepe(audio: np.ndarray, sr: int, plot: bool = True,
-                                  use_chroma: bool = False):
+                                 provided_tonic_hz: float = None):
     """audio: mono float32 waveform. Returns list[note_segmentation.Note]."""
     if sr != TARGET_SR:
         audio = librosa.resample(audio, orig_sr=sr, target_sr=TARGET_SR)
@@ -35,10 +35,10 @@ def extract_relative_pitch_crepe(audio: np.ndarray, sr: int, plot: bool = True,
     voiced_mask = confidence >= CONFIDENCE_THRESHOLD
     hop_seconds = HOP_LENGTH / TARGET_SR
 
-    notes, tonic_hz = run_pipeline(f0_hz, voiced_mask, hop_seconds)
+    notes, tonic_hz = run_pipeline(f0_hz, voiced_mask, hop_seconds, provided_tonic_hz=provided_tonic_hz)
 
     if plot:
-        plot_relative_pitch(notes, title="CREPE", use_chroma=use_chroma, tonic_hz=tonic_hz)
+        plot_relative_pitch(notes, title="CREPE", tonic_hz=tonic_hz)
 
     return notes
 

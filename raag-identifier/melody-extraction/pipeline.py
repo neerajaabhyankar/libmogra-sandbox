@@ -24,7 +24,7 @@ def estimate_tonic_hz(f0_hz: np.ndarray, voiced_mask: np.ndarray) -> float:
     return _estimate_tonic_hz(f0_hz, confidence)
 
 
-def run_pipeline(f0_hz, voiced_mask, hop_seconds, tol_cents=50.0, min_note_dur=0.2):
+def run_pipeline(f0_hz, voiced_mask, hop_seconds, tol_cents=50.0, min_note_dur=0.2, provided_tonic_hz=None):
     """f0_hz, voiced_mask: equal-length 1D arrays at a fixed frame hop.
 
     Returns (notes, tonic_hz) where notes is a list of note_segmentation.Note.
@@ -32,7 +32,7 @@ def run_pipeline(f0_hz, voiced_mask, hop_seconds, tol_cents=50.0, min_note_dur=0
     f0_hz = np.asarray(f0_hz, dtype=np.float64)
     voiced_mask = np.asarray(voiced_mask, dtype=bool)
 
-    tonic_hz = estimate_tonic_hz(f0_hz, voiced_mask)
+    tonic_hz = provided_tonic_hz if provided_tonic_hz is not None else estimate_tonic_hz(f0_hz, voiced_mask)
 
     with np.errstate(divide="ignore", invalid="ignore"):
         cents = 1200.0 * np.log2(np.clip(f0_hz, 1e-6, None) / tonic_hz)

@@ -22,7 +22,7 @@ HOP_LENGTH = FRAME_LENGTH // 4
 
 
 def extract_relative_pitch_pyin(audio: np.ndarray, sr: int, plot: bool = True,
-                                 use_chroma: bool = False):
+                                 provided_tonic_hz: float = None):
     """audio: mono float32 waveform. Returns list[note_segmentation.Note]."""
     if sr != TARGET_SR:
         audio = librosa.resample(audio, orig_sr=sr, target_sr=TARGET_SR)
@@ -39,9 +39,9 @@ def extract_relative_pitch_pyin(audio: np.ndarray, sr: int, plot: bool = True,
     voiced_mask = voiced_flag & (f0_hz > 0)
     hop_seconds = HOP_LENGTH / TARGET_SR
 
-    notes, tonic_hz = run_pipeline(f0_hz, voiced_mask, hop_seconds)
+    notes, tonic_hz = run_pipeline(f0_hz, voiced_mask, hop_seconds, provided_tonic_hz=provided_tonic_hz)
 
     if plot:
-        plot_relative_pitch(notes, title="pYIN", use_chroma=use_chroma, tonic_hz=tonic_hz)
+        plot_relative_pitch(notes, title="pYIN", tonic_hz=tonic_hz)
 
     return notes

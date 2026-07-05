@@ -22,7 +22,7 @@ PITCH_CEILING = librosa.note_to_hz("C7")  # ~2093 Hz
 
 
 def extract_relative_pitch_praat(audio: np.ndarray, sr: int, plot: bool = True,
-                                  use_chroma: bool = False):
+                                 provided_tonic_hz: float = None):
     """audio: mono float32 waveform. Returns list[note_segmentation.Note]."""
     if sr != TARGET_SR:
         audio = librosa.resample(audio, orig_sr=sr, target_sr=TARGET_SR)
@@ -33,9 +33,9 @@ def extract_relative_pitch_praat(audio: np.ndarray, sr: int, plot: bool = True,
     f0_hz = pitch.selected_array["frequency"]  # 0.0 where unvoiced
     voiced_mask = f0_hz > 0
 
-    notes, tonic_hz = run_pipeline(f0_hz, voiced_mask, TIME_STEP)
+    notes, tonic_hz = run_pipeline(f0_hz, voiced_mask, TIME_STEP, provided_tonic_hz=provided_tonic_hz)
 
     if plot:
-        plot_relative_pitch(notes, title="Praat", use_chroma=use_chroma, tonic_hz=tonic_hz)
+        plot_relative_pitch(notes, title="Praat", tonic_hz=tonic_hz)
 
     return notes
