@@ -21,12 +21,15 @@ def main(path_to_audio, method='pyin'):
     elif method == 'praat':
       from trackers.praat_tracker import extract_relative_pitch_praat
       notes = extract_relative_pitch_praat(audio, sr, plot=PLOT)
+    elif method == 'tony':
+      from trackers.tony.tony_tracker import extract_relative_pitch_tony
+      notes = extract_relative_pitch_tony(audio, sr, plot=PLOT)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Extract melody from audio.')
     parser.add_argument('audio_path', type=str, help='Path to the audio file.')
-    parser.add_argument('--method', type=str, default='pyin', choices=['pyin', 'crepe', 'praat'])
+    parser.add_argument('--method', type=str, default='pyin', choices=['pyin', 'crepe', 'praat', 'tony'])
     args = parser.parse_args()
     
     main(args.audio_path, method=args.method)

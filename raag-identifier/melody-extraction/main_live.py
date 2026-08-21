@@ -1,4 +1,5 @@
 import argparse
+import re
 import sys
 import time
 
@@ -9,6 +10,8 @@ import sounddevice as sd
 
 # PLOT calls plt.show() making a window pop up
 PLOT = True
+
+METHODS = ('pyin', 'crepe', 'praat', 'tony')
 
 SAMPLE_RATE = 22050
 TONIC_DURATION = 4.0  # seconds to record for tonic estimation
@@ -63,8 +66,52 @@ def infer_tonic(audio, sr):
     return estimate_tonic_hz(f0_hz, voiced_mask)
 
 
-def main(duration, method='pyin'):
-    """Two-phase recording: tonic hum first, then melody."""
+def parse_methods(tokens):
+    """Flatten every spelling of --method into one ordered, deduped list.
+
+        --method pyin crepe          space-separated
+        --method=pyin --method=crepe repeated flag -- which is what a shell turns
+                                     `--method={pyin,crepe}` into, so this form
+                                     has to accumulate rather than overwrite
+        --method pyin,crepe          comma-separated
+    """
+    names = [m for token in tokens or [] for m in re.split(r"[,\s]+", token) if m]
+    return list(dict.fromkeys(names)) or ["pyin"]
+
+
+def extract(method, audio, sr, tonic_hz):
+    """Run one tracker. Plotting is left to the caller so several can share a figure."""
+    if method == 'pyin':
+        from trackers.pyin_tracker import extract_relative_pitch_pyin
+        return extract_relative_pitch_pyin(audio, sr, plot=False, provided_tonic_hz=tonic_hz)
+    elif method == 'crepe':
+        from trackers.crepe_tracker import extract_relative_pitch_crepe
+        return extract_relative_pitch_crepe(audio, sr, plot=False, provided_tonic_hz=tonic_hz)
+    elif method == 'praat':
+        from trackers.praat_tracker import extract_relative_pitch_praat
+        return extract_relative_pitch_praat(audio, sr, plot=False, provided_tonic_hz=tonic_hz)
+    elif method == 'tony':
+        from trackers.tony.tony_tracker import extract_relative_pitch_tony
+        return extract_relative_pitch_tony(audio, sr, plot=False, provided_tonic_hz=tonic_hz)
+    raise ValueError(f"unknown method {method!r}, expected one of {METHODS}")
+
+
+def as_swaras(notes):
+    """Quantized swara names, skipping notes too short to be worth reading out."""
+    from visualize import SWARA_LABELS
+    return [
+        SWARA_LABELS[int(round(n.cents_relative / 100)) % 12]
+        for n in notes
+        if (n.t_end - n.t_start) >= DURATION_THRESHOLD
+    ]
+
+
+def main(duration, methods=('pyin',)):
+    """Two-phase recording: tonic hum first, then melody.
+
+    Every method in `methods` runs on the same recording and they are plotted
+    stacked in the given order, on one shared time and pitch axis.
+    """
 
     input("Press Enter and hum your tonic (Sa)...")
     tonic_audio, tonic_sr = record(TONIC_DURATION, label="Please hum the tonic (Sa)")
@@ -75,29 +122,32 @@ def main(duration, method='pyin'):
     input("\nPress Enter and hum your melody...")
     audio, sr = record(duration, label="Now hum the melody")
 
-    if method == 'pyin':
-        from trackers.pyin_tracker import extract_relative_pitch_pyin
-        notes = extract_relative_pitch_pyin(audio, sr, plot=PLOT, provided_tonic_hz=tonic_hz)
-    elif method == 'crepe':
-        from trackers.crepe_tracker import extract_relative_pitch_crepe
-        notes = extract_relative_pitch_crepe(audio, sr, plot=PLOT, provided_tonic_hz=tonic_hz)
-    elif method == 'praat':
-        from trackers.praat_tracker import extract_relative_pitch_praat
-        notes = extract_relative_pitch_praat(audio, sr, plot=PLOT, provided_tonic_hz=tonic_hz)
+    results = []
+    for method in methods:
+        notes = extract(method, audio, sr, tonic_hz)
+        results.append((method, notes))
+        label = f"\nMelody ({method}):" if len(methods) > 1 else "\nMelody:"
+        print(label, " ".join(as_swaras(notes)))
 
-    from visualize import SWARA_LABELS
-    melody = [
-        SWARA_LABELS[int(round(n.cents_relative / 100)) % 12]
-        for n in notes
-        if (n.t_end - n.t_start) >= DURATION_THRESHOLD
-    ]
-    print("\nMelody:", " ".join(melody))
+    if PLOT:
+        from visualize import plot_relative_pitch_multi
+        plot_relative_pitch_multi(results, tonic_hz=tonic_hz)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Extract melody from live mic audio.')
     parser.add_argument('--duration', type=float, default=10.0, help='Seconds to record melody.')
-    parser.add_argument('--method', type=str, default='pyin', choices=['pyin', 'crepe', 'praat'])
+    parser.add_argument('--method', type=str, nargs='+', action='extend', default=None,
+                        metavar='METHOD',
+                        help=f"One or more of: {', '.join(METHODS)}. Plots stack in the "
+                             "order given. Space-separated, comma-separated, or the flag "
+                             "repeated all work.")
     args = parser.parse_args()
 
-    main(args.duration, method=args.method)
+    methods = parse_methods(args.method)
+    unknown = [m for m in methods if m not in METHODS]
+    if unknown:
+        parser.error(f"unknown method(s): {', '.join(unknown)}; "
+                     f"choose from {', '.join(METHODS)}")
+
+    main(args.duration, methods=methods)
