@@ -1,0 +1,138 @@
+# Results
+
+50-way raag identification on `hindustani-raag-small`. Chance = 0.020 (1/50); the
+majority class is 3.6 % of test. Train numbers are 5-fold **grouped-by-video** CV on the
+train split (used for tuning); test numbers are a single pass over the held-out test
+split with the config that CV chose, run once.
+
+| method | train top-1 (CV) | **test top-1** | test top-5 | test MRR | test top-1 by video-vote | confusion matrix |
+|---|---|---|---|---|---|---|
+| **m1** — exact mukhyanga substring match | 0.041 ± 0.001 | **0.087** (8/92) | 0.207 | 0.171 | 0.087 | [`confusion_m1.png`](confusion_m1.png) |
+| **m2** — n-gram / skip-gram phrase overlap + scale term | 0.104 ± 0.003 | **0.130** (12/92) | 0.272 | 0.220 | 0.130 | [`confusion_m2.png`](confusion_m2.png) |
+| **m3** — phrase grammar, smoothed bigram log-likelihood | 0.107 ± 0.002 | **0.130** (12/92) | 0.315 | 0.232 | 0.174 | [`confusion_m3.png`](confusion_m3.png) |
+| **m4** — M3 grammar over Tony **+ CREPE** fused | 0.120 ± 0.004 | **0.163** (15/92) | 0.370 | 0.256 | 0.130 | [`confusion_m4.png`](confusion_m4.png) |
+| **m5** — noisy-channel HMM, kan-swar/meend emissions learned from train | 0.110 ± 0.002 | **0.109** (10/92) | 0.261 | 0.200 | 0.152 | [`confusion_m5.png`](confusion_m5.png) |
+| **m6** — joint tonic + raag, rotation prior learned from train | 0.132 ± 0.003 | **0.109** (10/92) | 0.315 | 0.223 | 0.152 | [`confusion_m6.png`](confusion_m6.png) |
+| **m7** — channel + CREPE + tonic prior + per-raag calibration | 0.149 ± 0.002 | **0.185** (17/92) | 0.359 | 0.281 | 0.152 | [`confusion_m7.png`](confusion_m7.png) |
+| **m9** — time-delayed melody surface — un-quantized contour, **no** mukhyanga | 0.111 ± 0.003 | **0.163** (15/92) | 0.337 | 0.265 | 0.174 | [`confusion_m9.png`](confusion_m9.png) |
+| **m9plus** — M4 + melody surface (quantized phrases + continuous contour) | 0.135 ± 0.005 | **0.185** (17/92) | 0.413 | 0.307 | 0.196 | [`confusion_m9plus.png`](confusion_m9plus.png) |
+| _chance_ | 0.020 | 0.020 | 0.100 | 0.090 | 0.020 | — |
+
+## How bad are the mistakes?
+
+Accuracy scores Tilak Kamod → Des (a near-miss any listener could make) exactly as
+badly as Tilak Kamod → Bairagi (nothing in common). These grade against
+`raagspace.affinity()`, a raag-to-raag similarity built only from the libmogra
+database — TF-IDF over mukhyanga/aaroha n-grams, swar-set Jaccard, and thaat.
+Each metric sits next to the value random guessing would score.
+
+- **mistake affinity** — mean affinity(true, predicted) over errors only. Higher = misses land nearby.
+- **expected affinity (MEA)** — `Σ_r p(r)·affinity(true,r)` over the whole softmax output, not just the argmax.
+- **affinity CE** — cross-entropy against a soft target `q ∝ affinity(true,·)^4`. **Lower is better.** This is the mukhyanga-based loss: it does not punish mass on genuinely related raags.
+- **NLL** — ordinary negative log-likelihood of the true raag, for reference (chance = ln 50 = 3.912).
+- **tonic-explained** — of the errors, the share whose prediction is a near-exact *rotation* of the true scale. Those are Sa-placement failures, not raag failures.
+
+Softmax temperature is calibrated per method on **train** (standard temperature
+scaling, minimising NLL) so methods with different score scales are comparable.
+
+| method | mistake affinity | (chance) | MEA | (chance) | affinity CE ↓ | NLL ↓ | tonic-explained | (chance) | rot-affinity | (chance) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **m1** | 0.295 | 0.261 | 0.279 | 0.274 | 3.860 | 3.826 | 0.119 | 0.101 | 0.712 | 0.683 |
+| **m2** | 0.291 | 0.257 | 0.296 | 0.274 | 3.804 | 3.748 | 0.075 | 0.098 | 0.681 | 0.680 |
+| **m3** | 0.290 | 0.257 | 0.286 | 0.274 | 3.866 | 3.835 | 0.087 | 0.100 | 0.689 | 0.681 |
+| **m4** | 0.333 | 0.259 | 0.301 | 0.274 | 3.807 | 3.758 | 0.130 | 0.106 | 0.716 | 0.684 |
+| **m5** | 0.287 | 0.258 | 0.285 | 0.274 | 3.869 | 3.842 | 0.085 | 0.100 | 0.683 | 0.681 |
+| **m6** | 0.271 | 0.259 | 0.307 | 0.274 | 3.791 | 3.612 | 0.098 | 0.099 | 0.690 | 0.681 |
+| **m7** | 0.287 | 0.261 | 0.323 | 0.274 | 3.763 | 3.550 | 0.080 | 0.106 | 0.703 | 0.688 |
+| **m9** | 0.306 | 0.260 | 0.331 | 0.274 | 4.335 | 4.050 | 0.091 | 0.099 | 0.700 | 0.681 |
+| **m9plus** | 0.327 | 0.259 | 0.333 | 0.274 | 3.877 | 3.728 | 0.120 | 0.105 | 0.727 | 0.683 |
+
+## Chosen configurations
+
+**m1**
+```
+representation: {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True}
+method:         {'shift_mode': 'none', 'length_bonus': 0.1}
+features:       {}
+```
+
+**m2**
+```
+representation: {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True}
+method:         {'shift_mode': 'none', 'n_max': 3, 'idf_power': 0.0, 'w_arohana': 1.0, 'w_scale': 2.0, 'len_power': 0.0, 'norm': 'raag_l2'}
+features:       {'max_skip': 1}
+```
+
+**m3**
+```
+representation: {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True}
+method:         {'shift_mode': 'none', 'w_arohana': 1.0, 'symmetric': False, 'lam_bi': 0.7, 'lam_uni': 0.1, 'uni_from_scale': 0.75, 'nyas_boost': 0.0, 'w_dur': 1.0, 'dur_weighted': False, 'w_skip': 0.5}
+features:       {}
+```
+
+**m4**
+```
+representation: {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True}
+method:         {'w_crepe': 1.0, 'primary': 'tony'}
+features:       {}
+```
+
+**m5**
+```
+representation: {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True}
+method:         {'learn_emissions': True, 'p_self': 0.35, 'prior': 0.5, 'emission_temp': 0.5, 'w_dur': 1.0, 'uni_from_scale': 0.75}
+features:       {}
+```
+
+**m6**
+```
+representation: {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True}
+method:         {'base': 'm5', 'base_kw': {'p_self': 0.2, 'prior': 5.0, 'emission_temp': 0.3, 'w_dur': 1.0}, 'temperature': 0.1, 'learn_prior': True}
+features:       {}
+```
+
+**m7**
+```
+representation: {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True}
+method:         {'use_channel': True, 'channel_kw': {'p_self': 0.2, 'prior': 5.0, 'emission_temp': 0.3, 'w_dur': 1.0}, 'base_kw': {'lam_bi': 0.7, 'lam_uni': 0.1, 'uni_from_scale': 0.75}, 'w_crepe': 1.0, 'calibrate': 'zscore', 'marginalise_tonic': True, 'temperature': 0.1}
+features:       {}
+```
+
+**m9**
+```
+representation: {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True}
+method:         {'tracker': 'crepe', 'n_bins': 60, 'tau': 0.15, 'smooth': 1.0}
+features:       {}
+```
+
+**m9plus**
+```
+representation: {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True}
+method:         {'w_tdms': 0.75, 'base': 'm4', 'base_kw': {'w_crepe': 1.0, 'primary': 'tony'}, 'tdms_kw': {'tracker': 'crepe', 'n_bins': 60, 'tau': 0.3}}
+features:       {}
+```
+
+## Error structure (m7, test)
+
+- correct at rank 1: AheerBhairav, Bahar, Bhairav, Bheempalasi, Durga, Hindol, KaushikDhwani, Madhuvanti, Malkauns, Shree, TilakKamod, Vibhas, Yaman
+- median rank of the true raag: 12 of 50
+- most-predicted labels: AheerBhairav (6), Hindol (6), Bhairav (6), Durga (6), Vibhas (6), Des (4)
+
+Most defensible misses (highest affinity):
+
+  - PuriyaDhanashri → Basant  (affinity 0.75)
+  - Basant → PuriyaDhanashri  (affinity 0.75)
+  - TilakKamod → Des  (affinity 0.64)
+  - MaruBihag → Kedar  (affinity 0.59)
+  - Bahar → Pilu  (affinity 0.56)
+  - Deshkar → Durga  (affinity 0.55)
+
+Least defensible misses (lowest affinity); `rot` is the affinity after rotating the
+predicted scale by `k` semitones — a high `rot` means this was a tonic error:
+
+  - Sohani → Dhani  (affinity 0.05, rot 0.83 at k=6)
+  - Marwa → Bheempalasi  (affinity 0.08, rot 0.62 at k=4)
+  - Dhani → Lalit  (affinity 0.09, rot 0.71 at k=11)
+  - Bhoopali → Multani  (affinity 0.09, rot 0.71 at k=1)
+  - Bageshree → Hindol  (affinity 0.10, rot 0.71 at k=3)
+  - Marwa → Madhukauns  (affinity 0.10, rot 0.83 at k=6)

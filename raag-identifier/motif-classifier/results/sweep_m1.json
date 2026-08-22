@@ -1,0 +1,380 @@
+[
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": true
+  },
+  "method": {
+   "shift_mode": "none",
+   "length_bonus": 0.1
+  },
+  "features": {},
+  "top1": 0.040680049646538236,
+  "top5": 0.165034199449571,
+  "mrr": 0.12626515983455258,
+  "top1_std": 0.009623987017994579,
+  "video_top1": 0.046511627906976744
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": false
+  },
+  "method": {
+   "shift_mode": "none",
+   "length_bonus": 0.1
+  },
+  "features": {},
+  "top1": 0.0369923101829367,
+  "top5": 0.15360385300307594,
+  "mrr": 0.12119175932642941,
+  "top1_std": 0.012369304816855161,
+  "video_top1": 0.041343669250646
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": true
+  },
+  "method": {
+   "shift_mode": "none",
+   "length_bonus": 0.02
+  },
+  "features": {},
+  "top1": 0.03571522044142248,
+  "top5": 0.16541665317575954,
+  "mrr": 0.1224814762205183,
+  "top1_std": 0.007837114054586244,
+  "video_top1": 0.04392764857881137
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": false
+  },
+  "method": {
+   "shift_mode": "none",
+   "length_bonus": 0.02
+  },
+  "features": {},
+  "top1": 0.03502077599697803,
+  "top5": 0.15398630672926447,
+  "mrr": 0.11937462732660445,
+  "top1_std": 0.008339728059583447,
+  "video_top1": 0.041343669250646
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": false
+  },
+  "method": {
+   "shift_mode": "global",
+   "length_bonus": 0.0
+  },
+  "features": {},
+  "top1": 0.03328801737628838,
+  "top5": 0.15325067454535643,
+  "mrr": 0.11531891281253545,
+  "top1_std": 0.0034020862847940164,
+  "video_top1": 0.04392764857881137
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": true
+  },
+  "method": {
+   "shift_mode": "global",
+   "length_bonus": 0.0
+  },
+  "features": {},
+  "top1": 0.03316610004856727,
+  "top5": 0.15698918029248288,
+  "mrr": 0.11566044087633207,
+  "top1_std": 0.005999334604853286,
+  "video_top1": 0.03875968992248062
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": false
+  },
+  "method": {
+   "shift_mode": "none",
+   "length_bonus": 0.0
+  },
+  "features": {},
+  "top1": 0.03190556365009984,
+  "top5": 0.15361917867357403,
+  "mrr": 0.11656832564062167,
+  "top1_std": 0.011802175484170617,
+  "video_top1": 0.041343669250646
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": true
+  },
+  "method": {
+   "shift_mode": "per_raag",
+   "length_bonus": 0.1
+  },
+  "features": {},
+  "top1": 0.03190131401435432,
+  "top5": 0.12957691166154012,
+  "mrr": 0.10952763328016024,
+  "top1_std": 0.011420315492928186,
+  "video_top1": 0.031007751937984496
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": true
+  },
+  "method": {
+   "shift_mode": "global",
+   "length_bonus": 0.1
+  },
+  "features": {},
+  "top1": 0.03167280502941018,
+  "top5": 0.1382104716421132,
+  "mrr": 0.11095779447310994,
+  "top1_std": 0.014009182494362891,
+  "video_top1": 0.041343669250646
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": false
+  },
+  "method": {
+   "shift_mode": "global",
+   "length_bonus": 0.02
+  },
+  "features": {},
+  "top1": 0.03154430413901031,
+  "top5": 0.14720757109708055,
+  "mrr": 0.11343406727015744,
+  "top1_std": 0.005471678170455059,
+  "video_top1": 0.03875968992248062
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": false
+  },
+  "method": {
+   "shift_mode": "global",
+   "length_bonus": 0.1
+  },
+  "features": {},
+  "top1": 0.030605337002860073,
+  "top5": 0.13824959527278613,
+  "mrr": 0.11181373155867536,
+  "top1_std": 0.004708639543330775,
+  "video_top1": 0.03875968992248062
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": true
+  },
+  "method": {
+   "shift_mode": "global",
+   "length_bonus": 0.02
+  },
+  "features": {},
+  "top1": 0.030478360584965735,
+  "top5": 0.14657484755274944,
+  "mrr": 0.1121027609131521,
+  "top1_std": 0.009471135812692858,
+  "video_top1": 0.03617571059431524
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": true
+  },
+  "method": {
+   "shift_mode": "none",
+   "length_bonus": 0.0
+  },
+  "features": {},
+  "top1": 0.030444835680751174,
+  "top5": 0.16226668825211807,
+  "mrr": 0.11829327545242344,
+  "top1_std": 0.011512790305727254,
+  "video_top1": 0.041343669250646
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": true
+  },
+  "method": {
+   "shift_mode": "per_raag",
+   "length_bonus": 0.02
+  },
+  "features": {},
+  "top1": 0.030180049646538233,
+  "top5": 0.13332993362473694,
+  "mrr": 0.10636134767633484,
+  "top1_std": 0.011901454825886218,
+  "video_top1": 0.028423772609819122
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": false
+  },
+  "method": {
+   "shift_mode": "per_raag",
+   "length_bonus": 0.1
+  },
+  "features": {},
+  "top1": 0.029823039771194215,
+  "top5": 0.12870828611515836,
+  "mrr": 0.10600025260354118,
+  "top1_std": 0.004883360705933961,
+  "video_top1": 0.031007751937984496
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": false
+  },
+  "method": {
+   "shift_mode": "per_raag",
+   "length_bonus": 0.0
+  },
+  "features": {},
+  "top1": 0.029144609033511414,
+  "top5": 0.13220732826075227,
+  "mrr": 0.1049299821436287,
+  "top1_std": 0.0037046555893462214,
+  "video_top1": 0.031007751937984496
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": true
+  },
+  "method": {
+   "shift_mode": "per_raag",
+   "length_bonus": 0.0
+  },
+  "features": {},
+  "top1": 0.028762155307322866,
+  "top5": 0.13481445955426044,
+  "mrr": 0.10588212954193432,
+  "top1_std": 0.00396229987871553,
+  "video_top1": 0.03359173126614987
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": false
+  },
+  "method": {
+   "shift_mode": "per_raag",
+   "length_bonus": 0.02
+  },
+  "features": {},
+  "top1": 0.028651853650639474,
+  "top5": 0.12886866601910313,
+  "mrr": 0.10504404473867875,
+  "top1_std": 0.008907859296696718,
+  "video_top1": 0.028423772609819122
+ }
+]

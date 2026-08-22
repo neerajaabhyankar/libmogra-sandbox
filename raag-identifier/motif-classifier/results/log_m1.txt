@@ -1,0 +1,16 @@
+[m1] 18 configs
+  10/18  0.8s/config
+[m1] best 12:
+  top1 0.041±0.010  top5 0.165  vid 0.047  {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True, 'shift_mode': 'none', 'length_bonus': 0.1}
+  top1 0.037±0.012  top5 0.154  vid 0.041  {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': False, 'shift_mode': 'none', 'length_bonus': 0.1}
+  top1 0.036±0.008  top5 0.165  vid 0.044  {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True, 'shift_mode': 'none', 'length_bonus': 0.02}
+  top1 0.035±0.008  top5 0.154  vid 0.041  {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': False, 'shift_mode': 'none', 'length_bonus': 0.02}
+  top1 0.033±0.003  top5 0.153  vid 0.044  {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': False, 'shift_mode': 'global', 'length_bonus': 0.0}
+  top1 0.033±0.006  top5 0.157  vid 0.039  {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True, 'shift_mode': 'global', 'length_bonus': 0.0}
+  top1 0.032±0.012  top5 0.154  vid 0.041  {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': False, 'shift_mode': 'none', 'length_bonus': 0.0}
+  top1 0.032±0.011  top5 0.130  vid 0.031  {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True, 'shift_mode': 'per_raag', 'length_bonus': 0.1}
+  top1 0.032±0.014  top5 0.138  vid 0.041  {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True, 'shift_mode': 'global', 'length_bonus': 0.1}
+  top1 0.032±0.005  top5 0.147  vid 0.039  {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': False, 'shift_mode': 'global', 'length_bonus': 0.02}
+  top1 0.031±0.005  top5 0.138  vid 0.039  {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': False, 'shift_mode': 'global', 'length_bonus': 0.1}
+  top1 0.030±0.009  top5 0.147  vid 0.036  {'tracker': 'tony', 'note_source': 'hmm', 'tonic_mode': 'video', 'tonic_refine': True, 'min_dur': 0.0, 'max_cents_dev': 2400.0, 'collapse_repeats': True, 'shift_mode': 'global', 'length_bonus': 0.02}
+  -> /Users/neerajaabhyankar/Repos/icm-shruti-analysis/raag-identifier/motif-classifier/results/sweep_m1.json

@@ -1,0 +1,134 @@
+[
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": true
+  },
+  "method": {
+   "w_tdms": 0.5,
+   "base": "m4",
+   "base_kw": {
+    "w_crepe": 1.0,
+    "primary": "tony"
+   },
+   "tdms_kw": {
+    "tracker": "crepe",
+    "n_bins": 60,
+    "tau": 0.3
+   }
+  },
+  "features": {},
+  "extra_trackers": [
+   "crepe"
+  ],
+  "top1": 0.13611291889266636,
+  "top5": 0.328615603583185,
+  "mrr": 0.24696076433021247,
+  "top1_std": 0.036701161121138214,
+  "video_top1": 0.14470284237726097
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": true
+  },
+  "method": {
+   "w_tdms": 0.75,
+   "base": "m4",
+   "base_kw": {
+    "w_crepe": 1.0,
+    "primary": "tony"
+   },
+   "tdms_kw": {
+    "tracker": "crepe",
+    "n_bins": 60,
+    "tau": 0.3
+   }
+  },
+  "features": {},
+  "extra_trackers": [
+   "crepe"
+  ],
+  "top1": 0.1337204684042955,
+  "top5": 0.3276265581997734,
+  "mrr": 0.2466485015635722,
+  "top1_std": 0.03445202495537637,
+  "video_top1": 0.14987080103359174
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": true
+  },
+  "method": {
+   "w_tdms": 1.0,
+   "base": "m4",
+   "base_kw": {
+    "w_crepe": 1.0,
+    "primary": "tony"
+   },
+   "tdms_kw": {
+    "tracker": "crepe",
+    "n_bins": 60,
+    "tau": 0.3
+   }
+  },
+  "features": {},
+  "extra_trackers": [
+   "crepe"
+  ],
+  "top1": 0.1301880497544655,
+  "top5": 0.3310530732286439,
+  "mrr": 0.2439604979130916,
+  "top1_std": 0.033693711562091805,
+  "video_top1": 0.13953488372093023
+ },
+ {
+  "rep": {
+   "tracker": "tony",
+   "note_source": "hmm",
+   "tonic_mode": "video",
+   "tonic_refine": true,
+   "min_dur": 0.0,
+   "max_cents_dev": 2400.0,
+   "collapse_repeats": true
+  },
+  "method": {
+   "w_tdms": 0.25,
+   "base": "m4",
+   "base_kw": {
+    "w_crepe": 1.0,
+    "primary": "tony"
+   },
+   "tdms_kw": {
+    "tracker": "crepe",
+    "n_bins": 60,
+    "tau": 0.3
+   }
+  },
+  "features": {},
+  "extra_trackers": [
+   "crepe"
+  ],
+  "top1": 0.12896813447736227,
+  "top5": 0.3301778641195834,
+  "mrr": 0.24286197069344842,
+  "top1_std": 0.030872651651297548,
+  "video_top1": 0.13695090439276486
+ }
+]
