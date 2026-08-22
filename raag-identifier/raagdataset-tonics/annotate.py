@@ -116,6 +116,26 @@ def rewrite(rows):
             w.writerow(r)
 
 
+def load_skip_list():
+    return [
+        "0GkzyJbxCMA",
+        "5z_sUCM__uc",
+        "ZWQDBjkAW-w",
+        "PKUO-nqbABg",
+        "A3SneqtmNog",
+        "azznhT3coJE",
+        "FZtu7xweL0Y",
+        "M3DE88z0Nv8",
+        "MN7VkVPaytM",
+        "85y7SzjvCjk",
+        "aUWTwQk_kUY",
+        "e3iMnt28DLM",
+        "k86EmhqcpUA",
+        "nI7v5zCLawk",
+        "2gJbTYxmqMA"
+    ]
+
+
 # ---------------------------------------------------------------- audio
 
 
@@ -423,6 +443,7 @@ def main():
     args = ap.parse_args()
 
     vids = videos()
+    skip = load_skip_list()
     done = load_done()
 
     if args.status:
@@ -448,6 +469,9 @@ def main():
     n = 0
     try:
         for video_id, info in todo:
+            if video_id in skip:
+                print(f"\n{'=' * 72}\n  skipping {video_id} (in skip list)")
+                continue
             row = annotate_one(video_id, info, args)
             if row is None:
                 continue
