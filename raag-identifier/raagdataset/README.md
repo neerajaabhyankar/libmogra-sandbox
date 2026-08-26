@@ -20,12 +20,12 @@ come from one recording and share a Sa.
 ## Run it
 
 ```bash
-poetry run python annotate.py                # everything not yet done
-poetry run python annotate.py --limit 25     # a 20-minute session
-poetry run python annotate.py --raag Yaman   # one raag at a time
-poetry run python annotate.py --status       # progress, and which rows need review
-poetry run python annotate.py --review       # replay annotations with a sine at the stored Sa
-poetry run python annotate.py --redo --video ABC123    # fix one
+poetry run python annotate_tonics.py                # everything not yet done
+poetry run python annotate_tonics.py --limit 25     # a 20-minute session
+poetry run python annotate_tonics.py --raag Yaman   # one raag at a time
+poetry run python annotate_tonics.py --status       # progress, and which rows need review
+poetry run python annotate_tonics.py --review       # replay annotations with a sine at the stored Sa
+poetry run python annotate_tonics.py --redo --video ABC123    # fix one
 ```
 
 Per video: a 10 s excerpt from the middle of a clip plays, the YouTube URL is printed in
