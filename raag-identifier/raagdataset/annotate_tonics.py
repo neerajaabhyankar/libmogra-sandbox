@@ -132,7 +132,12 @@ def load_skip_list():
         "e3iMnt28DLM",
         "k86EmhqcpUA",
         "nI7v5zCLawk",
-        "2gJbTYxmqMA"
+        "2gJbTYxmqMA",
+        "LknyChMkj3g",
+        "iOtSjWMKdZI",
+        "AVxwGAy1ygM",
+        "G_wmgnxgK0w",
+        "egHCxISQG9o",
     ]
 
 
