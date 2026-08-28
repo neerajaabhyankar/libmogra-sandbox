@@ -52,7 +52,6 @@ eapl_XTpfBU,Basant,147.9145,D3,297.0770,-7.3,yes,train_[eapl_XTpfBU]_chunk1.mp3,
 1MUL6GJXZ1k,Bhairav,140.4700,C♯3,277.1826,23.3,yes,train_[1MUL6GJXZ1k]_chunk1.mp3,2026-08-22T16:14:48
 G0V0q_yA49U,Bhairav,109.8031,A2,221.2744,-13.1,yes,train_[G0V0q_yA49U]_chunk1.mp3,2026-08-22T16:18:16
 NMHoLg5PxRM,Bhairav,136.3916,C♯3,282.0277,-57.7,yes,train_[NMHoLg5PxRM]_chunk1.mp3,2026-08-22T16:18:43
-SuNEIYlw9z0,Bhairav,139.2561,C♯3,278.7883,-1.7,yes,train_[SuNEIYlw9z0]_chunk0.mp3,2026-08-22T16:19:06
 b0dm0th5bnY,Bhairav,150.3171,D3,295.3660,30.6,yes,train_[b0dm0th5bnY]_chunk1.mp3,2026-08-22T16:19:27
 cPqhyjlmlrI,Bhairav,143.3542,D3,290.2917,-21.5,yes,train_[cPqhyjlmlrI]_chunk1.mp3,2026-08-22T16:20:03
 zXQ059Uftv4,Bhairav,109.9354,A2,222.5563,-21.0,yes,train_[zXQ059Uftv4]_chunk1.mp3,2026-08-22T16:20:32
@@ -78,7 +77,7 @@ bRuEg0dmbgI,Bhoopali,182.7865,F♯3,181.8191,9.2,yes,train_[bRuEg0dmbgI]_chunk1.
 lqWJOJ-kzeQ,Bhoopali,146.8785,D3,293.6648,0.5,yes,train_[lqWJOJ-kzeQ]_chunk1.mp3,2026-08-22T16:33:51
 oOjWM7td-gg,Bhoopali,147.7025,D3,297.0770,-9.8,yes,train_[oOjWM7td-gg]_chunk1.mp3,2026-08-22T16:34:17
 0_ctoHxV4Ss,Bihag,147.8931,D3,297.0770,-7.5,yes,train_[0_ctoHxV4Ss]_chunk1.mp3,2026-08-22T16:34:49
-1zNuemR7KeA,Bihag,117.1309,A♯2,237.1561,-21.3,yes,train_[1zNuemR7KeA]_chunk0.mp3,2026-08-22T16:35:24
+1zNuemR7KeA,MaruBihag,117.1309,A♯2,237.1561,-21.3,yes,train_[1zNuemR7KeA]_chunk0.mp3,2026-08-22T16:35:24
 33zQuIX5rsI,Bihag,232.4179,A♯3,235.7902,-24.9,yes,train_[33zQuIX5rsI]_chunk1.mp3,2026-08-22T16:35:57
 9yKmsoFiHWc,Bihag,148.0372,D3,297.0770,-5.9,yes,train_[9yKmsoFiHWc]_chunk1.mp3,2026-08-22T16:36:19
 D1k2UC9rKus,Bihag,249.1627,B3,251.2581,-14.5,yes,train_[D1k2UC9rKus]_chunk1.mp3,2026-08-22T16:36:51
@@ -220,7 +219,6 @@ l-CUA-O40dI,Kedar,146.9122,D3,298.7979,-29.1,yes,train_[l-CUA-O40dI]_chunk1.mp3,
 pDMpMJpcYxc,Kedar,133.3391,C3,263.1411,23.1,yes,train_[pDMpMJpcYxc]_chunk1.mp3,2026-08-23T22:52:37
 71W_qyRs6Jw,Keerwani,138.5636,C♯3,277.1826,-0.3,yes,train_[71W_qyRs6Jw]_chunk1.mp3,2026-08-23T22:52:54
 9eGTNqMIVpY,Keerwani,136.9995,C♯3,273.9989,0.0,NO,train_[9eGTNqMIVpY]_chunk1.mp3,2026-08-23T22:54:04
-M3DE88z0Nv8,Keerwani,120.3237,B2,234.4321,45.3,yes,train_[M3DE88z0Nv8]_chunk1.mp3,2026-08-23T22:54:27
 ZDnZhRNI-ic,Keerwani,110.5959,A2,225.1423,-30.6,yes,train_[ZDnZhRNI-ic]_chunk1.mp3,2026-08-23T22:55:44
 xvWXCKygxJQ,Keerwani,221.9071,A3,442.5489,4.9,yes,train_[xvWXCKygxJQ]_chunk1.mp3,2026-08-23T22:56:58
 6VQlawpPjnM,Khamaj,156.8392,D♯3,316.5654,-15.9,yes,train_[6VQlawpPjnM]_chunk1.mp3,2026-08-23T22:57:17
@@ -407,3 +405,10 @@ AIsJS1hLtLE,Yaman,153.3455,D♯3,309.3350,-14.9,yes,train_[AIsJS1hLtLE]_chunk1.m
 e8aG2xNEcNs,Yaman,233.2026,A♯3,234.4321,-9.1,yes,train_[e8aG2xNEcNs]_chunk1.mp3,2026-08-28T08:54:56
 ggfebQ-5-UE,Yaman,145.9867,D3,291.9734,0.0,NO,train_[ggfebQ-5-UE]_chunk1.mp3,2026-08-28T08:55:43
 oSEuCJSnu94,Yaman,147.1212,D3,291.9734,13.4,yes,train_[oSEuCJSnu94]_chunk1.mp3,2026-08-28T08:56:06
+wBoogwYb-Ls,AlhaiyaBilawal,103.2101,G♯2,415.3047,-10.3,yes,test_[wBoogwYb-Ls]_chunk1.mp3,2026-08-28T13:26:05
+W8lfX_5MC34,Bheempalasi,110.1581,A2,218.7329,12.5,yes,test_[W8lfX_5MC34]_chunk1.mp3,2026-08-28T13:26:29
+Q6O5KrywLVo,Hameer,138.0472,C♯3,277.1826,-6.8,yes,test_[Q6O5KrywLVo]_chunk1.mp3,2026-08-28T13:26:50
+VAYEYJc67WA,Keerwani,240.5036,B3,241.3015,-5.7,yes,test_[VAYEYJc67WA]_chunk1.mp3,2026-08-28T13:27:37
+puouAH3b5x8,Madhukauns,164.9228,E3,329.6276,1.1,yes,test_[puouAH3b5x8]_chunk1.mp3,2026-08-28T13:27:58
+b4axavWSFoo,Pilu,145.6177,D3,286.9575,25.6,yes,test_[b4axavWSFoo]_chunk1.mp3,2026-08-28T13:29:01
+O0flo5ink8k,Bhairav,142.5070,C♯3,285.3047,-1.8,yes,test_[O0flo5ink8k]_chunk1.mp3,2026-08-28T13:52:42
