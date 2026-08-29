@@ -60,6 +60,17 @@ audio, sr
        The y-axis auto-fits the notes but never scales past visualize.PLOT_RANGE_CENTS
        (G(-1)..D(+1)); octave-error strays outside it are cut off rather than allowed
        to squash the melody, and the panel says how many were dropped.
+  -> histogram(note_segments)                              # the same notes, as a distribution
+       duration-weighted. Two views, drawn as a pair, and they are the two ends of a
+       scale rather than the same thing twice:
+         left  — raw cents, 10-cent bins, octaves kept apart, nothing snapped. An
+                 intonation sitting 30 cents off its semitone shows up 30 cents off,
+                 which is the reason to look at a histogram in this repo at all.
+         right — chroma: folded to one octave *and* quantized to the nearest semitone,
+                 so twelve bars, one per swara. Throws away exactly what the left panel
+                 is for, and what survives — the swara set and how time divides between
+                 those twelve — is the part that compares across clips.
+       `main_live` shows both under the trajectory panels, against the Sa just hummed.
 ```
 
 Implemented once in `pipeline.py` / `note_segmentation.py` / `visualize.py`, shared by all
@@ -76,6 +87,11 @@ melody-extraction/
   note_segmentation.py   # frame f0 -> discrete note events (min 0.2s)
   visualize.py           # plot_relative_pitch(notes) -> matplotlib Figure (not saved)
                          # plot_relative_pitch_multi([(label, notes), ...]) stacks trackers
+                         # draw_relative_pitch_multi(axes, ...) for callers owning the figure
+  freq_histogram.py      # plot_pitch_histogram(notes_or_cents) -> pitch distribution
+                         # plot_audio_histogram(audio_or_path) -> same, from raw audio
+                         # plot_relative_pitch_with_histograms(...) -> what main_live shows
+                         # also runnable: python freq_histogram.py clip.wav --octave-wrap
   trackers/
     crepe_tracker.py     # extract_relative_pitch_crepe(audio, sr, plot=True)
     pyin_tracker.py       # extract_relative_pitch_pyin(audio, sr, plot=True)
@@ -101,6 +117,26 @@ def extract_relative_pitch_<method>(audio: np.ndarray, sr: int, plot: bool = Tru
 
 Nothing is cached, batched, or written to `outputs/` — call it directly on whatever clip
 you're looking at, in a notebook or script.
+
+## Notes on the histograms
+
+- The octave-folded window is **[-50, 1150) cents, not [0, 1200)**. With a [0, 1200)
+  fold, a Sa sung 20 cents flat lands at 1180 and the Sa peak splits across the two
+  ends of the axis — the single most-visited pitch in the clip becoming two half-height
+  peaks at opposite edges. Shifting the window by half a semitone puts every semitone
+  class in the middle of its own stretch of axis, so each peak stays whole.
+- Quantizing to chroma is **snap first, fold second**. Folding first would send a Sa
+  sung 20 cents flat to 1180 cents and then round it into N's bin; snapping first sends
+  it to 1200, which folds cleanly onto S. (The [-50, 1150) window makes the two steps
+  agree anyway — 100-cent bins on that window are already centred on the semitones —
+  but the order is what keeps it true if the window ever moves.)
+- The histograms are built from **note events, duration-weighted**, not from raw frames,
+  because that is what the trackers return and what `main_live` already has in hand (no
+  re-running a tracker to redraw). The cost is resolution: `segment_notes` already
+  averaged each note over a ±50-cent band, so the result is spikier than a true
+  frame-level pitch distribution. If shruti-level peak *shape* ever matters more than
+  peak *location*, the fix is to have the trackers also hand back frame-level cents —
+  `pitch_histogram()` already accepts a bare cents array, so only the trackers change.
 
 ## Out of scope (intentionally)
 

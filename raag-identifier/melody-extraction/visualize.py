@@ -126,19 +126,21 @@ def plot_relative_pitch(notes, title=None, tonic_hz=None, show=True):
     return fig
 
 
-def plot_relative_pitch_multi(results, tonic_hz=None, show=True):
-    """results: list of (label, notes) — one panel per tracker, stacked top-to-bottom
-    in the order given, sharing one x-axis and one y-scale so the trackers can be
-    read off against each other.
+def draw_relative_pitch_multi(axes, results, pitch_range=None):
+    """Draw one tracker per axis, into caller-supplied axes.
+
+    `axes` must be at least as long as `results`, ordered top-to-bottom. All panels
+    share one y-scale (computed across every tracker unless `pitch_range` is given)
+    so the trackers can be read off against each other. Split out from
+    `plot_relative_pitch_multi` so a caller building a bigger figure — e.g.
+    `freq_histogram.plot_relative_pitch_with_histograms` — can stack these panels
+    above rows of its own.
     """
-    if not results:
-        raise ValueError("plot_relative_pitch_multi() needs at least one (label, notes) pair")
+    if len(axes) < len(results):
+        raise ValueError(f"need at least {len(results)} axes, got {len(axes)}")
 
     n = len(results)
-    pitch_range = _pitch_range([notes for _label, notes in results])
-    fig, axes = plt.subplots(n, 1, figsize=(12, 3.6 * n), sharex=True, sharey=True,
-                             squeeze=False)
-    axes = axes[:, 0]
+    pitch_range = pitch_range or _pitch_range([notes for _label, notes in results])
 
     for i, (label, notes) in enumerate(results):
         draw_relative_pitch(
@@ -149,6 +151,21 @@ def plot_relative_pitch_multi(results, tonic_hz=None, show=True):
             pitch_range=pitch_range,
             xlabel=(i == n - 1),
         )
+    return pitch_range
+
+
+def plot_relative_pitch_multi(results, tonic_hz=None, show=True):
+    """results: list of (label, notes) — one panel per tracker, stacked top-to-bottom
+    in the order given, sharing one x-axis and one y-scale so the trackers can be
+    read off against each other.
+    """
+    if not results:
+        raise ValueError("plot_relative_pitch_multi() needs at least one (label, notes) pair")
+
+    n = len(results)
+    fig, axes = plt.subplots(n, 1, figsize=(12, 3.6 * n), sharex=True, sharey=True,
+                             squeeze=False)
+    draw_relative_pitch_multi(axes[:, 0], results)
 
     suffix = f"  [tonic = {tonic_hz:.1f} Hz]" if tonic_hz else ""
     fig.suptitle("Relative pitch trajectory" + suffix)

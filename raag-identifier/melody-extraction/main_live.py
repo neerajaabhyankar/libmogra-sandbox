@@ -130,8 +130,10 @@ def main(duration, methods=('pyin',)):
         print(label, " ".join(as_swaras(notes)))
 
     if PLOT:
-        from visualize import plot_relative_pitch_multi
-        plot_relative_pitch_multi(results, tonic_hz=tonic_hz)
+        # Trajectory panels on top, then the histogram pair: the same notes seen as a
+        # distribution rather than a sequence, both against the tonic just hummed.
+        from freq_histogram import plot_relative_pitch_with_histograms
+        plot_relative_pitch_with_histograms(results, tonic_hz=tonic_hz)
 
 
 if __name__ == "__main__":
