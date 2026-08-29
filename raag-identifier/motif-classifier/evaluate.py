@@ -157,6 +157,18 @@ def make_method(name, **kw):
         from methods.m10_register import RegisterMethod
 
         return RegisterMethod(**kw)
+    if name == "m11":
+        from methods.m11_histogram import HistogramFingerprint
+
+        return HistogramFingerprint(**kw)
+    if name == "m13":
+        from methods.m13_ngramlm import NgramLM
+
+        return NgramLM(**kw)
+    if name == "m12":
+        from methods.m12_dbhist import DBHistogram
+
+        return DBHistogram(**kw)
     if name == "m10plus":
         from methods.m10_register import RegisterPlus
 

@@ -36,13 +36,22 @@ METHODS = [
     ("m7", "channel + CREPE + tonic prior + per-raag calibration"),
     ("m9", "time-delayed melody surface — un-quantized contour, **no** mukhyanga"),
     ("m9plus", "M4 + melody surface (quantized phrases + continuous contour)"),
+    ("m11", "pitch histogram only — no motifs, no grammar, no database"),
+    ("m12", "pitch histogram with the mukhyanga phrase inventory as a prior"),
+    ("m13", "bigram transition LM, learned, with the DB as a prior"),
+    ("m14", "**M12 + M13** — occupancy and transitions, both DB-guided"),
 ]
 
 
 # Re-ranking budget per method. M6/M7 score all 12 rotations and refit per fold, so they
 # get a shorter shortlist and fewer seeds — the shortlist is already tightly clustered.
 RERANK = {"m6": (8, (0, 1, 2)), "m7": (6, (0, 1, 2)),
-          "m9": (6, (0, 1, 2)), "m9plus": (4, (0, 1, 2))}
+          "m9": (6, (0, 1, 2)), "m9plus": (4, (0, 1, 2)), "m11": (6, (0, 1, 2)),
+          "m12": (6, (0, 1, 2)), "m13": (6, (0, 1, 2)), "m14": (4, (0, 1, 2))}
+
+
+#: methods whose sweep file is written under a different name than the method key
+SWEEP_METHOD = {"m14": "m9plus"}
 
 
 def best_config(method, shortlist=20, seeds=(0, 1, 2, 3, 4)):
@@ -57,6 +66,7 @@ def best_config(method, shortlist=20, seeds=(0, 1, 2, 3, 4)):
 
     shortlist, seeds = RERANK.get(method, (shortlist, seeds))
     rows = json.loads((RESULTS / f"sweep_{method}.json").read_text())
+    method = SWEEP_METHOD.get(method, method)
     rows.sort(key=lambda r: -r["top1"])
     best, best_mean = None, -1.0
     for r in rows[:shortlist]:
@@ -84,6 +94,8 @@ def best_config(method, shortlist=20, seeds=(0, 1, 2, 3, 4)):
 def run_split(method, cfg, split):
     """Score `split` with `cfg`. Anything the method learns is fit on **train only**."""
     from tune import split_feats
+
+    method = SWEEP_METHOD.get(method, method)
 
     rep = Params(**cfg["rep"])
     extra = tuple(cfg.get("extra_trackers", ()))

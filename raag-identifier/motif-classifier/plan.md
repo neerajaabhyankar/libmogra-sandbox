@@ -806,3 +806,184 @@ pure rotations**, which the confusion output now names directly.
 Second: M9+'s remaining `w_tdms` was tuned to 1.5 and the sweep did not turn over — the
 surface may deserve still more weight, and its resolution knobs (`n_bins`, `tau`) were only
 coarsely searched at the new clip length.
+
+## The metric was the bug  *(chi-square vs cosine)*
+
+Every distribution-comparing method here scored with **cosine**, unexamined, from M9 onward.
+Swapping in a symmetric chi-square distance — each bin weighed against its own magnitude
+rather than contributing to an inner product — is worth more than any modelling change since
+M3:
+
+| method | cosine | **chi²** | gain |
+|---|---|---|---|
+| M9 melody surface | 0.341 | **0.402** | +0.061 |
+| M11 pitch histogram | 0.341 | 0.382 | +0.041 |
+| M9 re-tuned (n_bins 80) | — | **0.422** | |
+| M9+ re-tuned (w_tdms 3.0) | 0.374 | **0.443** | +0.069 |
+
+Cosine lets a handful of high-energy bins dominate the inner product, so a raag's long nyas
+swars swamp the quiet-but-characteristic ones. Chi-square normalises each bin by its own
+magnitude, and those quiet bins are exactly where two raags of the same scale differ.
+
+The M9+ optimum is a genuine plateau, not a grid edge — `w_tdms` 2/3/4/6 all score 0.443,
+falling to 0.422 (M9 alone) by w=20.
+
+> **A comparison I got wrong, and the correction.** M11 was first run with chi² against an
+> M9 that only ever had cosine, which made a plain histogram look equal to the 2-D surface
+> and prompted the conclusion that *the delay axis buys nothing*. At a matched metric that
+> is false: cosine 0.341 vs 0.341 (the delay axis really does add zero there), chi² 0.402 vs
+> 0.382 (it adds +0.020). The lesson is narrower than "the delay axis is useless" — it is
+> that **the metric mattered more than the representation**, for both.
+
+## M11 — a pitch histogram and nothing else  *(the floor, and it is high)*
+
+Octave-folded pitch histogram, duration-weighted, no motifs, no grammar, no database beyond
+the candidate list. Per-raag templates are the mean of the training clips, refit per fold.
+This is Chordia & Rae's 2007 pitch-class-distribution baseline with the bins left
+un-rounded — and it is also **exactly M9's surface with the delay axis collapsed**, so the
+pair measures what melodic *motion* adds over pitch *occupancy*.
+
+| n_bins | metric | train CV |
+|---|---|---|
+| 12 (semitone) | cosine | 0.075 |
+| 60 | cosine | 0.329 |
+| 120 | cosine | 0.341 |
+| **120** | **chi²** | **0.382** |
+
+Two things this pins down:
+
+1. **Quantizing to 12 bins costs 4.5x** (0.341 → 0.075). The strongest evidence yet for the
+   un-quantized thesis, and only measurable now: bin positions are meaningless under a tonic
+   that is wrong 38 % of the time.
+2. **A method with no musical knowledge at all gets within 0.06 of the best one.** Fusing it
+   with the phrase grammar makes it *worse* (0.382 → 0.364). Whatever the mukhyanga database
+   is contributing, it is not contributing much through the M1-M7 route.
+
+## Source separation  (`../source-separation`)
+
+Split into its own reusable module — see [`../source-separation/plan.md`](../source-separation/plan.md)
+for backends, the inspection CLI, and the audio-level findings. `extract.py --separate
+<backend>` runs it before tracking and caches to
+`cache/notes_<tracker>_<version>_<backend>.npz`.
+
+Short version: **HPSS (free, no model) beats HT-Demucs** on this repertoire — it raises
+CREPE's voiced fraction, cuts frame-to-frame jitter roughly tenfold, and makes the pitch
+histogram peakier, while Demucs leaves jitter unchanged and actively removes melodic content
+from instrumental clips (its `vocals` stem is the wrong target for a sitar or sarangi). The
+jitter collapse was checked against drone-locking — a tracker sitting on the tanpura would
+show the same low jitter — via the share of frames within 25 cents of Sa, which stayed flat.
+
+## M12/M13/M14 — the database as a *prior*, not a model
+
+M11 showed a knowledge-free histogram gets within 0.06 of the best method, which raises the
+question of what the mukhyanga database is for. The answer is not "nothing" — it is that the
+DB works as a **prior on a learned model**, and badly as a model on its own.
+
+**M12 — histogram with a DB prior.** The template is built from *phrase occupancy*: how often
+each swar appears across the raag's mukhyanga, aaroha and avaroha, spread onto the same
+continuous bin grid M11 uses, then blended `ref = (1-λ)·learned + λ·db`.
+
+**M13 — bigram LM with a DB prior.** Same idea over transitions: per-raag mean bigram matrix
+from the training clips, blended toward the DB's phrase-derived transition model (which at
+λ=1 is M3's model).
+
+| λ (DB weight) | M12 histogram | M13 bigram LM |
+|---|---|---|
+| 0.0 — learned only | 0.382 | 0.275 |
+| **0.3 — blended** | **0.405** | **0.304** |
+| 0.6 | 0.370 | 0.301 |
+| 1.0 — DB only, no training data | 0.217 | 0.237 |
+
+The same shape twice: the blend beats both ends, and pure-DB is the worst of the three. The
+database is a good prior and a poor model.
+
+**Why phrase occupancy and not vaadi/samvaadi** — this is the post-mortem on M10:
+
+    Bageshree    vaadi=m  samvaadi=S   scale = S R g m P D n
+    Bheempalasi  vaadi=m  samvaadi=S   scale = S R g m P D n
+
+Identical on every field M10 used. But their phrase unigrams differ at L1 0.43, and in the
+musically right direction — Bageshree weakens P and leans on D, Bheempalasi leans on P. The
+DB knows these raags apart; M10 was reading the wrong field.
+
+**M14 — occupancy + transitions, both DB-guided.** M13 alone is much weaker than M12, but the
+two are complementary:
+
+| | train CV top-1 | top-5 | MRR |
+|---|---|---|---|
+| M13 bigram LM alone | 0.304 | — | — |
+| M12 DB-histogram alone | 0.408 | — | — |
+| **M14 = M12 + M13 (w=3)** | **0.464** | **0.787** | **0.606** |
+
+Interior optimum, checked over w = 2…15 (0.462 / 0.464 / 0.455 / 0.454 / 0.442 / 0.428).
+**+0.056 over the better half alone** — so *where* a raag sits and *how* it moves really are
+different evidence, which is the first solid vindication of the phrase-structure idea since
+the tonic landed. Best result in the project: **0.464 CV, ~23x chance.**
+
+### What the M14 confusion matrix says  (`results/v1/confusion_m14_cv.png`)
+
+Over 1810 train clips under grouped CV (top-1 0.466, top-5 0.785):
+
+* **Solved:** the pentatonic and distinctive-scale raags — Malkauns 37/50, Madhukauns 31/45,
+  Bairagi 30/40, Chandrakauns 27/40, Todi 21/30, Kalawati 12/15.
+* **Barely recalled:** Keerwani 1/20, TilakKamod 3/20, PuriyaKalyan 4/35, Khamaj 5/35,
+  Des 8/40, PuriyaDhanashri 8/35 — the seven-note Bilawal/Khamaj-thaat raags whose scales
+  overlap heavily, exactly where pitch occupancy has least to say.
+* **Hubs:** six labels absorb far more predictions than they own — Jaijaivanti 69 for 45 true
+  clips, Des 69 for 40, Bihag 57, TilakKamod 53, Sohani 51, MaruBihag 50, against a 36-clip
+  average. Des and TilakKamod are simultaneously over-predicted *and* badly recalled, the
+  signature of a template that sits close to everything.
+
+> **Hubness calibration was the obvious fix, and it failed.** Standardising each raag's score
+> distribution over train — the trick that made M7 work — *costs* 3.5 points here: 0.464 →
+> 0.429 (zscore), 0.418 (mean). M7's raw scores were badly-scaled log-likelihoods that needed
+> it; chi² scores are already well-behaved, and z-scoring per raag also strips a genuine class
+> prior (train is unbalanced, Malkauns n=50 against Kalawati n=15). The hubs are real and
+> visible, but the cure has to be something other than rescaling.
+
+### Where Bageshree vs Bheempalasi actually stands
+
+The expectation was that DB guidance would separate this pair. Under grouped CV they were
+**never the problem** — Bageshree→Bheempalasi is 0/40 for M12, 0/40 for M3, 1/40 for M11.
+Bheempalasi instead fails *outward*: 9/40 correct, with the misses going to Malhar (5),
+Bahar (4) and Pilu (4) — Kafi-thaat neighbours at scale Jaccard 0.70-0.88, all outside its
+scale-twin group. Those errors cluster by recording (8 videos contributing 3-5 wrong clips
+each), so whole performances fail together, which points at recording-level causes rather
+than a scale-twin discrimination gap.
+
+The DB prior does help twins in aggregate — twin-restricted top-1 goes 0.336 (M11) → 0.378
+(M12), matching M9's 0.379 — just not through the pair that motivated it.
+
+## Does source separation help?  No.  (`separation_effect.py`)
+
+`../source-separation` makes the *pitch track* clearly better — CREPE's voiced fraction up,
+frame-to-frame jitter down roughly tenfold, the histogram peakier. That is a claim about the
+tracker. Whether it helps *classification* is a separate question, and the answer is no.
+
+CREPE re-extracted over HPSS-separated audio (110 min for 1960 clips), everything else held
+fixed. Train CV:
+
+| method | unseparated | HPSS | delta |
+|---|---|---|---|
+| M9 melody surface | 0.422 | 0.393 | **-0.028** |
+| M11 histogram | 0.382 | 0.380 | -0.001 |
+| M12 histogram + DB | 0.405 | 0.393 | -0.012 |
+| M13 bigram LM *(control)* | 0.304 | 0.304 | **+0.000** |
+| M14 M12+M13 | 0.464 | 0.438 | -0.026 |
+
+**M13 is the control** — it reads Tony's notes, which were not re-extracted, so its row must
+not move. It doesn't, to three decimals, which is what says the other rows are measuring the
+separation rather than a plumbing accident.
+
+Every method that *does* see the separated audio gets slightly **worse**. The most likely
+reason is the same fact that made the tracker metrics look so good: HPSS drops ~40 % of the
+signal's energy and cuts jitter from ~18 cents to ~1. Some of that 18 cents was tabla bleed,
+but a lot of it was **meend and gamak** — the continuous ornamentation between swars. A
+120-bin histogram and a time-delayed melody surface are built specifically to see
+sub-semitone movement, so smoothing it away costs them more than the tabla ever did.
+
+Put plainly: **what looks like noise to a pitch tracker is partly the signal for raag
+identification.** The tracker-level metrics in `../source-separation/plan.md` are real; they
+just do not translate. Worth revisiting only with a separator that removes percussion without
+smoothing the melodic line — which is the argument for a properly fine-tuned
+BS-RoFormer over median filtering, not for tuning HPSS harder.

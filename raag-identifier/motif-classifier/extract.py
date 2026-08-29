@@ -23,6 +23,7 @@ import librosa
 
 HERE = Path(__file__).resolve().parent
 MELODY_DIR = HERE.parent / "melody-extraction"
+SEP_DIR = HERE.parent / "source-separation"
 CACHE_DIR = HERE / "cache"
 
 # v1 (2026-08-28) changed the audio itself, not just the metadata: new chunk offsets,
@@ -33,7 +34,7 @@ DATA_VERSION = os.environ.get("RAAG_DATA_VERSION", "v1")
 DATA_DIR = HERE.parent / ("hindustani-raag-small-v1" if DATA_VERSION == "v1"
                           else "hindustani-raag-small")
 
-for p in (str(MELODY_DIR), str(MELODY_DIR / "trackers" / "tony")):
+for p in (str(MELODY_DIR), str(MELODY_DIR / "trackers" / "tony"), str(SEP_DIR)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -133,19 +134,29 @@ TRACKERS = {"tony": _tony, "crepe": _crepe}
 # ---------------------------------------------------------------- driver
 
 
-def cache_path(tracker):
+def cache_path(tracker, separate=None):
     suffix = "" if DATA_VERSION == "v0" else f"_{DATA_VERSION}"
+    if separate and separate != "none":
+        suffix += "_" + separate.replace("+", "-").replace(":", "-")
     return CACHE_DIR / f"notes_{tracker}{suffix}.npz"
 
 
-def extract(tracker, limit=None, force=False):
+def extract(tracker, limit=None, force=False, separate=None):
+    """`separate` runs ../source-separation over each clip before tracking it, and lands in
+    its own cache file so separated and unseparated runs never collide."""
     fn = TRACKERS[tracker]
     clips = list_clips()
     if limit:
         clips = clips[:limit]
 
+    sep_fn = None
+    if separate and separate != "none":
+        from separation import separate as _sep
+
+        sep_fn = lambda a, sr: _sep(a, sr, backend=separate).melody
+
     out = {}
-    dest = cache_path(tracker)
+    dest = cache_path(tracker, separate)
     if dest.exists() and not force:
         with np.load(dest, allow_pickle=True) as z:
             out = {k: z[k] for k in z.files}
@@ -160,6 +171,8 @@ def extract(tracker, limit=None, force=False):
             continue
         try:
             audio, sr = librosa.load(c["path"], sr=None, mono=True)
+            if sep_fn is not None:
+                audio = sep_fn(audio, sr)
             notes, f0, voiced, hop = fn(audio, sr)
         except Exception as e:  # a handful of clips can be unreadable; skip loudly
             print(f"FAILED {key}: {type(e).__name__}: {e}")
@@ -179,9 +192,9 @@ def extract(tracker, limit=None, force=False):
     print(f"wrote {dest}: {len(out)//4} clips in {(time.time()-t0)/60:.1f} min")
 
 
-def load_cache(tracker):
+def load_cache(tracker, separate=None):
     """Returns {clip_id: {"notes": (N,3) float32 [t0,t1,hz], "f0": (T,), "voiced": (T,) bool, "hop": float}}."""
-    with np.load(cache_path(tracker), allow_pickle=True) as z:
+    with np.load(cache_path(tracker, separate), allow_pickle=True) as z:
         keys = {k.split("|")[0] for k in z.files}
         out = {}
         for k in sorted(keys):
@@ -202,5 +215,7 @@ if __name__ == "__main__":
     ap.add_argument("--tracker", default="tony", choices=list(TRACKERS))
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--separate", default=None,
+                    help="source-separation backend to run first (see ../source-separation)")
     args = ap.parse_args()
-    extract(args.tracker, limit=args.limit, force=args.force)
+    extract(args.tracker, limit=args.limit, force=args.force, separate=args.separate)

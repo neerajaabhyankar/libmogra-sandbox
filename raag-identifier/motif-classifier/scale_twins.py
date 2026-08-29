@@ -32,8 +32,8 @@ def twin_groups():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--methods", nargs="+", default=["m3", "m10"])
-    ap.add_argument("--tonics", nargs="+", default=["video", "true"])
+    ap.add_argument("--methods", nargs="+", default=["m3", "m10", "m11", "m12", "m9c"])
+    ap.add_argument("--tonics", nargs="+", default=["true"])
     args = ap.parse_args()
 
     groups = twin_groups()
@@ -47,19 +47,32 @@ def main():
     print()
 
     from tonic_ablation import METHODS
+    EXTRA = {
+        "m11": (dict(n_bins=120, source="frames", tracker="crepe", metric="chi2",
+                     smooth=1.0, power=0.5, tonic_mode="true"), ()),
+        "m12": (dict(n_bins=120, source="frames", tracker="crepe", metric="chi2",
+                     smooth=1.0, power=0.5, tonic_mode="true", lam=0.3), ()),
+        "m9c": (dict(tracker="crepe", n_bins=80, tau=0.3, smooth=1.0,
+                     tonic_mode="true", metric="chi2"), ()),
+    }
+    METHODS = {**METHODS, **EXTRA}
     hdr = f"{'method':8s} {'tonic':8s} {'twin-clip top1':>14s} {'-> a twin':>10s} {'all-clip top1':>14s}"
     print(hdr); print("-" * len(hdr))
     for name in args.methods:
         method_kw, extra = METHODS[name]
+        real = "m9" if name == "m9c" else name
         for tonic in args.tonics:
             rep = Params(**BASE_REP, tonic_mode=tonic)
             feats = train_feats(rep, {}, extra)
             fold = group_folds([f.clip for f in feats])
-            m = make_method(name, **method_kw)
+            m = make_method(real, **method_kw)
+            if m.fitted:
+                # templates come from train only; twins are scored by a model that never
+                # saw them in its own fold... this diagnostic fits on all train clips, so
+                # read it as an upper bound on twin separability, not a CV number
+                m.fit(feats)
             hit = tot = twin_hit = twin_tot = twin_to_twin = 0
             for f in feats:
-                if m.fitted:  # not used by m3/m10, kept so the harness stays honest
-                    continue
                 pred = m.predict(f)
                 true = f.clip.raag
                 hit += pred == true; tot += 1

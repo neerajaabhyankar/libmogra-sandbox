@@ -91,7 +91,8 @@ class TDMS(Method):
     fitted = True
 
     def __init__(self, n_bins=40, tau=0.3, smooth=1.0, power=0.5, metric="cosine",
-                 shift_mode="none", tracker="tony", tonic_mode="video", **kw):
+                 shift_mode="none", tracker="tony", tonic_mode="video",
+                 separate=None, **kw):
         super().__init__(sorted(dataset_raags()), shift_mode="none", **kw)
         self.n_bins, self.tau, self.smooth, self.power = n_bins, tau, smooth, power
         self.metric, self.tracker = metric, tracker
@@ -100,6 +101,9 @@ class TDMS(Method):
         # the clip. It still has to follow the representation's *policy*: hardcoding
         # "video" here made the method silently blind to the v1 annotation.
         self.tonic_mode = tonic_mode
+        # same reason as tonic_mode: this class reaches for its own cache, so it needs to
+        # be told which one — otherwise it silently reads unseparated audio
+        self.separate = separate
         self.refs = np.zeros((len(self.raags), n_bins, n_bins))
         self._cache = {}
 
@@ -113,7 +117,7 @@ class TDMS(Method):
             from represent import _load
 
             cache, _, clip_tonics, video_tonics = _load(
-                self.tracker, self.tonic_mode, True, 2400.0, _TONIC_KW
+                self.tracker, self.tonic_mode, True, 2400.0, _TONIC_KW, self.separate
             )
             entry = cache.get(key)
             if entry is None:
@@ -157,6 +161,8 @@ class TDMS(Method):
             return (R @ x) / (np.linalg.norm(R, axis=1) * np.linalg.norm(x) + EPS)
         if self.metric == "dot":
             return R @ x
+        if self.metric == "chi2":  # symmetric chi-square distance, negated
+            return -np.sum((R - x[None, :]) ** 2 / (R + x[None, :] + EPS), axis=1)
         # negative L2, so higher is still better
         return -np.linalg.norm(R - x[None, :], axis=1)
 
@@ -175,15 +181,26 @@ class TDMSPlus(Method):
     name = "m9_tdms_plus"
     fitted = True
 
-    def __init__(self, w_tdms=1.0, base="m7", base_kw=None, tdms_kw=None, **kw):
+    def __init__(self, w_tdms=1.0, base="m7", base_kw=None, tdms_kw=None,
+                 tdms_cls="m9", calibrate="none", **kw):
         from evaluate import make_method
 
-        self.tdms = TDMS(**(tdms_kw or {}))
+        # `tdms_cls="m11"` swaps the 2-D surface for its 1-D marginal (a plain pitch
+        # histogram), so the same fusion shell measures what the delay axis is worth.
+        self.tdms = make_method(tdms_cls, **(tdms_kw or {}))
         self.base = make_method(base, **(base_kw or {}))
         super().__init__(self.tdms.raags, shift_mode="none", **kw)
         self.w_tdms = w_tdms
         self.order = [self.base.raags.index(r) for r in self.raags]
         self.stats = None
+        # Per-raag hubness calibration. The M14 confusion matrix shows six labels absorbing
+        # far more predictions than they own (Jaijaivanti 69 for 45 true clips, Des 69 for
+        # 40) while recalling their own badly — a template that sits close to everything,
+        # not a musical confusion. Standardising each raag's score distribution over train
+        # removes the offset; this is the same fix M7 carried and the histogram line lost.
+        self.calibrate = calibrate
+        self.mu = None
+        self.sigma = None
 
     def fit(self, feats):
         self.tdms.fit(feats)
@@ -194,6 +211,16 @@ class TDMSPlus(Method):
             A = np.stack([self.tdms.score_at(f, 0) for f in usable])
             B = np.stack([self.base.score_at(f, 0)[self.order] for f in usable])
             self.stats = (A.mean(), A.std() + EPS, B.mean(), B.std() + EPS)
+        if self.calibrate != "none" and usable:
+            am, asd, bm, bsd = self.stats
+            S = np.stack([
+                self.w_tdms * (self.tdms.score_at(f, 0) - am) / asd
+                + (self.base.score_at(f, 0)[self.order] - bm) / bsd
+                for f in usable
+            ])
+            self.mu = S.mean(axis=0)
+            self.sigma = (S.std(axis=0) + EPS) if self.calibrate == "zscore" \
+                else np.ones(S.shape[1])
         return self
 
     def score_at(self, feat, k):
@@ -202,4 +229,7 @@ class TDMSPlus(Method):
         if self.stats is None:
             return self.w_tdms * a + b
         am, asd, bm, bsd = self.stats
-        return self.w_tdms * (a - am) / asd + (b - bm) / bsd
+        s = self.w_tdms * (a - am) / asd + (b - bm) / bsd
+        if self.mu is None:
+            return s
+        return (s - self.mu) / self.sigma

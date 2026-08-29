@@ -341,18 +341,24 @@ def stage_m9(rep_kw):
     tm = rep_kw.get("tonic_mode", "video")
     rows = sweep(
         "m9", "m9", [dict(rep_kw, collapse_repeats=True)],
-        [dict(tracker=t, n_bins=nb, tau=ta, smooth=sm, tonic_mode=tm)
+        # `metric` turned out to matter more than any of the resolution knobs: chi-square
+        # compares two normalised histograms bin-by-bin relative to their own magnitude,
+        # where cosine lets a few high-energy bins dominate the inner product.
+        [dict(tracker=t, n_bins=nb, tau=ta, smooth=sm, tonic_mode=tm, metric=me)
          for t in ("crepe", "tony")
-         for nb, ta, sm in [(40, 0.3, 1.0), (60, 0.3, 1.0), (40, 0.15, 1.0),
-                            (60, 0.15, 1.0), (80, 0.3, 2.0)]],
+         for me in ("chi2", "cosine")
+         for nb, ta, sm in [(40, 0.3, 1.0), (60, 0.3, 1.0), (60, 0.15, 1.0),
+                            (80, 0.3, 1.0), (80, 0.15, 2.0), (120, 0.3, 2.0)]],
     )
     M4 = {"w_crepe": 1.0, "primary": "tony"}
     rows += sweep(
         "m9plus", "m9plus", [dict(rep_kw, collapse_repeats=True)],
         [{"w_tdms": w, "base": "m4", "base_kw": dict(M4),
-          "tdms_kw": {"tracker": "crepe", "n_bins": nb, "tau": ta, "tonic_mode": tm}}
-         for w in (0.5, 1.0, 1.5, 2.0)
-         for nb, ta in ((60, 0.3), (60, 0.15))],
+          "tdms_kw": {"tracker": "crepe", "n_bins": nb, "tau": ta, "tonic_mode": tm,
+                      "metric": me}}
+         for w in (0.5, 1.0, 1.5, 2.0, 3.0)
+         for me in ("chi2", "cosine")
+         for nb, ta in ((80, 0.3), (60, 0.3))],
         extra_trackers=("crepe",),
     )
     return rows
@@ -380,9 +386,71 @@ def stage_m10(rep_kw):
     return rows
 
 
+def stage_m12(rep_kw):
+    """The database as a prior — first on the histogram, then on the n-gram LM, then both.
+
+    `m14` is the combination: occupancy (where the raag sits) plus transitions (how it
+    moves), each with the DB mixed in as a prior rather than used as the whole model.
+    """
+    tm = rep_kw.get("tonic_mode", "video")
+    sep = rep_kw.get("separate")
+    HIST = dict(n_bins=120, source="frames", tracker="crepe", metric="chi2",
+                smooth=1.0, power=0.5, tonic_mode=tm, separate=sep)
+    rep = [dict(rep_kw, collapse_repeats=True)]
+
+    rows = sweep("m12", "m12", rep,
+                 [dict(HIST, lam=l, n_bins=nb)
+                  for l in (0.0, 0.15, 0.3, 0.45, 0.6, 1.0)
+                  for nb in (80, 120, 240)])
+    rows += sweep("m13", "m13", rep,
+                  [dict(lam_db=l, which=w, w_uni=wu, order=o)
+                   for l in (0.0, 0.3, 0.5, 1.0)
+                   for w in ("bigram_dur", "bigram", "bigram_skip")
+                   for wu in (0.0, 0.3)
+                   for o in (2,)])
+    rows += sweep("m14", "m9plus", rep,
+                  [{"w_tdms": w, "base": "m13",
+                    "base_kw": dict(lam_db=0.3, which="bigram_dur", w_uni=0.3),
+                    "tdms_kw": dict(HIST, lam=l), "tdms_cls": "m12"}
+                   for w in (1.5, 2.0, 3.0, 4.0)
+                   for l in (0.15, 0.3, 0.45)])
+    return rows
+
+
+def stage_m11(rep_kw):
+    """The histogram floor, and what it costs to quantize it.
+
+    `n_bins=12` is the classical pitch-class-distribution baseline; 60-120 keeps shruti.
+    The gap between them is the price of rounding to semitones, measured directly.
+    """
+    tm = rep_kw.get("tonic_mode", "video")
+    sep = rep_kw.get("separate")
+    rows = sweep(
+        "m11", "m11", [dict(rep_kw, collapse_repeats=True)],
+        [dict(n_bins=nb, source=src, tracker=tr, metric=met, smooth=sm, power=pw,
+              tonic_mode=tm, separate=sep)
+         for src in ("frames",)
+         for tr in ("crepe", "tony")
+         for nb in (12, 24, 60, 120, 240)
+         for met in ("cosine", "chi2")
+         for sm, pw in ((1.0, 0.5), (2.0, 0.5), (1.0, 1.0))],
+    )
+    M4 = {"w_crepe": 1.0, "primary": "tony"}
+    rows += sweep(
+        "m11plus", "m9plus", [dict(rep_kw, collapse_repeats=True)],
+        [{"w_tdms": w, "base": "m4", "base_kw": dict(M4),
+          "tdms_kw": {"n_bins": 120, "tracker": "crepe", "tonic_mode": tm,
+                      "separate": sep, "source": "frames"},
+          "tdms_cls": "m11"}
+         for w in (0.5, 1.0, 1.5, 2.0)],
+        extra_trackers=("crepe",),
+    )
+    return rows
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", required=True, choices=["rep", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10"])
+    ap.add_argument("--stage", required=True, choices=["rep", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m11", "m12"])
     ap.add_argument("--rep", default=None, help="JSON dict of representation params for method stages")
     args = ap.parse_args()
 
@@ -392,4 +460,5 @@ if __name__ == "__main__":
         rep_kw = json.loads(args.rep) if args.rep else DEFAULT_REP
         {"m1": stage_m1, "m2": stage_m2, "m3": stage_m3, "m4": stage_m4,
          "m5": stage_m5, "m6": stage_m6, "m7": stage_m7,
-         "m8": stage_m8, "m9": stage_m9, "m10": stage_m10}[args.stage](rep_kw)
+         "m8": stage_m8, "m9": stage_m9, "m10": stage_m10,
+         "m11": stage_m11, "m12": stage_m12}[args.stage](rep_kw)

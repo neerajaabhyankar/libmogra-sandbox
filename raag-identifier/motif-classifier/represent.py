@@ -38,6 +38,7 @@ class Params:
     """Everything about turning audio-derived notes into a swar string."""
 
     tracker: str = "tony"
+    separate: str = None  # ../source-separation backend applied before tracking, or None
     note_source: str = "hmm"  # "hmm" = the tracker's own notes | "segment" = melody-extraction's segment_notes on the frame track
     tonic_mode: str = "chroma_video"  # {clip,video} = melody-extraction's heuristic; {chroma_clip,chroma_video} adds the Sa-vs-Pa correction; "true" = the dataset's hand annotation (v1 only)
     tonic_refine: bool = True  # recover the sub-semitone tuning offset
@@ -189,9 +190,9 @@ def _annotated_tonics(clips):
 
 
 @lru_cache(maxsize=16)
-def _load(tracker, mode, refine, max_cents_dev, chroma_items):
+def _load(tracker, mode, refine, max_cents_dev, chroma_items, separate=None):
     """Cache + both tonic estimates, computed once per (tracker, tonic setting)."""
-    cache = load_cache(tracker)
+    cache = load_cache(tracker, separate)
     chroma_kw = dict(chroma_items)
     clips = [c for c in list_clips() if c["clip_id"] in cache]
     if mode == "true":
@@ -295,6 +296,7 @@ def build_clips(p: Params):
             ("gamma", p.tonic_gamma),
             ("median_target", p.tonic_median_target),
         ),
+        p.separate,
     )
     out = []
     for c in clip_meta:
