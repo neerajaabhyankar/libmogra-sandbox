@@ -1,6 +1,6 @@
 """Confusion matrices on the test split, one PNG per method.
 
-50 classes over 92 test clips means the matrix is *sparse by construction* — at most 92 of
+50 classes over a small test split means the matrix is *sparse by construction* — at most one cell per clip of
 2500 cells are non-zero. So the design leans on that: a single-hue sequential ramp for the
 counts (magnitude, one hue, light -> dark), empty cells left as bare surface, and the
 diagonal outlined so correct predictions read at a glance rather than having to be traced

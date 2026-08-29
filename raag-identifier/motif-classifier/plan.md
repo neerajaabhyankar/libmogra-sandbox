@@ -9,6 +9,11 @@ touches audio is the note transcription from `../melody-extraction`.
 
 ## Headline result
 
+> **Superseded by dataset v1 (2026-08-28) — see [v1 of the dataset](#v1-of-the-dataset-the-tonic-stops-being-a-guess) at the end.**
+> Everything in this section was measured on v0 (~6 s clips, estimated tonic). It is kept as
+> written: the v0 numbers are still the control that the v1 comparisons are measured against.
+> Current best is **M9+ at 0.353 test top-1**, against the 0.185 below.
+
 50-way, chance = 0.020. Test = the held-out `test_*` clips, scored once, with the config
 grouped-CV on train picked. Full tables + confusion matrices in
 [`results/RESULTS.md`](results/RESULTS.md).
@@ -608,3 +613,196 @@ poetry run python ceilings.py
   shared emission matrix, M6's rotation prior, and M7's per-raag offsets — all refit per CV
   fold, none raag-specific except the last.
 - Talas/laya, ornament classification, octave-aware matching.
+
+---
+
+# v1 of the dataset: the tonic stops being a guess
+
+Everything above this line was measured on **v0** — 1253 clips of ~6 s, tonic estimated from
+the audio. On 2026-08-28 the dataset shipped **v1**, and it changed two things at once:
+
+| | v0 | v1 |
+|---|---|---|
+| clips | 1161 train / 92 test | 1810 train / 150 test |
+| clip length | ~6 s | 20-60 s |
+| audio | 2.1 h | 11.8 h |
+| videos | 432 | 412 (20 dropped, 6 added) |
+| tonic | estimated | **hand-annotated, per recording** |
+
+Two changes at once is a confound, so they are separated below rather than reported as one
+number. Results live in [`results/v1/`](results/v1); v0's stay in [`results/`](results)
+and `RAAG_DATA_VERSION=v0` reproduces them.
+
+**Loading note.** The v1 audio exists only in the parquet files. The `<Raag>/*.mp3` tree at
+the repo root is still v0, and the `metadata.csv` the dataset card promises beside it does
+not exist — a loader that reads the raw layout silently gets v0 while believing it has v1.
+`materialize` from parquet; `audio.path` still carries `{split}_[{video}]_chunk{n}.mp3`,
+which is what grouped-by-video CV needs.
+
+## How good was the tonic heuristic, really?  (`tonic_audit.py`)
+
+Until now the estimator could only be judged by downstream accuracy. With ground truth it
+can be scored directly. Every method here is octave-folded, so **the error that matters is
+mod 12** — an octave error costs nothing.
+
+| tonic policy | pitch-class exact | off by a 4th | abs. within 50c | fine tuning (MAD) |
+|---|---|---|---|---|
+| per-video, refined | **0.619** | 0.11 | 0.190 | 3c |
+| per-clip, refined | 0.523 | 0.13 | 0.163 | 4c |
+| per-video + Sa-vs-Pa correction | 0.474 | 0.27 | 0.138 | 3c |
+| per-clip + Sa-vs-Pa correction | 0.429 | 0.21 | 0.123 | 4c |
+
+1. **The heuristic gets Sa's pitch class right 62 % of the time.** The 19 % "absolute"
+   figure is misleading: 43 % of its errors are pure octave errors, invisible downstream.
+2. **When it finds the right pitch class its tuning is excellent — 3 cents.** The failure is
+   entirely categorical (*which* scale degree is Sa), never fine. So the annotation's value
+   is concentrated in the ~38 % of clips where the heuristic picks the wrong degree, not
+   spread thinly over all of them.
+3. **The Sa-vs-Pa correction is actively harmful** — 0.619 → 0.474 — and it fails in a
+   specific way: it roughly *doubles* fourth-errors (219 → 534 clips landing a fifth below
+   true Sa). Built to fix Sa/Pa confusion, it manufactures it in the other direction.
+   Every tuned config had already settled on plain `video`, so no earlier result depends on
+   it, but `Params.tonic_mode` still defaults to `chroma_video` and **that default is wrong**.
+
+## What the tonic buys  (`tonic_ablation.py`)
+
+Same v1 audio, same tuned configs, only the tonic policy moving. Train CV.
+
+| method | heuristic | + Sa-vs-Pa | **annotated** | tonic gain |
+|---|---|---|---|---|
+| M3 phrase grammar | 0.167 | 0.135 | 0.271 | +62 % |
+| M4 Tony + CREPE | 0.170 | 0.134 | 0.283 | +66 % |
+| M7 channel + calibration | 0.214 | 0.146 | 0.329 | +54 % |
+| M9 melody surface | 0.192 | 0.159 | **0.340** | **+77 %** |
+| M9+ M4 + surface | 0.210 | 0.172 | **0.360** | +71 % |
+| M10 emphasis (new, below) | 0.089 | 0.076 | 0.153 | +72 % |
+
+And the two v1 changes separate cleanly, on M3:
+
+* **clip length** (v0 → v1, heuristic held fixed): 0.107 → 0.167
+* **tonic** (heuristic → annotated, audio held fixed): 0.167 → **0.271**
+
+The tonic is worth more than every modelling idea in this project put together. M3 — the
+simplest DB method — beats v0's best method (M9+, 0.135) by a factor of two, purely by being
+told where Sa is.
+
+**M9 gains the most (+77 %).** That fits: a continuous pitch surface is far more sensitive to
+a wrong rotation than a smoothed bigram grammar, which can absorb some of the error.
+
+> **Bug found by this ablation.** M9's first run returned *bit-identical* numbers under all
+> three policies. `TDMS` builds its surface from a second tracker's frames and so looks the
+> tonic up itself rather than taking the clip's — and that lookup hardcoded
+> `_load(self.tracker, "video", ...)`, making the method structurally blind to the
+> annotation. It now takes `tonic_mode`. The invariance was the tell: three policies that
+> disagree on 40 % of clips cannot produce identical accuracy.
+
+## Is the tonic finished?  (oracle headroom)
+
+`ceilings.oracle_tonic` picks each clip's rotation using the true label — cheating, so it
+bounds what *any* tonic work could buy.
+
+| | honest | oracle rotation | headroom |
+|---|---|---|---|
+| heuristic tonic | 0.174 | 0.348 | +0.174 |
+| **annotated tonic** | 0.275 | 0.352 | **+0.077** |
+
+The annotation captures **58 % of the available headroom**. The ceiling barely moves
+(0.348 → 0.352), which is the sanity check that matters: the oracle maximises over all 12
+rotations and therefore should not depend on where it starts. The residual +0.077 is
+annotation error, within-video tonic drift, and some pure oracle optimism.
+
+## M10 — emphasis and register  *(the method the tonic unlocks — and it failed)*
+
+Auditing the DB turned up two signals that every method had been discarding:
+
+* `vaadi`/`samvaadi` are parsed and used by exactly one method (M2), which puts them in the
+  same **binary** mask as `nyas` — so Bhoopali (vaadi G, samvaadi D) and Deshkar (vaadi D,
+  samvaadi G) get *identical* templates despite sharing a scale and differing in nothing
+  else. Ranking the emphasis should separate them.
+* `phrase_octaves` and `aaroha_oct` are parsed and used **nowhere**.
+
+Both are claims about where weight sits *relative to Sa*, so both were unusable under an
+estimated tonic — which is what makes this the method that could not have been written
+before v1.
+
+**Result: it does not work, and the failure is informative.** There are 8 scale-sharing
+groups covering 20 raags (`scale_twins.py`). On those clips specifically:
+
+| | twin-clip top-1 | confuses into a twin | all-clip top-1 |
+|---|---|---|---|
+| M3, annotated tonic | **0.240** | 0.131 | 0.272 |
+| M10, annotated tonic | 0.140 | 0.113 | 0.151 |
+
+M10 is *worse on the very pairs it was built for*, and its twin accuracy sits below its own
+overall accuracy, so it does not find them easier either. Fused with M3 it adds nothing and
+hurts monotonically — 0.271 / 0.271 / 0.266 / 0.244 / 0.220 at weights 0 / 0.25 / 0.5 / 1 / 2.
+Best weight is zero.
+
+Why: M3's unigram term is already built from scale plus phrase statistics with a
+`nyas_boost`, so emphasis is **already in there** — M10 is redundant, not complementary. The
+register half was doomed separately: the DB marks too few octaves to discriminate anything
+(every raag comes out ~77 % madhya, median pairwise template distance 0.108 against 1.125
+for emphasis). *Musicians describe Deshkar vs Bhoopali as a register difference; the database
+does not encode it.* That gap, not the method, is the finding.
+
+## What the annotation makes obsolete
+
+Two pieces of machinery built to work around a bad tonic stop earning their place:
+
+* **M7's rotation marginalisation.** Re-tuned on v1, `marginalise_tonic: False` wins
+  (0.329 vs 0.292). The 12-way marginalisation existed only because the tonic was unknown.
+* **M7's channel HMM** is now a rounding error: 0.329 with it, 0.326 without.
+* **M6** (joint tonic + raag, learned rotation prior) is moot by construction.
+
+Conversely, one representation knob flipped: **narrowing to ±1 octave now costs 10 points**
+(0.273 → 0.172), where on v0 it barely mattered. Under a wrong tonic the outer octaves were
+junk; under the right one they are real melodic material. Otherwise the v0 representation
+choices transfer unchanged (Tony's note HMM, `min_dur` irrelevant, `collapse_repeats` inside
+the noise).
+
+## v1 headline: the held-out test split
+
+Re-tuned on v1 train with the annotated tonic, then a single pass over the 150 held-out
+clips. Full tables in [`results/v1/RESULTS.md`](results/v1/RESULTS.md).
+
+| method | train top-1 (CV) | **test top-1** | test top-5 | test MRR | by video-vote |
+|---|---|---|---|---|---|
+| M3 phrase grammar | 0.285 | 0.227 (34/150) | 0.607 | 0.385 | 0.420 |
+| M4 Tony + CREPE | 0.291 | 0.253 (38/150) | 0.580 | 0.416 | 0.420 |
+| M7 channel + calibration | 0.332 | 0.273 (41/150) | 0.607 | 0.437 | 0.500 |
+| M9 melody surface (**no** mukhyanga) | 0.338 | 0.340 (51/150) | 0.647 | 0.482 | 0.480 |
+| **M9+ M4 + melody surface** | **0.381** | **0.353 (53/150)** | **0.673** | **0.498** | **0.540** |
+| _v0's best (M7 / M9+)_ | 0.149 | 0.185 (17/92) | 0.359 | 0.281 | 0.152 |
+| _supervised spectrogram ResNet (v0)_ | — | 0.174 | — | — | — |
+| _chance_ | 0.020 | 0.020 | 0.100 | 0.090 | 0.020 |
+
+**M9+ nearly doubles v0's best: 0.353 against 0.185**, at 17.6x chance. The median rank of
+the true raag is **3 of 50**, and 33 of the 50 raags are correct at rank 1 on at least one
+clip. Two thirds of the gain is the tonic, one third the longer clips.
+
+The ranking also reshuffled: **M9 alone (0.340) now beats M7 (0.273)** — with no mukhyanga,
+no phrase grammar, no database at all beyond the candidate list. Give the un-quantized
+contour a correct Sa and it outperforms every knowledge-driven method here.
+
+Calibration improved too: M9+'s NLL is 2.817 against 3.912 for chance, where on v0 M9's was
+*worse* than chance (4.050). And the mistakes stayed musical — mistake affinity 0.398
+against a 0.264 chance baseline, MEA 0.508 against 0.275, both the best in the project.
+The near-misses read like a musician's: Bageshree → Bheempalasi (0.74), Kafi → Bageshree
+(0.73), Bihag → Hameer (0.72).
+
+## What is left
+
+**The tonic is still the lever, even annotated.** Two independent signals agree:
+
+1. Oracle-rotation headroom is still **+0.077** over the annotated tonic.
+2. **15.5 % of M9+'s test errors are near-exact rotations** of the true scale (chance 10.2 %)
+   — Shivranjani → Hindol scores affinity 0.16 but **1.00 after rotating by 3 semitones**.
+
+With a hand-annotated Sa those should not exist. They point at annotation errors on specific
+videos, or at genuine within-recording drift the per-video constant cannot follow. The next
+move is not a new method: it is **re-checking the annotation on the videos whose errors are
+pure rotations**, which the confusion output now names directly.
+
+Second: M9+'s remaining `w_tdms` was tuned to 1.5 and the sweep did not turn over — the
+surface may deserve still more weight, and its resolution knobs (`n_bins`, `tau`) were only
+coarsely searched at the new clip length.

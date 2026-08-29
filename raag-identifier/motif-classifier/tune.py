@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 
+from extract import DATA_VERSION
 from evaluate import evaluate, evaluate_by_video, group_folds, make_method
 from features import build_features
 from dataclasses import replace
@@ -27,8 +28,10 @@ from features import align_trackers, estimate_tuning_offsets
 from represent import Params, build_clips
 
 HERE = Path(__file__).resolve().parent
-RESULTS = HERE / "results"
-RESULTS.mkdir(exist_ok=True)
+# v0 results stay exactly where plan.md links them; v1 gets its own subdirectory so the
+# two dataset versions never overwrite each other's sweeps.
+RESULTS = HERE / "results" / ("" if DATA_VERSION == "v0" else DATA_VERSION)
+RESULTS.mkdir(parents=True, exist_ok=True)
 
 _FEAT_CACHE = {}
 
@@ -332,19 +335,46 @@ def stage_m8(rep_kw):
 
 def stage_m9(rep_kw):
     """Un-quantized contour evidence: time-delayed melody surfaces, alone and fused."""
+    # TDMS builds its surface from its own tracker's frames and therefore looks the tonic
+    # up itself; it must be told the representation's policy or it silently falls back to
+    # the heuristic and becomes blind to an annotated tonic.
+    tm = rep_kw.get("tonic_mode", "video")
     rows = sweep(
         "m9", "m9", [dict(rep_kw, collapse_repeats=True)],
-        [dict(tracker=t, n_bins=nb, tau=ta, smooth=sm)
+        [dict(tracker=t, n_bins=nb, tau=ta, smooth=sm, tonic_mode=tm)
          for t in ("crepe", "tony")
          for nb, ta, sm in [(40, 0.3, 1.0), (60, 0.3, 1.0), (40, 0.15, 1.0),
                             (60, 0.15, 1.0), (80, 0.3, 2.0)]],
     )
     M4 = {"w_crepe": 1.0, "primary": "tony"}
-    TD = {"tracker": "crepe", "n_bins": 60, "tau": 0.3}
     rows += sweep(
         "m9plus", "m9plus", [dict(rep_kw, collapse_repeats=True)],
-        [{"w_tdms": w, "base": "m4", "base_kw": dict(M4), "tdms_kw": dict(TD)}
-         for w in (0.25, 0.5, 0.75, 1.0)],
+        [{"w_tdms": w, "base": "m4", "base_kw": dict(M4),
+          "tdms_kw": {"tracker": "crepe", "n_bins": nb, "tau": ta, "tonic_mode": tm}}
+         for w in (0.5, 1.0, 1.5, 2.0)
+         for nb, ta in ((60, 0.3), (60, 0.15))],
+        extra_trackers=("crepe",),
+    )
+    return rows
+
+
+def stage_m10(rep_kw):
+    """Emphasis + register. Only meaningful under an annotated tonic, so that is pinned."""
+    rep = dict(rep_kw, collapse_repeats=True, tonic_mode="true")
+    rows = sweep(
+        "m10", "m10", [rep],
+        [dict(w_emph=1.0, w_reg=wr, w_vivadi=wv, vaadi_w=vw, samvaadi_w=sw,
+              nyas_w=1.0, scale_w=0.5, reg_prior=0.25)
+         for wr in (0.0, 0.25, 0.5, 1.0)
+         for wv in (0.0, 0.5, 1.0, 2.0)
+         for vw, sw in ((3.0, 2.0), (2.0, 1.5), (5.0, 2.0), (1.0, 1.0))],
+    )
+    # fused with the best phrase method, the same way M9 was
+    M4 = {"w_crepe": 1.0, "primary": "tony"}
+    rows += sweep(
+        "m10plus", "m10plus", [rep],
+        [{"w_reg": w, "base": "m4", "base_kw": dict(M4), "reg_kw": {}}
+         for w in (0.25, 0.5, 1.0, 2.0)],
         extra_trackers=("crepe",),
     )
     return rows
@@ -352,7 +382,7 @@ def stage_m9(rep_kw):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", required=True, choices=["rep", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9"])
+    ap.add_argument("--stage", required=True, choices=["rep", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10"])
     ap.add_argument("--rep", default=None, help="JSON dict of representation params for method stages")
     args = ap.parse_args()
 
@@ -362,4 +392,4 @@ if __name__ == "__main__":
         rep_kw = json.loads(args.rep) if args.rep else DEFAULT_REP
         {"m1": stage_m1, "m2": stage_m2, "m3": stage_m3, "m4": stage_m4,
          "m5": stage_m5, "m6": stage_m6, "m7": stage_m7,
-         "m8": stage_m8, "m9": stage_m9}[args.stage](rep_kw)
+         "m8": stage_m8, "m9": stage_m9, "m10": stage_m10}[args.stage](rep_kw)

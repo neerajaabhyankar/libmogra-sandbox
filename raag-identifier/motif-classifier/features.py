@@ -68,7 +68,7 @@ class ClipFeatures:
     """
 
     __slots__ = ("clip", "unigram_dur", "unigram_count", "bigram", "bigram_dur", "bigram_skip",
-                 "trigram", "ngrams", "n_notes", "soft")
+                 "trigram", "ngrams", "n_notes", "soft", "reg_dur")
 
     def __init__(self, clip, n_min=2, n_max=4, max_skip=1, skip_decay=0.5,
                  soft_sigma=0.0, tuning_offsets=None):
@@ -86,6 +86,20 @@ class ClipFeatures:
         self.unigram_dur = (self.soft * np.asarray(d, dtype=float)[:, None]).sum(axis=0) \
             if len(s) else np.zeros(12)
         self.unigram_count = self.soft.sum(axis=0) if len(s) else np.zeros(12)
+
+        # (3, 12) duration mass by register x swar — mandra / madhya / taar. Every other
+        # feature here is octave-folded, which throws away the only thing separating some
+        # pairs (Deshkar and Bhoopali share a scale and differ in where the weight sits).
+        # Register is only meaningful once Sa is right, so this stayed unused until v1's
+        # annotated tonic made "one octave above Sa" a fact rather than an estimate.
+        self.reg_dur = np.zeros((3, 12))
+        if len(s):
+            oct_idx = np.clip(np.asarray(clip.octaves, dtype=int), -1, 1) + 1
+            dur = np.asarray(d, dtype=float)
+            for r in range(3):
+                m = oct_idx == r
+                if m.any():
+                    self.reg_dur[r] = (self.soft[m] * dur[m, None]).sum(axis=0)
 
         # three views of the same transitions, because the noise here is specific:
         #   bigram      plain counts
@@ -131,6 +145,15 @@ class ClipFeatures:
 
     def rot_swars(self, k):
         return [(x + k) % 12 for x in self.clip.swars]
+
+    def rot_reg_dur(self, k):
+        """Register x swar mass, pitch-class axis rolled.
+
+        Only the swar axis rolls: a real tonic change would also move notes across octave
+        boundaries. Harmless where this is used (M10 runs with the annotated tonic and
+        `shift_mode="none"`), but it makes the rotated view an approximation, not a fact.
+        """
+        return np.roll(self.reg_dur, k, axis=1)
 
     def rot_soft(self, k):
         """(N, 12) soft memberships, rolled — soft evidence for the channel HMM."""

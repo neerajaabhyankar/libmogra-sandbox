@@ -91,10 +91,15 @@ class TDMS(Method):
     fitted = True
 
     def __init__(self, n_bins=40, tau=0.3, smooth=1.0, power=0.5, metric="cosine",
-                 shift_mode="none", tracker="tony", **kw):
+                 shift_mode="none", tracker="tony", tonic_mode="video", **kw):
         super().__init__(sorted(dataset_raags()), shift_mode="none", **kw)
         self.n_bins, self.tau, self.smooth, self.power = n_bins, tau, smooth, power
         self.metric, self.tracker = metric, tracker
+        # The surface is built from `tracker`'s own frames, which is usually not the
+        # representation's tracker, so the tonic has to be looked up rather than taken from
+        # the clip. It still has to follow the representation's *policy*: hardcoding
+        # "video" here made the method silently blind to the v1 annotation.
+        self.tonic_mode = tonic_mode
         self.refs = np.zeros((len(self.raags), n_bins, n_bins))
         self._cache = {}
 
@@ -107,8 +112,8 @@ class TDMS(Method):
         if key not in self._cache:
             from represent import _load
 
-            cache, _, _clip_tonics, video_tonics = _load(
-                self.tracker, "video", True, 2400.0, _TONIC_KW
+            cache, _, clip_tonics, video_tonics = _load(
+                self.tracker, self.tonic_mode, True, 2400.0, _TONIC_KW
             )
             entry = cache.get(key)
             if entry is None:
@@ -116,7 +121,8 @@ class TDMS(Method):
             else:
                 self._cache[key] = melody_surface(
                     entry["f0"], entry["voiced"], entry["hop"],
-                    video_tonics.get(f.clip.video, f.clip.tonic_hz),
+                    (clip_tonics.get(key) if self.tonic_mode in ("clip", "chroma_clip")
+                     else video_tonics.get(f.clip.video)) or f.clip.tonic_hz,
                     n_bins=self.n_bins, tau=self.tau, smooth=self.smooth, power=self.power,
                 )
         return self._cache[key]

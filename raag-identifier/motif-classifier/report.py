@@ -13,6 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
+from extract import DATA_VERSION
 from evaluate import evaluate, evaluate_by_video, make_method
 from features import build_features
 from confusion import plot_confusion
@@ -21,7 +22,9 @@ from raagdb import dataset_raags
 from represent import Params, build_clips
 
 HERE = Path(__file__).resolve().parent
-RESULTS = HERE / "results"
+# v0 results stay exactly where plan.md links them; v1 gets its own subdirectory so the
+# two dataset versions never overwrite each other's sweeps.
+RESULTS = HERE / "results" / ("" if DATA_VERSION == "v0" else DATA_VERSION)
 
 METHODS = [
     ("m1", "exact mukhyanga substring match"),
@@ -93,23 +96,24 @@ def run_split(method, cfg, split):
     return metrics, rows
 
 
-def main(from_cache=False):
+def main(from_cache=False, only=None):
     cached = json.loads((RESULTS / "final.json").read_text()) if from_cache else None
+    methods = [mb for mb in METHODS if not only or mb[0] in only]
     labels = sorted(dataset_raags())
     out = {}
     mus_lines = []
     lines = [
         "# Results",
         "",
-        "50-way raag identification on `hindustani-raag-small`. Chance = 0.020 (1/50); the",
-        "majority class is 3.6 % of test. Train numbers are 5-fold **grouped-by-video** CV on the",
+        f"50-way raag identification on `hindustani-raag-small` ({DATA_VERSION}). Chance = 0.020",
+        "(1/50). Train numbers are 5-fold **grouped-by-video** CV on the",
         "train split (used for tuning); test numbers are a single pass over the held-out test",
         "split with the config that CV chose, run once.",
         "",
         "| method | train top-1 (CV) | **test top-1** | test top-5 | test MRR | test top-1 by video-vote | confusion matrix |",
         "|---|---|---|---|---|---|---|",
     ]
-    for method, blurb in METHODS:
+    for method, blurb in methods:
         if cached and method in cached:
             cfg = cached[method]["config"]
             test_m, test_rows = dict(cached[method]["test"]), cached[method]["test_rows"]
@@ -127,7 +131,7 @@ def main(from_cache=False):
             test_rows,
             labels,
             f"{method} — {blurb}".replace("**", ""),  # titles are plain text, not markdown
-            f"test split, 92 clips over 50 candidate raags · "
+            f"test split, {len(test_rows)} clips over 50 candidate raags · "
             f"top-1 {test_m['top1']:.3f} · top-5 {test_m['top5']:.3f} · "
             f"diagonal outlined = correct",
             RESULTS / f"confusion_{method}.png",
@@ -176,7 +180,7 @@ def main(from_cache=False):
         "## Chosen configurations",
         "",
     ]
-    for method, _ in METHODS:
+    for method, _ in methods:
         cfg = out[method]["config"]
         lines += [
             f"**{method}**",
@@ -189,7 +193,7 @@ def main(from_cache=False):
         ]
 
     # what the best method actually gets right, and what it confuses
-    best = max(METHODS, key=lambda mb: out[mb[0]]["test"]["top1"])[0]
+    best = max(methods, key=lambda mb: out[mb[0]]["test"]["top1"])[0]
     rows = out[best]["test_rows"]
     correct = sorted({r["true"] for r in rows if r["rank"] == 1})
     pred_counts = Counter(r["pred"] for r in rows).most_common(6)
@@ -218,4 +222,6 @@ def main(from_cache=False):
 if __name__ == "__main__":
     import sys
 
-    main(from_cache="--metrics-only" in sys.argv)
+    argv = sys.argv[1:]
+    only = [a for a in argv if not a.startswith("-")] or None
+    main(from_cache="--metrics-only" in argv, only=only)

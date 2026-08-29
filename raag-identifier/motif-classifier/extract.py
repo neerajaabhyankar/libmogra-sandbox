@@ -10,10 +10,12 @@ into the cache.
 """
 
 import argparse
+import csv
 import os
 import re
 import sys
 import time
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -21,8 +23,15 @@ import librosa
 
 HERE = Path(__file__).resolve().parent
 MELODY_DIR = HERE.parent / "melody-extraction"
-DATA_DIR = HERE.parent / "hindustani-raag-small"
 CACHE_DIR = HERE / "cache"
+
+# v1 (2026-08-28) changed the audio itself, not just the metadata: new chunk offsets,
+# 20-60s instead of ~6s, 5/3 chunks per video instead of 3/2, 20 videos dropped and 6
+# added, plus a hand-annotated `tonic_hz`. Nothing cached under v0 transfers, so the two
+# versions get separate data dirs and separate caches and v0 stays reproducible.
+DATA_VERSION = os.environ.get("RAAG_DATA_VERSION", "v1")
+DATA_DIR = HERE.parent / ("hindustani-raag-small-v1" if DATA_VERSION == "v1"
+                          else "hindustani-raag-small")
 
 for p in (str(MELODY_DIR), str(MELODY_DIR / "trackers" / "tony")):
     if p not in sys.path:
@@ -32,8 +41,19 @@ for p in (str(MELODY_DIR), str(MELODY_DIR / "trackers" / "tony")):
 CLIP_RE = re.compile(r"^(train|test)_\[(.+)\]_chunk(\d+)\.mp3$")
 
 
+@lru_cache(maxsize=1)
+def true_tonics():
+    """{video: tonic_hz} from the dataset's hand annotation. Empty under v0."""
+    f = DATA_DIR / "tonics.csv"
+    if not f.exists():
+        return {}
+    with open(f) as fh:
+        return {r["video"]: float(r["tonic_hz"]) for r in csv.DictReader(fh)}
+
+
 def list_clips():
-    """Returns [{path, raag, split, video, chunk, clip_id}, ...] sorted by clip_id."""
+    """Returns [{path, raag, split, video, chunk, clip_id, true_tonic_hz}, ...] by clip_id."""
+    tonics = true_tonics()
     clips = []
     for raag_dir in sorted(DATA_DIR.iterdir()):
         if not raag_dir.is_dir():
@@ -51,6 +71,7 @@ def list_clips():
                     "video": video,
                     "chunk": chunk,
                     "clip_id": f"{raag_dir.name}/{f.name}",
+                    "true_tonic_hz": tonics.get(video),
                 }
             )
     return clips
@@ -90,7 +111,7 @@ def _crepe(audio, sr):
         audio = librosa.resample(audio, orig_sr=sr, target_sr=TARGET_SR)
     wav = torch.from_numpy(np.ascontiguousarray(audio)).float().unsqueeze(0)
     with torch.no_grad():
-        f0_hz, conf = torchcrepe_predict(wav)
+        f0_hz, conf = torchcrepe_predict(wav, device=os.environ.get("CREPE_DEVICE", "cpu"))
     f0_hz = f0_hz.squeeze(0).numpy().astype(np.float32)
     conf = conf.squeeze(0).numpy()
     voiced = conf >= CONFIDENCE_THRESHOLD
@@ -113,7 +134,8 @@ TRACKERS = {"tony": _tony, "crepe": _crepe}
 
 
 def cache_path(tracker):
-    return CACHE_DIR / f"notes_{tracker}.npz"
+    suffix = "" if DATA_VERSION == "v0" else f"_{DATA_VERSION}"
+    return CACHE_DIR / f"notes_{tracker}{suffix}.npz"
 
 
 def extract(tracker, limit=None, force=False):

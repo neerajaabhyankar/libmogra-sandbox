@@ -14,11 +14,14 @@ from pathlib import Path
 
 import numpy as np
 
+from extract import DATA_VERSION
 from features import build_features
 from represent import Params, build_clips
 
 HERE = Path(__file__).resolve().parent
-RESULTS = HERE / "results"
+# v0 results stay exactly where plan.md links them; v1 gets its own subdirectory so the
+# two dataset versions never overwrite each other's sweeps.
+RESULTS = HERE / "results" / ("" if DATA_VERSION == "v0" else DATA_VERSION)
 
 
 # ---------------------------------------------------------------- splits
@@ -150,6 +153,14 @@ def make_method(name, **kw):
         from methods.m9_tdms import TDMSPlus
 
         return TDMSPlus(**kw)
+    if name == "m10":
+        from methods.m10_register import RegisterMethod
+
+        return RegisterMethod(**kw)
+    if name == "m10plus":
+        from methods.m10_register import RegisterPlus
+
+        return RegisterPlus(**kw)
     raise ValueError(name)
 
 

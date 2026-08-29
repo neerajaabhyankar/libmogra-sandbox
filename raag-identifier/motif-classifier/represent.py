@@ -39,7 +39,7 @@ class Params:
 
     tracker: str = "tony"
     note_source: str = "hmm"  # "hmm" = the tracker's own notes | "segment" = melody-extraction's segment_notes on the frame track
-    tonic_mode: str = "chroma_video"  # {clip,video} = melody-extraction's heuristic; {chroma_clip,chroma_video} adds the Sa-vs-Pa correction
+    tonic_mode: str = "chroma_video"  # {clip,video} = melody-extraction's heuristic; {chroma_clip,chroma_video} adds the Sa-vs-Pa correction; "true" = the dataset's hand annotation (v1 only)
     tonic_refine: bool = True  # recover the sub-semitone tuning offset
     min_dur: float = 0.0  # drop notes shorter than this (seconds)
     collapse_repeats: bool = True
@@ -171,18 +171,35 @@ def _clip_tonics(cache, mode, refine, max_cents_dev, chroma_kw):
     }
 
 
+def _annotated_tonics(clips):
+    """The dataset's hand-annotated Sa, used verbatim.
+
+    No refinement: the annotation was already snapped to a peak of the recording's own
+    pitch histogram, so `refine_tonic` would only let a bad tracker pull it off truth.
+    """
+    missing = [c["clip_id"] for c in clips if c.get("true_tonic_hz") is None]
+    if missing:
+        raise ValueError(
+            f"tonic_mode='true' needs the v1 annotation; {len(missing)} clips lack it "
+            f"(first: {missing[0]}). Is RAAG_DATA_VERSION set to v0?"
+        )
+    per_clip = {c["clip_id"]: c["true_tonic_hz"] for c in clips}
+    per_video = {c["video"]: c["true_tonic_hz"] for c in clips}
+    return per_clip, per_video
+
+
 @lru_cache(maxsize=16)
 def _load(tracker, mode, refine, max_cents_dev, chroma_items):
     """Cache + both tonic estimates, computed once per (tracker, tonic setting)."""
     cache = load_cache(tracker)
     chroma_kw = dict(chroma_items)
     clips = [c for c in list_clips() if c["clip_id"] in cache]
-    return (
-        cache,
-        clips,
-        _clip_tonics(cache, mode, refine, max_cents_dev, chroma_kw),
-        _video_tonics(cache, clips, mode, refine, max_cents_dev, chroma_kw),
-    )
+    if mode == "true":
+        clip_t, video_t = _annotated_tonics(clips)
+    else:
+        clip_t = _clip_tonics(cache, mode, refine, max_cents_dev, chroma_kw)
+        video_t = _video_tonics(cache, clips, mode, refine, max_cents_dev, chroma_kw)
+    return cache, clips, clip_t, video_t
 
 
 # ---------------------------------------------------------------- notes -> swars
@@ -282,7 +299,7 @@ def build_clips(p: Params):
     out = []
     for c in clip_meta:
         cid = c["clip_id"]
-        per_clip = p.tonic_mode in ("clip", "chroma_clip")
+        per_clip = p.tonic_mode in ("clip", "chroma_clip")  # "true" is per-video by construction
         tonic = clip_tonics[cid] if per_clip else video_tonics[c["video"]]
         notes = cache[cid]["notes"] if p.note_source == "hmm" else _notes_from_frames(cache[cid], tonic, p)
         swars, durs, octaves, folded = notes_to_swars(notes, tonic, p)
