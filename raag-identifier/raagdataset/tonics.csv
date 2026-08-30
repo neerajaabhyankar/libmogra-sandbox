@@ -80,7 +80,7 @@ oOjWM7td-gg,Bhoopali,147.7025,D3,297.0770,-9.8,yes,train_[oOjWM7td-gg]_chunk1.mp
 1zNuemR7KeA,MaruBihag,117.1309,A♯2,237.1561,-21.3,yes,train_[1zNuemR7KeA]_chunk0.mp3,2026-08-22T16:35:24
 33zQuIX5rsI,Bihag,232.4179,A♯3,235.7902,-24.9,yes,train_[33zQuIX5rsI]_chunk1.mp3,2026-08-22T16:35:57
 9yKmsoFiHWc,Bihag,148.0372,D3,297.0770,-5.9,yes,train_[9yKmsoFiHWc]_chunk1.mp3,2026-08-22T16:36:19
-D1k2UC9rKus,Bihag,249.1627,B3,251.2581,-14.5,yes,train_[D1k2UC9rKus]_chunk1.mp3,2026-08-22T16:36:51
+D1k2UC9rKus,Bihag,167.0,D3,167.0,0.0,NO,train_[D1k2UC9rKus]_chunk1.mp3,2026-08-30T18:00:00
 RHFHowqSijs,Bihag,123.5163,B2,493.8833,0.6,yes,train_[RHFHowqSijs]_chunk1.mp3,2026-08-22T16:37:17
 WlKw2Z7aANA,Bihag,235.1006,A♯3,237.1561,-15.1,yes,test_[WlKw2Z7aANA]_chunk1.mp3,2026-08-22T16:37:55
 ds0KJ7shCU0,Bihag,116.9508,A♯2,234.4321,-3.9,yes,train_[ds0KJ7shCU0]_chunk1.mp3,2026-08-22T16:38:38
@@ -95,7 +95,7 @@ S1cRSCOVW7E,Chandrakauns,166.6272,E3,333.4576,-1.1,yes,train_[S1cRSCOVW7E]_chunk
 YhSl69_G5Ws,Chandrakauns,122.8656,B2,251.2581,-38.5,yes,test_[YhSl69_G5Ws]_chunk1.mp3,2026-08-22T16:44:22
 b-JMVb9qD24,Chandrakauns,241.2180,B3,246.9417,-40.6,yes,train_[b-JMVb9qD24]_chunk1.mp3,2026-08-22T16:44:53
 g22BWgZ2cCE,Chandrakauns,138.2278,C♯3,275.5862,5.5,yes,train_[g22BWgZ2cCE]_chunk1.mp3,2026-08-22T16:45:17
-h7NhgdTfu_c,Chandrakauns,134.3382,C3,277.1826,-54.0,yes,train_[h7NhgdTfu_c]_chunk1.mp3,2026-08-22T16:46:00
+h7NhgdTfu_c,Chandrakauns,289.1,D4,289.1,0.0,NO,train_[h7NhgdTfu_c]_chunk1.mp3,2026-08-30T18:00:00
 urgaVeN4EO0,Chandrakauns,143.8915,D3,288.6198,-5.0,yes,train_[urgaVeN4EO0]_chunk1.mp3,2026-08-22T16:46:26
 3A6uPGBCEdQ,Charukeshi,146.6803,D3,293.6648,-1.8,yes,test_[3A6uPGBCEdQ]_chunk1.mp3,2026-08-22T16:47:04
 98FLpKeOtNA,Charukeshi,148.2735,D3,295.3660,6.9,yes,train_[98FLpKeOtNA]_chunk1.mp3,2026-08-22T16:48:40
@@ -117,7 +117,7 @@ GA8PPBn_s_Q,Des,158.4298,D♯3,315.6537,6.6,yes,train_[GA8PPBn_s_Q]_chunk0.mp3,2
 H53-Ts0USg0,Des,137.7086,C♯3,277.1826,-11.1,yes,train_[H53-Ts0USg0]_chunk1.mp3,2026-08-23T17:07:52
 H93FF_7dztg,Des,157.0488,D♯3,316.5654,-13.5,yes,train_[H93FF_7dztg]_chunk1.mp3,2026-08-23T17:08:14
 OP1oSJjEMC4,Des,117.2353,A♯2,234.4321,0.3,yes,train_[OP1oSJjEMC4]_chunk1.mp3,2026-08-23T17:08:37
-g7MbPaBVDc8,Des,98.1396,G2,197.1331,-7.5,yes,test_[g7MbPaBVDc8]_chunk1.mp3,2026-08-23T17:09:09
+g7MbPaBVDc8,Des,147.5,D3,147.5,0.0,NO,test_[g7MbPaBVDc8]_chunk1.mp3,2026-08-30T18:00:00
 kwgeiUq_FFc,Des,139.3942,C♯3,278.7883,0.0,NO,train_[kwgeiUq_FFc]_chunk1.mp3,2026-08-23T17:10:02
 pKUd26_qqao,Des,137.8075,C♯3,278.7883,-19.8,yes,train_[pKUd26_qqao]_chunk1.mp3,2026-08-23T17:10:21
 0vseJcm5xPE,Deshkar,146.8276,D3,295.3660,-10.1,yes,train_[0vseJcm5xPE]_chunk1.mp3,2026-08-23T17:14:01
@@ -243,7 +243,7 @@ smYksULTb4I,Lalit,169.3814,E3,339.2864,-2.7,yes,train_[smYksULTb4I]_chunk1.mp3,2
 0WXxKXfzwlc,Madhukauns,146.2108,D3,291.9734,2.7,yes,train_[0WXxKXfzwlc]_chunk1.mp3,2026-08-25T18:10:37
 CVPpaK8nUnI,Madhukauns,145.1211,D3,295.3660,-30.3,yes,train_[CVPpaK8nUnI]_chunk1.mp3,2026-08-25T18:11:04
 KlxTnbFROks,Madhukauns,133.1505,C3,267.7408,-9.3,yes,train_[KlxTnbFROks]_chunk1.mp3,2026-08-25T18:11:34
-UiIESugmOCI,Madhukauns,245.4308,B3,244.1053,9.4,yes,train_[UiIESugmOCI]_chunk1.mp3,2026-08-25T18:12:04
+UiIESugmOCI,Madhukauns,164.5,E3,164.5,0.0,NO,train_[UiIESugmOCI]_chunk1.mp3,2026-08-30T18:00:00
 nHGNpBTapFk,Madhukauns,138.1343,C♯3,275.5862,4.3,yes,train_[nHGNpBTapFk]_chunk1.mp3,2026-08-25T18:12:55
 pZMzLk2XFWE,Madhukauns,109.0463,A2,437.4658,-5.1,yes,train_[pZMzLk2XFWE]_chunk1.mp3,2026-08-25T18:13:15
 rlFNYhNNAE0,Madhukauns,164.0966,E3,164.8138,-7.5,yes,train_[rlFNYhNNAE0]_chunk1.mp3,2026-08-25T18:13:38
@@ -273,7 +273,7 @@ LTFMaLfEmEk,Malkauns,164.3159,E3,331.5371,-15.2,yes,train_[LTFMaLfEmEk]_chunk1.m
 VPnftPyRQDo,Malkauns,116.9534,A♯2,234.4321,-3.9,yes,train_[VPnftPyRQDo]_chunk1.mp3,2026-08-25T18:32:06
 c1j0EsO-MgE,Malkauns,146.2377,D3,291.9734,3.0,yes,train_[c1j0EsO-MgE]_chunk1.mp3,2026-08-25T18:32:31
 g8Su1mShMKc,Malkauns,155.7725,D♯3,309.3350,12.3,yes,train_[g8Su1mShMKc]_chunk1.mp3,2026-08-25T18:32:59
-ivUt1A4kb58,Malkauns,109.1335,A2,220.0000,-13.7,yes,train_[ivUt1A4kb58]_chunk1.mp3,2026-08-25T18:33:34
+ivUt1A4kb58,Malkauns,163.85,E3,163.85,0.0,NO,train_[ivUt1A4kb58]_chunk1.mp3,2026-08-30T18:00:00
 ssO9fHiDJrg,Malkauns,146.9569,D3,295.3660,-8.5,yes,train_[ssO9fHiDJrg]_chunk1.mp3,2026-08-25T18:34:24
 u10S3f-p3Wk,Malkauns,137.4894,C♯3,278.7883,-23.8,yes,train_[u10S3f-p3Wk]_chunk1.mp3,2026-08-25T18:34:44
 xGBsWT5199U,Malkauns,130.6036,C3,264.6655,-22.8,yes,train_[xGBsWT5199U]_chunk1.mp3,2026-08-25T18:35:35
@@ -348,7 +348,7 @@ vtsmtZYtQTs,Shankara,140.9260,C♯3,280.4033,8.9,yes,train_[vtsmtZYtQTs]_chunk1.
 4cJGELPdwW0,Shivranjani,116.6552,A♯2,460.8094,21.7,yes,train_[4cJGELPdwW0]_chunk1.mp3,2026-08-26T15:51:26
 XYXxITTiFFc,Shivranjani,116.1642,A♯2,233.0819,-5.6,yes,train_[XYXxITTiFFc]_chunk1.mp3,2026-08-26T15:52:04
 a6DP039bw4g,Shivranjani,164.2204,E3,327.7290,3.8,yes,train_[a6DP039bw4g]_chunk1.mp3,2026-08-26T15:52:24
-dCbzWOHhtrI,Shivranjani,199.2158,G3,394.2662,18.2,yes,test_[dCbzWOHhtrI]_chunk1.mp3,2026-08-26T15:52:43
+dCbzWOHhtrI,Shivranjani,163.5,E3,163.5,0.0,NO,test_[dCbzWOHhtrI]_chunk1.mp3,2026-08-30T18:00:00
 lPKLFJxrQVc,Shivranjani,169.5404,E3,335.3893,19.0,yes,train_[lPKLFJxrQVc]_chunk1.mp3,2026-08-26T15:55:02
 1EcRrZvc52o,Shree,104.7866,G♯2,210.0652,-4.1,yes,train_[1EcRrZvc52o]_chunk1.mp3,2026-08-26T15:55:43
 8xKjNTc8MGI,Shree,220.4044,A3,221.2744,-6.8,yes,train_[8xKjNTc8MGI]_chunk1.mp3,2026-08-26T15:56:01
