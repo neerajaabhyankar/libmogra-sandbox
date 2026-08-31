@@ -1,0 +1,52 @@
+# Possible tonic-annotation errors
+
+dataset: hindustani-raag-small v1 · 411 recordings scored
+
+Each recording's chunks were scored against the TRUE raag at all 12 rotations of
+the annotated Sa. A recording is listed when two independent scorers (M3, a
+prescriptive phrase grammar; M9, a learned melody surface) agree on the SAME
+nonzero rotation. Rotating a clip by `k` is defined as lowering its tonic by
+`k`, so **the annotation looks `k` semitones too SHARP** and the evidence
+prefers a true tonic of `annotated x 2^(-k/12)` — the `true?` column.
+
+* 17 recordings where both scorers agree on a nonzero rotation
+* 7 of those also clear the thresholds (>=60% of chunks agree, >=3 mean rank places recovered)
+
+STRONG — recheck these first
+
+video          raag                k  annotated    true?   sym  chunks  M3 agree       M3 rank  M9 agree       M9 rank
+dCbzWOHhtrI    Shivranjani         3      199.2    167.5  0.25       3 3/3        42.7->1.0    3/3        46.7->2.0   
+ivUt1A4kb58    Malkauns            5      109.1     81.8  0.67       5 4/5        36.0->1.4    4/5        24.0->2.0   
+UiIESugmOCI    Madhukauns          7      245.4    163.8  0.25       5 4/5        45.6->1.6    4/5        22.2->2.0   
+h7NhgdTfu_c    Chandrakauns       11      134.3     71.2  0.11       5 4/5        32.6->7.0    5/5        14.0->2.4   
+BzngdVcH_OA    Tilang              4      138.8    110.2  0.20       3 3/3        17.3->7.7    3/3        46.7->1.0   
+g7MbPaBVDc8    Des                 5       98.1     73.5  0.78       3 2/3         9.7->4.0    3/3        28.7->4.3   
+D1k2UC9rKus    Bihag               7      249.2    166.3  0.78       5 3/5        10.2->5.2    4/5        12.4->4.4   
+
+WEAKER — both scorers agree on the rotation but below threshold
+
+1AYckL0Qx1Q    Lalit               5      189.1    141.7  0.56       5 2/5        34.4->3.4    4/5        37.6->6.6   
+25f1u2nOALg    Yaman               7      150.7    100.6  0.75       5 2/5        17.6->4.0    1/5         7.4->1.4   
+SCjQC_Bwwdw    Shree               1      130.2    122.9  0.40       5 2/5        23.8->4.4    3/5         7.8->2.0   
+WvFEkcgnLsU    Charukeshi          4      142.9    113.4  0.40       5 3/5        11.0->6.8    2/5        10.8->4.2   
+BX2ugczrNKI    Khamaj              5      117.1     87.7  0.78       3 2/3         7.0->3.3    1/3        15.3->5.7   
+EqTNRii6LRA    Vibhas              4      104.4     82.9  0.43       5 1/5        32.6->8.6    3/5        12.2->10.4  
+1MUL6GJXZ1k    Bhairav             8      140.5     88.5  0.56       5 2/5         4.2->2.6    5/5        11.0->1.6   
+W8R--A38sxk    Lalit               1      146.6    138.4  0.40       5 0/5         7.8->4.4    0/5         4.2->3.6   
+3kBuDppKJMQ    Yaman               7      164.6    109.9  0.75       5 2/5         4.2->2.0    2/5         1.4->1.0   
+W8lfX_5MC34    Bheempalasi         5      110.2     82.5  0.75       3 1/3         2.7->2.3    1/3         6.7->5.3   
+
+Notes
+
+* k=7 means the annotation sits a fifth ABOVE the evidence's Sa — i.e. Pa was
+  marked as Sa, the commonest way to mis-hear a tonic. k=5 is the fourth-below
+  equivalent.
+* `sym` is Jaccard(scale, scale rotated by k) for the true raag. A high value
+  means the raag's own scale nearly maps onto itself under this rotation, so the
+  evidence is weak by construction — pentatonic raags do this. Treat sym>=0.6
+  as suspect even when both scorers agree.
+* A recording can appear here for reasons other than a wrong annotation: a
+  performance that modulates, a chunk that is mostly tabla or applause, or a raag
+  whose grammar genuinely fits a rotation of itself. Listen before editing.
+* Absence from this list is not proof an annotation is right — it means these two
+  scorers did not agree it was wrong.
