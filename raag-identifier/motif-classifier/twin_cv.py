@@ -12,7 +12,8 @@ from collections import Counter, defaultdict
 import numpy as np
 
 from evaluate import make_method, group_folds
-from raagdb import dataset_raags
+import _bootstrap  # noqa: F401  (puts raag-identifier/ on sys.path)
+from utils.raagdb import dataset_raags
 from represent import Params
 from tune import train_feats
 

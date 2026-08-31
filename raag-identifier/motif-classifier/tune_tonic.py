@@ -18,8 +18,9 @@ import numpy as np
 
 from diagnostics import scale_masks
 from evaluate import group_folds
-from extract import load_cache, list_clips
-from raagdb import dataset_raags
+import _bootstrap  # noqa: F401  (puts raag-identifier/ on sys.path)
+from utils.extract import load_cache, list_clips
+from utils.raagdb import dataset_raags
 from represent import estimate_tonic_hz, refine_tonic
 
 RESULTS = Path(__file__).resolve().parent / "results"

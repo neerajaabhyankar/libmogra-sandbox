@@ -13,12 +13,13 @@ from pathlib import Path
 
 import numpy as np
 
-from extract import DATA_VERSION
+import _bootstrap  # noqa: F401  (puts raag-identifier/ on sys.path)
+from utils.extract import DATA_VERSION
 from evaluate import evaluate, evaluate_by_video, make_method
 from features import build_features
 from confusion import plot_confusion
-from musical_eval import calibrate_temperature, musical_metrics, worst_and_best_mistakes
-from raagdb import dataset_raags
+from utils.musical_eval import calibrate_temperature, musical_metrics, worst_and_best_mistakes
+from utils.raagdb import dataset_raags
 from represent import Params, build_clips
 
 HERE = Path(__file__).resolve().parent

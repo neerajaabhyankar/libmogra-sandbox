@@ -14,8 +14,9 @@ from pathlib import Path
 
 import numpy as np
 
-from extract import DATA_VERSION
-from extract import list_clips, load_cache
+import _bootstrap  # noqa: F401  (puts raag-identifier/ on sys.path)
+from utils.extract import DATA_VERSION
+from utils.extract import list_clips, load_cache
 from represent import Params, _load
 
 HERE = Path(__file__).resolve().parent

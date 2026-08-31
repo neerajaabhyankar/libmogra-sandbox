@@ -16,7 +16,7 @@ recognisable motif it is the only evidence there is.
 
 import numpy as np
 
-from raagdb import collapse, dataset_raags, ngram_document_frequency
+from utils.raagdb import collapse, dataset_raags, ngram_document_frequency
 from . import Method
 
 

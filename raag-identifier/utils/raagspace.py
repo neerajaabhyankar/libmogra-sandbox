@@ -29,7 +29,7 @@ from functools import lru_cache
 
 import numpy as np
 
-from raagdb import SWAR_NAMES, collapse, dataset_raags
+from .raagdb import SWAR_NAMES, collapse, dataset_raags
 
 
 def _docs(raags, order):
@@ -55,17 +55,26 @@ def _jaccard(a, b):
     return len(a & b) / max(len(a | b), 1)
 
 
-@lru_cache(maxsize=4)
-def affinity(w_phrase=0.4, w_scale=0.45, w_thaat=0.15):
+def affinity(w_phrase=0.4, w_scale=0.45, w_thaat=0.15, names=None):
     """Returns (labels, A, A_rot, best_k).
+
+    `names` is the class list. Pass it and nothing here touches the filesystem; leave it
+    None and `dataset_raags` reads it from the configured dataset. A list is fine -- it is
+    normalised to a tuple for the cache below.
 
     A       (R,R) in [0,1], 1 on the diagonal — direct musical affinity.
     A_rot   (R,R) in [0,1] — best affinity over the 12 rotations of the predicted raag.
     best_k  (R,R) int — which rotation achieved it (0 means no rotation needed).
     """
+    return _affinity(w_phrase, w_scale, w_thaat,
+                     tuple(names) if names is not None else None)
+
+
+@lru_cache(maxsize=4)
+def _affinity(w_phrase, w_scale, w_thaat, names):
     from sklearn.feature_extraction.text import TfidfVectorizer
 
-    raags = dataset_raags()
+    raags = dataset_raags(names=names)
     order = sorted(raags)
     R = len(order)
 

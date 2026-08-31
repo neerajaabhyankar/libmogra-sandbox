@@ -35,8 +35,9 @@ from pathlib import Path
 import numpy as np
 
 from evaluate import make_method
-from raagdb import dataset_raags
-from extract import DATA_VERSION, list_clips
+import _bootstrap  # noqa: F401  (puts raag-identifier/ on sys.path)
+from utils.raagdb import dataset_raags
+from utils.extract import DATA_VERSION, list_clips
 from represent import Params, _load
 from tune import train_feats, split_feats
 

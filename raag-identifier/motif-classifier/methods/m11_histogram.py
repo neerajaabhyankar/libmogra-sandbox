@@ -26,7 +26,7 @@ it per fold.
 
 import numpy as np
 
-from raagdb import dataset_raags
+from utils.raagdb import dataset_raags
 from . import Method
 
 EPS = 1e-12

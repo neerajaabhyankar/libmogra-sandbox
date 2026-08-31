@@ -18,7 +18,8 @@ import numpy as np
 from evaluate import evaluate, group_folds, make_method
 from features import ClipFeatures, build_features
 from represent import Clip, Params, build_clips
-from raagdb import dataset_raags
+import _bootstrap  # noqa: F401  (puts raag-identifier/ on sys.path)
+from utils.raagdb import dataset_raags
 from tune import DEFAULT_REP, cv_score, train_feats
 
 RESULTS = Path(__file__).resolve().parent / "results"

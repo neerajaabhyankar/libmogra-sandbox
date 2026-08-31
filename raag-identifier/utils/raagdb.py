@@ -117,13 +117,31 @@ def all_raags():
 
 
 @lru_cache(maxsize=1)
-def dataset_raags():
-    """The 50 candidate classes: {folder_name: Raag}."""
-    import os
+def _default_names():
+    """The class list of the configured dataset, from its `tonics.csv`."""
+    from . import config, dataset
 
-    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hindustani-raag-small")
-    folders = sorted(d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d)))
-    return {f: Raag(folder_to_db_key(f)) for f in folders}
+    return tuple(dataset.raag_names(tonics_csv=config.tonics_csv()))
+
+
+def dataset_raags(names=None):
+    """`{class_name: Raag}` for the raags in play.
+
+    `names` is the class list. Pass it explicitly wherever you have it -- a caller that
+    already knows its labels should not make this function go and find them.
+
+    Left None, it reads them from the configured dataset's `tonics.csv`
+    (`utils.config.dataset_dir`, override with `RAAG_DATASET_DIR`). It used to instead
+    list the *directories* of the v0 dataset tree, which meant 240 MB of audio had to be
+    on disk for a metrics function to learn 50 strings, and meant the class list came
+    from a different revision than the one under evaluation.
+    """
+    return _raags(tuple(names) if names is not None else _default_names())
+
+
+@lru_cache(maxsize=4)
+def _raags(names):
+    return {n: Raag(folder_to_db_key(n)) for n in names}
 
 
 @lru_cache(maxsize=8)

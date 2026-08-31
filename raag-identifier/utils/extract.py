@@ -1,103 +1,82 @@
-"""Batch transcription of hindustani-raag-small via ../melody-extraction, cached to disk.
+"""Batch pitch-tracking of the dataset to a note/f0 cache.
 
-Only the trackers in ../melody-extraction touch audio. What we cache is deliberately
-*pre-tonic*: note events in Hz plus the frame-level f0/voicing track, so that the tonic
-choice (clip / video / search) stays a knob of the classifier rather than being baked
-into the cache.
+Only the trackers touch audio. What we cache is deliberately *pre-tonic*: note events in
+Hz plus the frame-level f0/voicing track, so that the tonic choice (clip / video / search)
+stays a knob of the classifier rather than being baked into the cache.
 
-    poetry run python extract.py --tracker tony
-    poetry run python extract.py --tracker crepe
+    poetry run python -m utils.extract --tracker tony
+    poetry run python -m utils.extract --tracker crepe
+
+The tracker projects are located through `utils.config` (`RAAG_MELODY_DIR`,
+`RAAG_SEPARATION_DIR`) and are resolved when a tracker actually runs -- importing this
+module to *read* a cache requires neither of them, nor the audio.
 """
 
 import argparse
-import csv
 import os
-import re
-import sys
 import time
 from functools import lru_cache
-from pathlib import Path
 
 import numpy as np
 import librosa
 
-HERE = Path(__file__).resolve().parent
-MELODY_DIR = HERE.parent / "melody-extraction"
-SEP_DIR = HERE.parent / "source-separation"
-CACHE_DIR = HERE / "cache"
+from . import config
+from .dataset import CLIP_RE, load_clips as _load_clips  # noqa: F401  (CLIP_RE re-exported)
 
-DATASET_ID = "neerajaabhyankar/hindustani-raag-small"
-
-#: Version label -> the exact Hugging Face commit it means. The labels are ours and appear
-#: throughout plan.md and results/; the SHAs are what actually make a run reproducible, so
-#: fetch_dataset.py pins these rather than tracking `main`.
-#:
-#:   v0    2024-03-20  1253 clips of ~6 s, no tonic column
-#:   v1    2026-08-28  new audio: 1960 clips of 20-60 s, real train/test splits, tonic_hz
-#:   v1.1  2026-08-31  v1 with six tonic annotations corrected; audio byte-identical to v1
-#:
-#: v1 changed the audio itself, so nothing cached under v0 transfers and the two get
-#: separate data dirs and caches. v1.1 changed only `tonic_hz`, and because the caches here
-#: are stored *pre-tonic* (note events in Hz plus the raw f0 track, tonic applied
-#: downstream) v1's caches were copied to the v1.1 names rather than re-extracted.
-DATA_REVISIONS = {
-    "v0": "0dfb021e54e0e7489b90a47e23ef15f34fa740ec",
-    "v1": "9944c647cb733573fcc5bb05297e1622fc1867f2",
-    "v1.1": "326caef0bc01da44ad46e4d9c65a5146da6bcc5b",
-}
-
-DATA_VERSION = os.environ.get("RAAG_DATA_VERSION", "v1.1")
-DATA_REVISION = DATA_REVISIONS.get(DATA_VERSION)
-DATA_DIR = HERE.parent / ("hindustani-raag-small" if DATA_VERSION == "v0"
-                          else f"hindustani-raag-small-{DATA_VERSION}")
-
-for p in (str(MELODY_DIR), str(MELODY_DIR / "trackers" / "tony"), str(SEP_DIR)):
-    if p not in sys.path:
-        sys.path.insert(0, p)
+#: Re-exported so the many callers that do `from utils.extract import DATA_VERSION` keep
+#: working. The definitions live in `utils.config`, which is where dataset identity now
+#: belongs; this module is about pitch tracking.
+DATASET_ID = config.DATASET_ID
+DATA_REVISIONS = config.DATA_REVISIONS
+DATA_VERSION = config.DATA_VERSION
+DATA_REVISION = config.DATA_REVISIONS.get(config.DATA_VERSION)
 
 
-CLIP_RE = re.compile(r"^(train|test)_\[(.+)\]_chunk(\d+)\.mp3$")
+def data_dir():
+    """The dataset directory. A function, not a constant, so a missing dataset raises
+    where it is used rather than at import time -- importing this module to read a cache
+    must not require the audio to be present."""
+    return config.dataset_dir()
+
+
+def cache_dir():
+    return config.cache_dir()
+
+
+def _add_tracker_paths():
+    """Put melody-extraction (and source-separation) on sys.path. Called by the trackers,
+    not at import time: reading a cache needs neither project installed."""
+    melody = config.melody_dir()
+    config.add_to_sys_path(melody, melody / "trackers" / "tony")
 
 
 @lru_cache(maxsize=1)
 def true_tonics():
-    """{video: tonic_hz} from the dataset's hand annotation. Empty under v0."""
-    f = DATA_DIR / "tonics.csv"
-    if not f.exists():
-        if DATA_VERSION != "v0":
-            raise FileNotFoundError(
-                f"{f} is missing — fetch {DATA_VERSION} first:\n"
-                f"    poetry run python fetch_dataset.py --version {DATA_VERSION}"
-            )
-        return {}
-    with open(f) as fh:
-        return {r["video"]: float(r["tonic_hz"]) for r in csv.DictReader(fh)}
+    """{video: tonic_hz} from the dataset's hand annotation. Empty when unannotated."""
+    return {c.video: c.tonic_hz for c in _load_clips(tonics_csv=config.tonics_csv())
+            if c.video and c.tonic_hz is not None}
 
 
 def list_clips():
-    """Returns [{path, raag, split, video, chunk, clip_id, true_tonic_hz}, ...] by clip_id."""
-    tonics = true_tonics()
-    clips = []
-    for raag_dir in sorted(DATA_DIR.iterdir()):
-        if not raag_dir.is_dir():
-            continue
-        for f in sorted(raag_dir.iterdir()):
-            m = CLIP_RE.match(f.name)
-            if not m:
-                continue
-            split, video, chunk = m.group(1), m.group(2), int(m.group(3))
-            clips.append(
-                {
-                    "path": str(f),
-                    "raag": raag_dir.name,
-                    "split": split,
-                    "video": video,
-                    "chunk": chunk,
-                    "clip_id": f"{raag_dir.name}/{f.name}",
-                    "true_tonic_hz": tonics.get(video),
-                }
-            )
-    return clips
+    """Returns [{path, raag, split, video, chunk, clip_id, true_tonic_hz}, ...] by clip_id.
+
+    Dicts rather than `utils.dataset.Clip` because a dozen call sites index them as dicts;
+    the data comes from `utils.dataset.load_clips`, which reads `tonics.csv` rather than
+    walking the tree.
+    """
+    d = config.dataset_dir()
+    return [
+        {
+            "path": str(d / c.clip_id),
+            "raag": c.raag,
+            "split": c.split,
+            "video": c.video,
+            "chunk": c.chunk,
+            "clip_id": c.clip_id,
+            "true_tonic_hz": c.tonic_hz,
+        }
+        for c in _load_clips(audio_dir=d, tonics_csv=config.tonics_csv())
+    ]
 
 
 # ---------------------------------------------------------------- trackers
@@ -105,6 +84,7 @@ def list_clips():
 
 def _tony(audio, sr):
     """pYIN Vamp plugin: note HMM + smoothed frame track. Both kept, both in Hz."""
+    _add_tracker_paths()
     from trackers.tony.tony_tracker import _run_pyin, TONY_PARAMETERS
 
     f0_hz, voiced, hop, tony_notes = _run_pyin(audio, sr, dict(TONY_PARAMETERS))
@@ -122,6 +102,8 @@ def _crepe(audio, sr):
     resulting note cents straight back to Hz — the real tonic is applied downstream.
     """
     import torch
+
+    _add_tracker_paths()
     from trackers.crepe_tracker import (
         torchcrepe_predict,
         TARGET_SR,
@@ -160,7 +142,7 @@ def cache_path(tracker, separate=None):
     suffix = "" if DATA_VERSION == "v0" else f"_{DATA_VERSION}"
     if separate and separate != "none":
         suffix += "_" + separate.replace("+", "-").replace(":", "-")
-    return CACHE_DIR / f"notes_{tracker}{suffix}.npz"
+    return cache_dir() / f"notes_{tracker}{suffix}.npz"
 
 
 def extract(tracker, limit=None, force=False, separate=None):
@@ -173,6 +155,7 @@ def extract(tracker, limit=None, force=False, separate=None):
 
     sep_fn = None
     if separate and separate != "none":
+        config.add_to_sys_path(config.separation_dir())
         from separation import separate as _sep
 
         sep_fn = lambda a, sr: _sep(a, sr, backend=separate).melody
@@ -184,7 +167,6 @@ def extract(tracker, limit=None, force=False, separate=None):
             out = {k: z[k] for k in z.files}
         print(f"resuming from {dest} ({len(out) // 4} clips already done)")
 
-    CACHE_DIR.mkdir(exist_ok=True)
     t0 = time.time()
     done = 0
     for i, c in enumerate(clips):
@@ -246,6 +228,6 @@ if __name__ == "__main__":
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--separate", default=None,
-                    help="source-separation backend to run first (see ../source-separation)")
+                    help="source-separation backend to run first (see utils.config.separation_dir)")
     args = ap.parse_args()
     extract(args.tracker, limit=args.limit, force=args.force, separate=args.separate)

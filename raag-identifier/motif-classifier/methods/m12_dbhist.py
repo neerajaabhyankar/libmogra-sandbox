@@ -30,7 +30,7 @@ the training data is thinnest.
 
 import numpy as np
 
-from raagdb import dataset_raags
+from utils.raagdb import dataset_raags
 from . import Method
 from .m11_histogram import HistogramFingerprint, fold_histogram
 

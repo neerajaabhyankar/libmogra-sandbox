@@ -14,7 +14,8 @@ from pathlib import Path
 
 import numpy as np
 
-from extract import DATA_VERSION
+import _bootstrap  # noqa: F401  (puts raag-identifier/ on sys.path)
+from utils.extract import DATA_VERSION
 from features import build_features
 from represent import Params, build_clips
 

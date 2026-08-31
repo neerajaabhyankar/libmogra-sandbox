@@ -19,7 +19,8 @@ from pathlib import Path
 
 import numpy as np
 
-from extract import DATA_VERSION
+import _bootstrap  # noqa: F401  (puts raag-identifier/ on sys.path)
+from utils.extract import DATA_VERSION
 from evaluate import evaluate, evaluate_by_video, group_folds, make_method
 from features import build_features
 from dataclasses import replace
@@ -57,7 +58,7 @@ def split_feats(rep: Params, feature_kw, split="train", extra_trackers=()):
         # regardless of which split we are building — and it must be resolved here rather
         # than passed in, so the cache key stays hashable.
         if kw.pop("tuning_offsets", False):
-            from raagdb import dataset_raags
+            from utils.raagdb import dataset_raags
 
             base = build_clips(rep)
             kw["tuning_offsets"] = estimate_tuning_offsets(

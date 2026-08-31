@@ -48,7 +48,7 @@ train only and applied unchanged to test.
 
 import numpy as np
 
-from raagspace import affinity
+from .raagspace import affinity
 
 EPS = 1e-12
 
@@ -78,9 +78,10 @@ def calibrate_temperature(rows, labels, grid=None):
     return best_T
 
 
-def musical_metrics(rows, temperature=1.0, gamma=4.0, rot_threshold=0.85):
+def musical_metrics(rows, temperature=1.0, gamma=4.0, rot_threshold=0.85,
+                    dataset_labels=None):
     """All of the above for one method's per-clip rows (which must carry `scores`)."""
-    labels, A, A_rot, best_k = affinity()
+    labels, A, A_rot, best_k = affinity(names=dataset_labels)
     idx = {r: i for i, r in enumerate(labels)}
     rows = [r for r in rows if r["true"] in idx and r["pred"] in idx]
     if not rows:
@@ -143,9 +144,9 @@ def musical_metrics(rows, temperature=1.0, gamma=4.0, rot_threshold=0.85):
     }
 
 
-def worst_and_best_mistakes(rows, n=6):
+def worst_and_best_mistakes(rows, n=6, dataset_labels=None):
     """The most and least defensible top-1 errors, for the write-up."""
-    labels, A, A_rot, best_k = affinity()
+    labels, A, A_rot, best_k = affinity(names=dataset_labels)
     idx = {r: i for i, r in enumerate(labels)}
     errs = [
         (A[idx[r["true"]], idx[r["pred"]]], r["true"], r["pred"],

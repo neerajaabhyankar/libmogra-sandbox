@@ -31,7 +31,7 @@ segmenter has far less to trip over (jitter drops ~10x on HPSS-separated audio).
 
 import numpy as np
 
-from raagdb import dataset_raags
+from utils.raagdb import dataset_raags
 from . import Method
 
 EPS = 1e-12
@@ -62,7 +62,7 @@ class NgramLM(Method):
 
     def _db_models(self, db_kw):
         """Transition + unigram counts read straight off the phrase inventory."""
-        from raagdb import collapse
+        from utils.raagdb import collapse
 
         raags = dataset_raags()
         R = len(self.raags)

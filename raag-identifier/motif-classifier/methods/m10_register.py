@@ -25,7 +25,7 @@ all on L1-normalised distributions, so clip length drops out.
 
 import numpy as np
 
-from raagdb import dataset_raags
+from utils.raagdb import dataset_raags
 from . import Method
 
 

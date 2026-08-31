@@ -19,7 +19,7 @@ transition into a swar outside the raag is heavily punished.
 
 import numpy as np
 
-from raagdb import collapse, dataset_raags
+from utils.raagdb import collapse, dataset_raags
 from . import Method
 
 EPS = 1e-12

@@ -13,7 +13,8 @@ import json
 import time
 from pathlib import Path
 
-from extract import DATA_VERSION
+import _bootstrap  # noqa: F401  (puts raag-identifier/ on sys.path)
+from utils.extract import DATA_VERSION
 from represent import Params
 from tune import cv_score
 

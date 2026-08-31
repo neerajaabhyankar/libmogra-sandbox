@@ -17,7 +17,8 @@ from collections import Counter
 import numpy as np
 
 from features import build_features
-from raagdb import collapse, dataset_raags
+import _bootstrap  # noqa: F401  (puts raag-identifier/ on sys.path)
+from utils.raagdb import collapse, dataset_raags
 from represent import Params, build_clips
 
 

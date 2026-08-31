@@ -636,7 +636,7 @@ and `RAAG_DATA_VERSION=v0` reproduces them.
 **Loading note.** The v1 audio exists only in the parquet files. The `<Raag>/*.mp3` tree at
 the repo root is still v0, and the `metadata.csv` the dataset card promises beside it does
 not exist — a loader that reads the raw layout silently gets v0 while believing it has v1.
-Use [`fetch_dataset.py`](fetch_dataset.py), which materializes from parquet; `audio.path`
+Use [`utils.dataset`](../utils/dataset.py), which materializes from parquet; `audio.path`
 still carries `{split}_[{video}]_chunk{n}.mp3`, which is what grouped-by-video CV needs.
 
 **Every version is pinned to a commit, not to `main`** (`extract.DATA_REVISIONS`), so a
@@ -653,8 +653,8 @@ with the commit it was built from — `load_cache` warns if a cache and the sele
 disagree, so a stale cache is caught rather than silently trusted.
 
 ```bash
-poetry run python fetch_dataset.py --version v1.1          # materialize
-poetry run python fetch_dataset.py --version v1.1 --check  # verify, write nothing
+poetry run python -m utils.dataset fetch  --version v1.1 --audio-dir ../hindustani-raag-small-v1.1
+poetry run python -m utils.dataset verify --version v1.1 --audio-dir ../hindustani-raag-small-v1.1
 RAAG_DATA_VERSION=v1 poetry run python report.py           # reproduce the v1 numbers
 ```
 

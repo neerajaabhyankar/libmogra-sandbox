@@ -9,7 +9,7 @@ Expected to be weak — it is here to show *how* it is weak, which is what motiv
 
 import numpy as np
 
-from raagdb import collapse, dataset_raags
+from utils.raagdb import collapse, dataset_raags
 from . import Method
 
 

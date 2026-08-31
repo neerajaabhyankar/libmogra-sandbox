@@ -7,6 +7,16 @@ Shared contract:
     per-raag vector plus the rotation it settled on.
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# `raag-identifier/` on the path so `from utils... import` resolves in the
+# method modules below, however this package was reached.
+_r = str(_Path(__file__).resolve().parent.parent.parent)
+if _r not in _sys.path:
+    _sys.path.insert(0, _r)
+
+
 import numpy as np
 
 

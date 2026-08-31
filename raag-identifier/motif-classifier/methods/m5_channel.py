@@ -29,7 +29,7 @@ estimated from labels, so the CV harness refits it per fold.
 
 import numpy as np
 
-from raagdb import collapse, dataset_raags
+from utils.raagdb import collapse, dataset_raags
 from . import Method
 
 EPS = 1e-12

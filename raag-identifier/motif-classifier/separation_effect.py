@@ -13,7 +13,8 @@ import argparse
 import json
 from pathlib import Path
 
-from extract import DATA_VERSION, cache_path
+import _bootstrap  # noqa: F401  (puts raag-identifier/ on sys.path)
+from utils.extract import DATA_VERSION, cache_path
 from represent import Params
 from tune import cv_score
 

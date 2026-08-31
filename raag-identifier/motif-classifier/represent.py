@@ -29,8 +29,9 @@ if str(MELODY_DIR) not in sys.path:
 from pipeline import estimate_tonic_hz  # noqa: E402  (melody-extraction's shared heuristic)
 from note_segmentation import segment_notes  # noqa: E402
 
-from extract import load_cache, list_clips  # noqa: E402
-from raagdb import SWAR_NAMES  # noqa: E402
+import _bootstrap  # noqa: F401  (puts raag-identifier/ on sys.path)
+from utils.extract import load_cache, list_clips  # noqa: E402
+from utils.raagdb import SWAR_NAMES  # noqa: E402
 
 
 @dataclass(frozen=True)
