@@ -636,8 +636,27 @@ and `RAAG_DATA_VERSION=v0` reproduces them.
 **Loading note.** The v1 audio exists only in the parquet files. The `<Raag>/*.mp3` tree at
 the repo root is still v0, and the `metadata.csv` the dataset card promises beside it does
 not exist — a loader that reads the raw layout silently gets v0 while believing it has v1.
-`materialize` from parquet; `audio.path` still carries `{split}_[{video}]_chunk{n}.mp3`,
-which is what grouped-by-video CV needs.
+Use [`fetch_dataset.py`](fetch_dataset.py), which materializes from parquet; `audio.path`
+still carries `{split}_[{video}]_chunk{n}.mp3`, which is what grouped-by-video CV needs.
+
+**Every version is pinned to a commit, not to `main`** (`extract.DATA_REVISIONS`), so a
+later push to the dataset cannot silently change what an earlier result was computed on:
+
+| label | Hugging Face commit | date | what it is |
+|---|---|---|---|
+| `v0` | `0dfb021e54e0e7489b90a47e23ef15f34fa740ec` | 2024-03-20 | 1253 clips of ~6 s, no tonic column |
+| `v1` | `9944c647cb733573fcc5bb05297e1622fc1867f2` | 2026-08-28 | new audio: 1960 clips of 20-60 s, real splits, `tonic_hz` |
+| `v1.1` | `326caef0bc01da44ad46e4d9c65a5146da6bcc5b` | 2026-08-31 | v1 with six tonics corrected; audio byte-identical to v1 |
+
+Each fetched directory carries a `REVISION` file, and each `cache/notes_*.npz` is stamped
+with the commit it was built from — `load_cache` warns if a cache and the selected version
+disagree, so a stale cache is caught rather than silently trusted.
+
+```bash
+poetry run python fetch_dataset.py --version v1.1          # materialize
+poetry run python fetch_dataset.py --version v1.1 --check  # verify, write nothing
+RAAG_DATA_VERSION=v1 poetry run python report.py           # reproduce the v1 numbers
+```
 
 ## How good was the tonic heuristic, really?  (`tonic_audit.py`)
 
@@ -987,3 +1006,98 @@ identification.** The tracker-level metrics in `../source-separation/plan.md` ar
 just do not translate. Worth revisiting only with a separator that removes percussion without
 smoothing the melodic line — which is the argument for a properly fine-tuned
 BS-RoFormer over median filtering, not for tuning HPSS harder.
+
+---
+
+# v1.1 — six tonics corrected
+
+`326caef0bc01da44ad46e4d9c65a5146da6bcc5b` (2026-08-31) is v1 with six tonic annotations
+fixed, following the review of
+[`possible-annotation-errors.txt`](possible-annotation-errors.txt). Results in
+[`results/v1.1/`](results/v1.1).
+
+**The audio is byte-identical across all 1960 clips** — verified by md5 per clip — and only
+`tonic_hz` moved, on 6 of 412 recordings. Because `extract.py` caches *pre-tonic* (note
+events in Hz plus the raw f0 track, with the tonic applied downstream), the v1 caches were
+simply copied to the v1.1 names and nothing was re-extracted. That design choice, made when
+the tonic was still a knob rather than a fact, saved ~2.5 h of CREPE and Tony time here.
+
+## The detector was right, within the ambiguity it declared
+
+All six corrections came from the flagged list — six of the seven **STRONG** rows. Tilang
+and all ten **WEAKER** rows were rejected on review, which matches their `sym` warnings.
+
+| video | raag | predicted | actual | pitch class | octave |
+|---|---|---|---|---|---|
+| dCbzWOHhtrI | Shivranjani | 167.5 | 163.5 | ✓ | exact |
+| UiIESugmOCI | Madhukauns | 163.8 | 164.5 | ✓ | exact |
+| D1k2UC9rKus | Bihag | 166.3 | 167.0 | ✓ | exact |
+| ivUt1A4kb58 | Malkauns | 81.8 | 163.9 | ✓ | +1 oct |
+| g7MbPaBVDc8 | Des | 73.5 | 147.5 | ✓ | +1 oct |
+| h7NhgdTfu_c | Chandrakauns | 71.2 | 289.1 | ✓ | +2 oct |
+
+**6/6 on pitch class, 3/6 exact in Hz.** The three octave misses are exactly the ambiguity
+the method cannot resolve — every scorer it uses is octave-folded — which is why the file
+reported `k` in semitones rather than asserting an absolute frequency. The right way to read
+that output is "the annotation is a fifth off", not "the annotation should be 81.8 Hz".
+
+## Results
+
+Train CV with configs held fixed at their v1 choices, so only the tonics move:
+
+| method | v1 | v1.1 | delta |
+|---|---|---|---|
+| M3 grammar | 0.285 | 0.289 | +0.004 |
+| M9 surface | 0.422 | 0.430 | +0.008 |
+| M11 histogram | 0.382 | 0.395 | +0.013 |
+| M12 hist + DB | 0.405 | 0.412 | +0.007 |
+| M13 bigram LM | 0.304 | 0.311 | +0.007 |
+| M9+ | 0.443 | 0.453 | +0.010 |
+| M14 | 0.464 | 0.471 | +0.007 |
+
+All seven improve, mean **+0.008** — about half the theoretical ceiling, since 20 of 1810
+train clips changed and a perfect fix would give ~+0.017. A correct Sa is not a guaranteed
+correct answer.
+
+Re-tuned on v1.1 train, then one pass over the 150 held-out clips:
+
+| method | train CV | **test top-1** | test top-5 | test MRR | video-vote |
+|---|---|---|---|---|---|
+| M3 grammar | 0.290 | 0.240 (36/150) | 0.640 | 0.404 | 0.440 |
+| M4 two-tracker | 0.295 | 0.267 (40/150) | 0.620 | 0.436 | 0.440 |
+| M9 melody surface | 0.422 | 0.393 (59/150) | 0.687 | 0.538 | 0.500 |
+| **M9+** | 0.447 | **0.400 (60/150)** | 0.720 | 0.551 | **0.560** |
+| M11 histogram, no knowledge | 0.398 | 0.387 (58/150) | 0.673 | 0.526 | 0.480 |
+| **M12 histogram + DB prior** | 0.414 | **0.400 (60/150)** | 0.673 | 0.539 | 0.500 |
+| M13 bigram LM | 0.323 | 0.320 (48/150) | 0.627 | 0.462 | 0.400 |
+| M14 M12+M13 | **0.468** | 0.373 (56/150) | **0.733** | 0.543 | 0.500 |
+
+### Where the test gain actually came from
+
+Only 6 test clips belong to corrected recordings (Shivranjani x3, Des x3), capping the
+attributable gain at +6 clips. Diffing per-clip correctness against v1:
+
+| method | delta | gained | lost | from corrected videos | from unrelated clips |
+|---|---|---|---|---|---|
+| M3 | +0.013 | 2 | 0 | **+2** | +0 |
+| M4 | +0.013 | 2 | 0 | **+2** | +0 |
+| M9 | +0.033 | 6 | 1 | +3 | +2 |
+| M9+ | +0.033 | 5 | 0 | +2 | +3 |
+| M11 | +0.027 | 4 | 0 | +2 | +2 |
+| M12 | +0.027 | 5 | 1 | +2 | +2 |
+| M13 | +0.033 | 5 | 0 | +4 | +1 |
+| M14 | +0.013 | 2 | 0 | **+2** | +0 |
+
+**Roughly half the test movement is not the tonic fix.** The "unrelated clips" column is
+re-tuning churn — those methods picked slightly different configs on v1.1 train, which moves
+clips that have nothing to do with the six corrected recordings. At 2-3 clips out of 150 that
+is well inside the ±0.077 binomial interval. The CV table above, with configs held fixed, is
+the cleaner measurement of what the annotation fix bought: **+0.008**.
+
+### Standings
+
+**M9+ and M12 tie at 0.400 test (60/150), 20x chance.** M12 remains the one to prefer: same
+accuracy from far less machinery, and the smallest generalisation gap in the top group
+(+0.014 against M9+'s +0.047). M14 still posts the best CV (0.468) and the best top-5
+(0.733) while losing on top-1 — its CV→test gap of **+0.095** is unchanged from v1 and
+remains the clearest overfitting signal in the project.

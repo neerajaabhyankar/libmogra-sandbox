@@ -26,13 +26,30 @@ MELODY_DIR = HERE.parent / "melody-extraction"
 SEP_DIR = HERE.parent / "source-separation"
 CACHE_DIR = HERE / "cache"
 
-# v1 (2026-08-28) changed the audio itself, not just the metadata: new chunk offsets,
-# 20-60s instead of ~6s, 5/3 chunks per video instead of 3/2, 20 videos dropped and 6
-# added, plus a hand-annotated `tonic_hz`. Nothing cached under v0 transfers, so the two
-# versions get separate data dirs and separate caches and v0 stays reproducible.
-DATA_VERSION = os.environ.get("RAAG_DATA_VERSION", "v1")
-DATA_DIR = HERE.parent / ("hindustani-raag-small-v1" if DATA_VERSION == "v1"
-                          else "hindustani-raag-small")
+DATASET_ID = "neerajaabhyankar/hindustani-raag-small"
+
+#: Version label -> the exact Hugging Face commit it means. The labels are ours and appear
+#: throughout plan.md and results/; the SHAs are what actually make a run reproducible, so
+#: fetch_dataset.py pins these rather than tracking `main`.
+#:
+#:   v0    2024-03-20  1253 clips of ~6 s, no tonic column
+#:   v1    2026-08-28  new audio: 1960 clips of 20-60 s, real train/test splits, tonic_hz
+#:   v1.1  2026-08-31  v1 with six tonic annotations corrected; audio byte-identical to v1
+#:
+#: v1 changed the audio itself, so nothing cached under v0 transfers and the two get
+#: separate data dirs and caches. v1.1 changed only `tonic_hz`, and because the caches here
+#: are stored *pre-tonic* (note events in Hz plus the raw f0 track, tonic applied
+#: downstream) v1's caches were copied to the v1.1 names rather than re-extracted.
+DATA_REVISIONS = {
+    "v0": "0dfb021e54e0e7489b90a47e23ef15f34fa740ec",
+    "v1": "9944c647cb733573fcc5bb05297e1622fc1867f2",
+    "v1.1": "326caef0bc01da44ad46e4d9c65a5146da6bcc5b",
+}
+
+DATA_VERSION = os.environ.get("RAAG_DATA_VERSION", "v1.1")
+DATA_REVISION = DATA_REVISIONS.get(DATA_VERSION)
+DATA_DIR = HERE.parent / ("hindustani-raag-small" if DATA_VERSION == "v0"
+                          else f"hindustani-raag-small-{DATA_VERSION}")
 
 for p in (str(MELODY_DIR), str(MELODY_DIR / "trackers" / "tony"), str(SEP_DIR)):
     if p not in sys.path:
@@ -47,6 +64,11 @@ def true_tonics():
     """{video: tonic_hz} from the dataset's hand annotation. Empty under v0."""
     f = DATA_DIR / "tonics.csv"
     if not f.exists():
+        if DATA_VERSION != "v0":
+            raise FileNotFoundError(
+                f"{f} is missing — fetch {DATA_VERSION} first:\n"
+                f"    poetry run python fetch_dataset.py --version {DATA_VERSION}"
+            )
         return {}
     with open(f) as fh:
         return {r["video"]: float(r["tonic_hz"]) for r in csv.DictReader(fh)}
@@ -181,6 +203,9 @@ def extract(tracker, limit=None, force=False, separate=None):
         out[f"{key}|f0"] = f0
         out[f"{key}|voiced"] = np.packbits(voiced)
         out[f"{key}|meta"] = np.array([hop, len(voiced)], dtype=np.float64)
+        # stamp the cache with the dataset commit it was built from, so a stale cache can
+        # be identified rather than silently trusted
+        out["__revision__"] = np.array(str(DATA_REVISION))
         done += 1
         if done % 50 == 0:
             rate = (time.time() - t0) / done
@@ -189,16 +214,21 @@ def extract(tracker, limit=None, force=False, separate=None):
             np.savez_compressed(dest, **out)
 
     np.savez_compressed(dest, **out)
-    print(f"wrote {dest}: {len(out)//4} clips in {(time.time()-t0)/60:.1f} min")
+    print(f"wrote {dest}: {sum(1 for k in out if k.endswith('|notes'))} clips "
+          f"from {DATA_VERSION} ({str(DATA_REVISION)[:10]}) in {(time.time()-t0)/60:.1f} min")
 
 
 def load_cache(tracker, separate=None):
     """Returns {clip_id: {"notes": (N,3) float32 [t0,t1,hz], "f0": (T,), "voiced": (T,) bool, "hop": float}}."""
     with np.load(cache_path(tracker, separate), allow_pickle=True) as z:
+        rev = str(z["__revision__"]) if "__revision__" in z.files else None
+        if rev and DATA_REVISION and rev != str(DATA_REVISION):
+            print(f"WARNING: {cache_path(tracker, separate).name} was built from dataset "
+                  f"revision {rev[:10]}, but {DATA_VERSION} is {str(DATA_REVISION)[:10]}")
         keys = {k.split("|")[0] for k in z.files}
         out = {}
         for k in sorted(keys):
-            if f"{k}|notes" not in z.files:
+            if k.startswith("__") or f"{k}|notes" not in z.files:
                 continue
             hop, n_frames = z[f"{k}|meta"]
             out[k] = {
