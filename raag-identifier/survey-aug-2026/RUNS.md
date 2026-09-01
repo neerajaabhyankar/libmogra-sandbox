@@ -48,16 +48,18 @@ anything part-finished. `-w` refreshes every 30 s and exits when the machine goe
 | `scripts/90_report.py` | `RESULTS.md`; `--notebook <ids>` for a `plan.md` table |
 | `scripts/91_score_test.py` | scores the held-out 150 for finished runs, from `best.pt` |
 | `scripts/status.sh` | what is running, done, partial. No arguments. |
-| `scripts/run_batch1_cheap.sh` | Batch 1 — cqt + resnet1d, Stages 1–2 |
-| `scripts/run_batch2_hubert.sh` | Batch 2 — distilHuBERT, Stages 1–2 |
-| `scripts/run_batch3_sep_db.sh` | Batch 3 — source separation + the DB prior |
+| `scripts/run_batch1_cheap.sh` | Batch 1 — Stages 1–2, CQT + ResNet |
+| `scripts/run_batch2_hubert.sh` | Batch 2 — Stages 1–2, distilHuBERT |
+| `scripts/run_batch3_sep_db.sh` | Batch 3 — Stages 3–4 |
+| `scripts/run_batch4_dbprior.sh` | Batch 4 — Stage 4 follow-ups + rigour |
+| `scripts/run_batch5_seeds.sh` | Batch 5 — seed replication of the best run |
 | `colab/batch2_hubert.ipynb` | Batch 2 on a GPU |
 
 ---
 
 ## Queue
 
-### Batch 0 — caches and cheap probes ✅
+### Batch 0 — Stage 0 [harness] ✅
 *local · 31 min*
 
 | id | what | status |
@@ -65,7 +67,7 @@ anything part-finished. `-w` refreshes every 30 s and exits when the machine goe
 | C0 | decode 1960 clips + both CQT variants | ✅ 2.34 GB, 0 errors |
 | P0 | frozen-representation probes, grouped 5-fold CV | ✅ |
 
-### Batch 1 — cqt + resnet1d, Stages 1–2 ✅
+### Batch 1 — Stages 1–2 [baseline, tonic] on CQT + ResNet ✅
 *local · ~4 h · `run_batch1_cheap.sh`*
 
 | id | what | status |
@@ -80,7 +82,7 @@ anything part-finished. `-w` refreshes every 30 s and exits when the machine goe
 
 An earlier c2_shuffled was void — cache-key bug, fixed, re-run.
 
-### Batch 2 — distilHuBERT, Stages 1–2 ✅
+### Batch 2 — Stages 1–2 [baseline, tonic] on distilHuBERT ✅
 *Colab T4 · ~3 h · `colab/batch2_hubert.ipynb`*
 
 | id | what | status |
@@ -92,7 +94,7 @@ An earlier c2_shuffled was void — cache-key bug, fixed, re-run.
 
 distilHuBERT is **parked**. Stages 3–4 ran on cqt and resnet1d only.
 
-### Batch 3 — source separation and the DB prior ✅
+### Batch 3 — Stages 3–4 [separation, DB prior] ✅
 *local · ~4 h incl. a one-time 20 min HPSS cache · `run_batch3_sep_db.sh`*
 
 | id | what | status |
@@ -105,6 +107,42 @@ distilHuBERT is **parked**. Stages 3–4 ran on cqt and resnet1d only.
 | r4g | r2n + graded label smoothing | ✅ |
 
 c4g, c4a and r4g crashed on a `trainer.evaluate` bug in the first pass; fixed and re-run.
+
+### Batch 4 — Stage 4 [DB prior] follow-ups + rigour ✅
+*local · 6 h · `run_batch4_dbprior.sh`*
+
+| id | what | status |
+|---|---|---|
+| dbprior_lam0 | learned templates, `--db-lam 0` — the ablation | ✅ |
+| dbprior_36bins | 36 swar bins (~33 cents) | ✅ |
+| dbprior_144bins | 144 swar bins | ✅ |
+| dbprior_frozen | database templates frozen | ✅ |
+| aug_jitter | c4h + pitch/gain jitter | ✅ best run in the project |
+| seed1 | c4h at seed 1 | ✅ |
+| seed2 | c4h at seed 2 | ✅ |
+| cv5 | c4h at 5-fold CV | ✅ |
+
+Two results changed earlier conclusions — the DB templates turned out not to matter, and the
+seed spread on test is larger than most differences this survey reported. See `plan.md`.
+
+### Batch 5 — seed replication of the best configuration ✅
+*local · 77 min · `run_batch5_seeds.sh`*
+
+| id | what | status |
+|---|---|---|
+| aug_seed1 | aug_jitter at seed 1 | ✅ |
+| aug_seed2 | aug_jitter at seed 2 | ✅ |
+
+Augmentation's apparent win was a lucky seed: +0.025 ± 0.018 val over three seeds, not
+significant. See `plan.md`.
+
+### Batch 6 — Stage 5 [hybrid] 🟥
+*not written; needs `scripts/20_fuse_symbolic.py`*
+
+| id | what | status |
+|---|---|---|
+| fuse_symbolic | logit fusion of the best CQT run with motif-classifier's M14 | 🟥 |
+| hybrid_feat | melody histogram concatenated onto the CQT feature, trained | 🟥 |
 
 ---
 

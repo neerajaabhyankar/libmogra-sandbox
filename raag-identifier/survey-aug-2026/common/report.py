@@ -28,6 +28,17 @@ WHAT = {
     "r3": "r2n + HPSS melody stem", "r4g": "r2n + graded label smoothing",
     "d1": "distilHuBERT, notebook recipe", "d2n": "distilHuBERT, tonic-normalised audio",
     "d2c": "distilHuBERT, tonic by FiLM", "d1_unfrozen": "d1, conv encoder unfrozen",
+    # Batch 4 onward: descriptive ids instead of codes -- c4h etc. were getting unreadable
+    "dbprior_lam0": "c4h, learned templates (`--db-lam 0`) *(ablation)*",
+    "dbprior_36bins": "c4h at 36 swar bins (~33 cents)",
+    "dbprior_144bins": "c4h at 144 swar bins",
+    "dbprior_frozen": "c4h, database templates frozen",
+    "aug_jitter": "c4h + pitch/gain jitter",
+    "seed1": "c4h at seed 1", "seed2": "c4h at seed 2",
+    "cv5": "c4h, 5-fold grouped CV",
+    "aug_seed1": "aug_jitter at seed 1", "aug_seed2": "aug_jitter at seed 2",
+    "fuse_symbolic": "best CQT run + M14, logit fusion",
+    "hybrid_feat": "CQT feature + melody histogram, trained",
 }
 
 #: name -> (columns as (field, heading, format), markdown?)

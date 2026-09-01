@@ -138,32 +138,46 @@ overnight `scripts/` job, and a 5-fold grouped CV of it is not affordable locall
 
 ---
 
-## Stages
+## Stages and batches
+
+**Stages** are the questions, from the brief. **Batches** are how they were run — a batch may
+cover several stages, and a stage may span batches.
+
+| stage | question | settled in |
+|---|---|---|
+| Stage 0 [harness] | do the splits, metrics and caches work; is there signal at all | Batch 0 |
+| Stage 1 [baseline] | retrain each architecture as-is on v1.1 | Batches 1, 2 |
+| Stage 2 [tonic] | does the annotated `tonic_hz` help, and how must it enter | Batches 1, 2 |
+| Stage 3 [separation] | does source separation as pre-processing help | Batch 3 |
+| Stage 4 [DB prior] | does the libmogra database help, and by which mechanism | Batches 3, 4 |
+| Stage 5 [hybrid] | do the DL and symbolic methods add up | not yet run |
+
+## Stage detail
 
 Status legend: ☐ not started · ▶ running · ✔ done · ✖ tried and failed · ⏸ parked
 
-### Stage 0 — harness, caches, and cheap probes
+### Stage 0 [harness]
 ✔ `common/` modules, audio cache (2.34 GB, 0 errors), Sa-anchored and fixed-fmin CQT caches
 ✔ Frozen-representation probes, video-grouped 5-fold CV — **see the log entry below**
 
-### Stage 1 — retrain as-is on v1.1
+### Stage 1 [baseline]
 ☐ D1 distilHuBERT, original recipe, v1.1, grouped val  *(batch 2, ~4 h)*
 ☐ R1 jeevster ResNet, Stage 6a recipe (last 2 blocks + head), v1.1, grouped val
 ▶ C1 CQT-ResNet with fixed fmin (absolute pitch) — the control for Stage 2
 
-### Stage 2 — the tonic  *(important)*
+### Stage 2 [tonic]  *(important)*
 ☐ D2n / R2n — tonic-normalised audio · D2c / R2c — FiLM conditioning
 ☐ C2 — tonic-rolled CQT
 ☐ shuffled-tonic control for each
 
-### Stage 3 — source separation as pre-processing
+### Stage 3 [separation]
 ☐ HPSS (`../source-separation`) in front of the best Stage 2 config per architecture.
   Prior from motif-classifier: separation helped the *tracker* and **hurt classification**
   (M9 0.422 → 0.393), the theory being that HPSS smooths away meend and gamak. A spectral
   model may not care about the same thing a 120-bin histogram cares about, so it is worth one
   run per architecture — but the expectation is set low.
 
-### Stage 4 — the libmogra DB as a prior  *(important)*
+### Stage 4 [DB prior]  *(important)*
 ☐ P1 musically-graded label smoothing from `raagspace.affinity()`
 ☐ P2 auxiliary head predicting the DB swar-occupancy vector (multi-task)
 ☐ P3 fixed DB-template output layer (C only — project to occupancy, score by chi²)
@@ -171,7 +185,7 @@ Status legend: ☐ not started · ▶ running · ✔ done · ✖ tried and faile
   Prior from motif-classifier: the DB is **a good prior and a poor model** — blending at
   λ=0.3 beat both λ=0 and λ=1 for both M12 and M13. Expect the same shape.
 
-### Stage 5 — hybrid with the symbolic methods  *(stretch)*
+### Stage 5 [hybrid]
 ☐ Only if nothing above beats 0.400. Late fusion of DL probabilities with M9+/M12 scores, or
   M9 melody-surface features concatenated into the DL head.
 
@@ -583,3 +597,285 @@ was on val. The *maximum* of sixteen test numbers is not: it carries roughly the
 optimism of a best-of-N. c4h is the one method that was also best on val, chosen before its
 test score existed, so quoting 0.387 for it is legitimate in a way that quoting the max of
 this column would not be.
+
+---
+
+## Next steps
+
+Ordered by expected value per hour, not by ambition. Costs are M1 wall-clock.
+
+### 1. Stage 5 [hybrid] — fuse with the symbolic side  *(~1 h, no training)*
+
+The brief listed a hybrid as a stretch goal *"only if nothing here beats motif-classifier"*.
+Nothing did — c4h 0.387 test against M14's 0.400 — so the condition has triggered.
+
+Start with the free version: **average the logits of c4h and M14** over the test clips. No
+training, both models exist, both already write logits to disk. The case for expecting a
+gain is that they cannot be making the same mistakes: c4h reads a Sa-anchored spectrogram
+and never sees a pitch track; M14 reads CREPE notes and never sees spectral energy. Their
+mistake-affinity profiles differ too. If fusion moves nothing, that is itself informative —
+it would mean the two are exploiting the same underlying cue by different routes.
+
+Then the trained version: concatenate M11's 120-bin melody histogram onto c4h's pooled
+feature before the DB head. Stage 0 already showed that histogram carries 0.434 under a
+plain logistic regression, higher than anything the DL side reached — it is the strongest
+single feature in the project and no neural run has been given it.
+
+### 2. Stage 4 [DB prior] — push the mechanism that won  *(~2 h — in Batch 4)*
+
+`--db-bins` has choices 12 / 36 / 144 and **has only ever run at 12**. `--db-lam` has only
+ever run at 0.3, inherited from M12's optimum for a different model. Neither was tuned; c4h
+is the first point sampled, not the best one found.
+
+| run | change | what it settles |
+|---|---|---|
+| c4h_36 | `--db-bins 36` | 3 bins/semitone ≈ 33 cents. Stage 3 showed sub-semitone movement is *signal* — a 12-bin profile quantises meend and gamak away, which is precisely the resolution this repo exists to study |
+| c4h_144 | `--db-bins 144` | the CQT's own resolution, folded; matches `dbprior.pitch_template` |
+| c4h_lam0 / lam1 | `--db-lam 0 / 1` | how much of the win is the *database* versus the *shape of the head*. lam=0 is learned templates with the same architecture — the honest ablation, and it is missing |
+| c4h_frozen | `--db-lam 1 --db-freeze-templates` | 50 scalar biases as the only raag-specific parameters. If this holds up, the model is a shruti-profile estimator and the DB does the classifying |
+
+`c4h_lam0` is the one I would run first: without it, "the DB prior is worth +0.115" is not
+yet separable from "a template-scoring head is worth +0.115".
+
+### 3. A temporal swar head — the actual new architecture  *(~1 day, not yet queued)*
+
+**Evidence it is the right next model.** c4h pools over time before scoring, so it sees a
+raag's *pitch histogram* and nothing about order. Its test errors concentrate exactly where
+that hurts: **same-scale confusions are 10.9 % of errors against 1.3 % chance, an 8.4×
+enrichment**, and the pairs are the textbook ones — Bhupali/Deshkar, Bageshree/Bheempalasi,
+Bihag/Hameer. Raags sharing a scale differ in phrase, approach and emphasis, none of which
+survives pooling.
+
+Proposed: CQT → CNN → **per-frame 12- or 36-bin swar posterior** (a sequence, not a pooled
+vector), then two heads over that sequence:
+
+* the c4h head unchanged, over the time-averaged posterior — keeps what works;
+* a transition/phrase head: bigram statistics of the posterior scored against the DB's
+  aaroha, avaroha and mukhyanga, i.e. M13's mechanism learned end to end.
+
+That is M12 + M13, which as a symbolic ensemble was motif-classifier's best method (M14,
+0.468 CV). Here the two would share a backbone and train jointly, and the per-frame swar
+posterior is independently interpretable — you can plot it against the audio and see whether
+the model has found the raag's phrases.
+
+Honest ceiling: fixing *every* same-scale error takes test 0.387 → 0.453. Real, but the
+other 89 % of errors are elsewhere, so this is one contribution and not the whole gap.
+
+### 4. Rigour that is currently missing  *(~3 h — in Batch 4)*
+
+Across all 16 runs these never varied: `seed=0`, `folds=1`, `gain_jitter=0`, `freq_jitter=0`,
+`length_policy=fixed`, `seconds=20`, `fold_octaves=False`.
+
+* **Seeds.** One seed per configuration. Every ranking in this notebook is a single draw,
+  and the selection-optimism analysis showed ±0.05 of peak-picking noise on val. Three seeds
+  for c4h and c2 would put an error bar on the headline.
+* **5-fold CV for the headline.** `--folds 5` on c4h pools out-of-fold predictions over all
+  1810 clips instead of judging on 460. ~100 min, and it is what the final claim deserves.
+* **Augmentation was never switched on.** `--freq-jitter` was written specifically for this
+  architecture — sub-semitone pitch jitter that models tuning drift between performances
+  without moving a swar — and it has run at 0 every time. With ~36 clips per class, this is
+  cheap and plausibly worth more than any architectural change above.
+
+### 5. Pretraining on in-domain audio  *(parked — no data on disk yet)*
+
+**Status: not runnable today.** `../data-dunya-hindustani/` does not currently hold the
+full corpus, so this is a plan rather than a queued run. Written down because it is the
+only idea here that addresses the constraint everything else is bumping into.
+
+**Why it is the right idea.** Batch 2 killed distilHuBERT: three runs, ~3 h of T4, final
+score 0.080 against 0.064 for the *frozen, untrained* embeddings. Fine-tuning bought two
+points. The natural conclusion is not "pretraining does not work" but "**speech**
+pretraining does not work" — a model trained to discriminate phonemes has no reason to
+represent pitch-relative structure at the resolution a raag lives in, and its mistake
+affinity sat at chance, meaning it never learned musical structure for the tonic to sharpen.
+
+Meanwhile the binding constraint is data: 1810 training clips over 50 classes, ~36 clips per
+class. c4h's val→test gap and the ±0.05 of checkpoint-selection noise both trace back to
+that. No architecture change fixes a data ceiling; pretraining is the only lever that does.
+
+**The plan, when a corpus exists.**
+
+1. *Corpus.* Unlabelled Hindustani vocal audio — Dunya, or anything with a usable licence.
+   Labels are not needed, which is the point; hours matter far more than annotation. A few
+   hundred hours would already dwarf the 10 h of labelled clips here.
+2. *Representation: the same Sa-anchored CQT the supervised model uses.* This is the crux.
+   Anchoring needs a tonic per recording, and unlabelled audio has none — so pretraining
+   depends on tonic *estimation* even though the supervised runs use hand annotations.
+   Two ways out, and the choice is itself an experiment: estimate a tonic per recording and
+   accept the noise, or pretrain on *unanchored* CQTs and let the model learn
+   transposition-equivariant features, anchoring only downstream.
+3. *Objective: masked-CQT modelling.* Mask spans of time-frequency bins, reconstruct them.
+   The Stage 3 result argues for reconstructing at **fine** frequency resolution — 36 bins
+   per octave or better — since sub-semitone movement turned out to be signal, not noise,
+   and a coarse objective would train the model to discard exactly the meend and gamak that
+   distinguish raags.
+4. *Transfer.* Replace the CQT-ResNet backbone with the pretrained encoder, keep the
+   DB-template head that Batch 3 showed is worth +0.115, fine-tune on the 1810 clips.
+5. *The honest control.* A frozen-encoder linear probe, scored against the 0.234 that
+   Stage 0's frozen Sa-anchored chroma + logreg already reaches. If pretraining cannot beat
+   a 36-bin chroma histogram frozen, it has not learned anything worth the GPU time — the
+   same bar distilHuBERT failed at 0.064.
+
+**Cost and honesty about it.** This is days of GPU, not hours, and it is the only item in
+this list that could plausibly return nothing. Everything in sections 1-4 should be
+exhausted first; they are cheap, and section 1 in particular may close the gap to
+motif-classifier without any new model at all.
+
+### 2026-09-01 — Batch 4: the database was not the win, and the seed noise is bigger than the bar
+
+Eight runs, all variations on c4h. Two of them overturn claims made earlier in this notebook.
+
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| aug_jitter | c4h + pitch/gain jitter | 0.467 | 0.400 | +0.357 | 0.424 (0.266) |
+| dbprior_frozen | c4h, database templates frozen | 0.443 | 0.367 | +0.333 | 0.430 (0.263) |
+| cv5 | c4h, 5-fold grouped CV | 0.443 | 0.347 | +0.332 | 0.439 (0.266) |
+| dbprior_lam0 | c4h, learned templates (`--db-lam 0`) *(ablation)* | 0.435 | 0.373 | +0.324 | 0.407 (0.260) |
+| c4h | c2 + **DB-template head** | 0.417 | 0.387 | +0.307 | 0.430 (0.262) |
+| dbprior_36bins | c4h at 36 swar bins (~33 cents) | 0.417 | 0.327 | +0.307 | 0.440 (0.264) |
+| seed1 | c4h at seed 1 | 0.411 | 0.293 | +0.300 | 0.422 (0.263) |
+| dbprior_144bins | c4h at 144 swar bins | 0.404 | 0.347 | +0.293 | 0.435 (0.264) |
+| seed2 | c4h at seed 2 | 0.396 | 0.400 | +0.285 | 0.409 (0.264) |
+
+#### The DB-template head works. The database does not.
+
+`--db-lam` interpolates the head's templates from purely learned (0) to the libmogra
+database verbatim (1). All else equal:
+
+| lam | templates | val | test |
+|---|---|---|---|
+| 0.0 | learned from data | 0.435 | 0.373 |
+| 0.3 | mostly learned | 0.417 | 0.387 |
+| 1.0, frozen | the database, unmodified | 0.443 | 0.367 |
+
+A spread of 0.026 on val and 0.020 on test, against a seed standard deviation of 0.058 on
+test. **These three are indistinguishable.** Learned templates do exactly as well as the
+libmogra ones, and freezing the database templates so that 50 scalar biases are the only
+raag-specific parameters in the model also does exactly as well.
+
+So the earlier claim — *"the DB-template head is worth +0.115; the database contributes its
+swar templates as a scoring target"* — was half right and half wrong. The **architecture** is
+worth +0.115: predicting a 12-bin swar profile and scoring it against per-raag templates by
+chi-square beats a free `Linear(D, 50)` by a wide margin. **Where the templates come from
+does not matter.** The constraint is doing the work, not the musicology.
+
+This is the ablation that should have been in Batch 3. It was flagged there as "without it,
++0.115 cannot be attributed to the database" — correctly, and the answer is that it cannot.
+
+Two consolations. It is a *better* result for the architecture: the C design bet was that a
+Sa-anchored CQT gives a model a 12-bin space in which raags are separable, and that holds
+whether or not a database is consulted. And `dbprior_frozen` says something sharp — a model
+whose only raag-specific parameters are 50 biases matches one with a full classifier head, so
+the CQT features really are landing in libmogra's own coordinate system.
+
+#### Finer swar bins do not help
+
+36 bins (~33 cents) and 144 bins score 0.417 and 0.404 on val, 0.327 and 0.347 on test — at
+or below the 12-bin default. Stage 3 argued sub-semitone movement is signal, and it is, but
+apparently not signal a *pooled profile* can use: mistake affinity rises with resolution
+(0.430 → 0.440 → 0.435) while accuracy does not. Finer bins make the errors more musical
+without making them fewer, which is what you would expect if the extra resolution captures
+ornamentation that is real but not raag-discriminative once time order is discarded.
+
+#### The seed spread is larger than every difference this survey has reported on test
+
+c4h, rerun at seeds 1 and 2 (`--seed` also re-deals the grouped split):
+
+| | seed 0 | seed 1 | seed 2 | mean | sd |
+|---|---|---|---|---|---|
+| val | 0.417 | 0.411 | 0.396 | 0.408 | **0.011** |
+| test | 0.387 | 0.293 | 0.400 | 0.360 | **0.058** |
+
+Val is stable to ±0.011. **Test moves by 0.107 between seeds.** With 150 clips and one video
+per raag, a single unlucky recording swings several clips at once, and the split re-deal
+changes what the model saw.
+
+This is the most important result in Batch 4, because it is retrospective. Every test
+comparison in this notebook — c4h's 0.387 against motif-classifier's 0.400, c3 against c2,
+the val→test gap analysis — was a single draw from a distribution with sd 0.058. None of
+those gaps was significant. What survives is the large effects: the tonic (2–2.7×), the
+DB-template head (+0.115), distilHuBERT's failure (0.08 against 0.30). Those are multiples of
+the noise. Anything under ~0.10 on test should be treated as unresolved.
+
+Going forward: **report test as a mean over three seeds, or do not report a test difference.**
+
+#### Augmentation, never switched on, is the best run in the project
+
+`aug_jitter` — c4h plus `--freq-jitter 2 --gain-jitter 3` — scores **0.467 val / 0.400 test**,
+the highest of either column anywhere in this survey, and val is 0.059 above the c4h
+seed-mean, five standard deviations of the val noise.
+
+`--freq-jitter` was written for this architecture in Stage 0 — sub-semitone pitch jitter that
+models tuning drift between performances without moving a swar to a different swar — and then
+ran at 0 in all 16 previous runs. With ~36 clips per class, the cheapest thing in the project
+was the one nobody tried.
+
+**It is not yet a claim that the bar is beaten.** 0.400 test equals motif-classifier's 0.400,
+on one seed, with test sd 0.058. Three seeds of `aug_jitter` are queued; until they land, the
+honest statement is that augmentation is the largest val-side gain since the tonic.
+
+#### `cv5`, the number the headline deserves
+
+0.443 pooled out-of-fold over all 1810 train clips, against 0.417 for the same configuration
+on a single 460-clip split. This is the reliable train-side estimate, and it is *higher* than
+the single-split value, consistent with the selection-optimism analysis: more folds, less
+peak-picking per fold, and five times the evaluation data.
+
+### 2026-09-01 — Batch 5: augmentation was a lucky seed, and the survey ends inside the noise
+
+Two more seeds of `aug_jitter`, the configuration that looked like the best in the project.
+
+| config | val (3 seeds) | mean | test (3 seeds) | mean |
+|---|---|---|---|---|
+| c4h | 0.417 / 0.411 / 0.396 | 0.408 ± 0.011 | 0.387 / 0.293 / 0.400 | 0.360 ± 0.058 |
+| aug_jitter | **0.467** / 0.415 / 0.417 | 0.433 ± 0.030 | 0.400 / 0.340 / 0.380 | 0.373 ± 0.031 |
+
+**Correction to the Batch 4 entry.** It recorded augmentation as "+0.059 val over the c4h
+seed-mean, five standard deviations of the val noise". That was seed 0 against a three-seed
+mean — the wrong comparison. Seeds 1 and 2 give 0.415 and 0.417, and the honest figures are:
+
+* val **+0.025 ± 0.018** (t = 1.4)
+* test **+0.013 ± 0.038** (t = 0.35)
+
+Neither is significant. **Augmentation is not shown to help.** 0.467 was the top of a
+distribution, and the mistake was reading a single seed as an effect one entry after writing
+down that single seeds cannot be read as effects.
+
+#### Where the survey actually lands
+
+`aug_jitter` test mean **0.373**, 95 % CI **[0.297, 0.449]** on three seeds. motif-classifier's
+0.400 sits inside that interval. The correct statement is:
+
+> The best DL configuration scores 0.373 ± 0.031 test top-1 over three seeds. The symbolic
+> champion reports 0.400. **The two cannot be separated with this test set.**
+
+Not "the DL side falls 1.3 points short" (Batch 3's phrasing, a single seed against a single
+number), and not "augmentation beats the bar" (Batch 4's, the luckiest seed of three).
+
+#### What the test set can and cannot resolve
+
+150 clips, one video per raag. Seed-to-seed sd is 0.031–0.058 depending on configuration, so
+the smallest difference this test set can resolve at three seeds is roughly **0.10**. That
+covers the survey's real findings — the tonic (2–2.7×), the DB-template head (+0.115),
+distilHuBERT's collapse — and none of its fine distinctions.
+
+Everything under 0.10 measured on test in this notebook is unresolved: separation vs none,
+36 vs 12 swar bins, lam 0 vs 1, augmentation vs none, c4h vs the bar. Some of those were
+written up as findings before the noise floor was known. The val column, sd 0.011–0.030, and
+`cv5` (pooled over 1810 clips) are the instruments for anything finer.
+
+#### The instrument to use from here
+
+`cv5` gave 0.443 for the c4h configuration, pooling out-of-fold predictions over all 1810
+train clips — roughly four times the evaluation data of a single val split and no
+peak-picking per fold. A `cv5` run of `aug_jitter` (~2 h) would settle the augmentation
+question far better than more seeds on 150 test clips, and the same applies to the lam sweep
+and the bin-count sweep. **Cheap and decisive beats cheap and noisy.**
+
+For the record, the survey's defensible conclusions, all of them multiples of the noise:
+
+1. The tonic must be in the representation — 2.0–2.7×, with shuffled controls at chance.
+2. Conditioning on the tonic through FiLM is worse than not using it at all.
+3. A template-scoring head beats a linear classifier by +0.115; the templates may be learned.
+4. Source separation does not help; speech-pretrained distilHuBERT does not transfer.
+5. Everything finer than that awaits a better instrument than 150 clips.
