@@ -61,25 +61,13 @@ snapshot () {
   # ---- everything that has reported
   echo
   echo "REPORTED"
-  python3 - "$RESULTS" <<'PY'
-import json, sys
-from pathlib import Path
-res = Path(sys.argv[1])
-rows = []
-for d in sorted(res.iterdir()):
-    f = d / "result.json"
-    if not f.exists():
-        continue
-    try:
-        r = json.loads(f.read_text())
-    except Exception:
-        continue
-    rows.append((r["metrics"]["top1"], d.name, r.get("arch", "?"), r.get("stage", "?")))
-if not rows:
-    print("  (none yet)")
-for top1, name, arch, stage in sorted(rows, reverse=True):
-    print(f"  {top1:.3f}  {name:<14} {arch:<9} stage {stage}")
-PY
+  # the same renderer that writes RESULTS.md and the plan.md tables -- one place
+  ( cd "$SURVEY" && python3 -c "
+import sys; sys.path.insert(0, '.')
+from common.report import load_runs, table
+runs = load_runs()
+print(table('status', runs) if runs else '  (none yet)')
+" 2>/dev/null | sed 's/^/  /' ) || echo "  (could not read results)"
 
   # ---- started but unfinished
   echo

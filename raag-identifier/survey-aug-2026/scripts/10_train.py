@@ -205,8 +205,10 @@ def main():
     g = ap.add_argument_group("protocol")
     g.add_argument("--folds", type=int, default=1,
                    help="1 = a single grouped train/val split; N>1 = grouped N-fold CV")
-    g.add_argument("--test", action="store_true",
-                   help="also score the held-out 150. Explicit on purpose -- log it in RUNS.md")
+    g.add_argument("--no-test", dest="test", action="store_false", default=True,
+                   help="skip scoring the held-out 150 at the end of the run")
+    g.add_argument("--test", dest="test", action="store_true",
+                   help=argparse.SUPPRESS)   # kept so old commands still parse
     g.add_argument("--seed", type=int, default=0)
     g.add_argument("--device", default="auto")
     g.add_argument("--num-workers", type=int, default=0)

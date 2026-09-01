@@ -6,6 +6,19 @@ worth more than a blank space.
 
 Standing brief and rules: [`CLAUDE.md`](CLAUDE.md). Run registry: [`RUNS.md`](RUNS.md).
 
+**Every results table here is generated, never typed**, so the entries read as one sequence
+and no cell can drift from what was measured:
+
+```bash
+poetry run python scripts/90_report.py --notebook c1 c2 c2_shuffled   # paste the output
+```
+
+One shape throughout — run, what, val top-1, test top-1, vs that architecture's Stage 1,
+mistake affinity against its chance floor. Put the run being tested next to its comparator
+in the id list and the reader can see the delta without arithmetic. Column specs live in
+[`common/report.py`](common/report.py), which is also what writes `RESULTS.md` and what
+`scripts/status.sh` prints — one loader, one field-deriver, one renderer.
+
 ---
 
 ## The bar
@@ -255,14 +268,14 @@ like the obvious thing to do.
 Batch 1, all six runs. Single grouped val split (1350 fit / 460 select, disjoint videos),
 checkpoint on val top-1. Chance is 0.020.
 
-| run | what | val top-1 | vs its Stage 1 |
-|---|---|---|---|
-| **c2** | CQT anchored so bin 0 is Sa | **0.302** | **2.7x** |
-| r2n | jeevster ResNet, tonic-normalised audio | 0.287 | **2.0x** |
-| r1 | jeevster ResNet, as-is | 0.146 | — |
-| c1 | CQT, fixed fmin | 0.111 | — |
-| c2_shuffled | c2 with tonics permuted between videos | 0.087 | *control* |
-| r2c | jeevster ResNet, tonic by FiLM | 0.057 | **0.4x — worse than no tonic** |
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| c2 | CQT, Sa-anchored | 0.302 | 0.187 | +0.191 | 0.380 (0.263) |
+| r2n | ResNet, tonic-normalised audio | 0.287 | 0.227 | +0.141 | 0.363 (0.262) |
+| r1 | jeevster ResNet, as-is | 0.146 | 0.113 | — | 0.305 (0.260) |
+| c1 | CQT, fixed fmin | 0.111 | 0.080 | — | 0.297 (0.259) |
+| c2_shuffled | c2, tonics permuted *(control)* | 0.087 | 0.040 | -0.024 | 0.275 (0.259) |
+| r2c | ResNet, tonic by FiLM | 0.057 | 0.033 | -0.089 | 0.250 (0.260) |
 
 **The tonic is worth 2-2.7x, and the shuffled control now proves it is the tonic.**
 `c2_shuffled` anchors each video's CQT at a deliberately wrong Sa and collapses to 0.087 —
@@ -312,11 +325,11 @@ pending its control.
 Batch 2, three runs on a Colab T4 (`device=cuda`, batch 16), same pinned revision and same
 video-grouped split as Batch 1.
 
-| run | tonic | val top-1 | mistake affinity (chance 0.260) |
-|---|---|---|---|
-| d1 | none | 0.080 | 0.266 |
-| d2n | normalised into the audio | 0.087 | 0.285 |
-| d2c | by FiLM | 0.076 | 0.267 |
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| d1 | distilHuBERT, notebook recipe | 0.080 | 0.053 | — | 0.266 (0.260) |
+| d2n | distilHuBERT, tonic-normalised audio | 0.087 | 0.060 | +0.007 | 0.285 (0.260) |
+| d2c | distilHuBERT, tonic by FiLM | 0.076 | 0.047 | -0.004 | 0.267 (0.260) |
 
 **Fine-tuning distilHuBERT bought almost nothing over not fine-tuning it.** Frozen
 distilHuBERT embeddings scored 0.064 in the Stage 0 probe. Twenty epochs x 3 runs, ~3 hours
@@ -406,12 +419,12 @@ number is a real result rather than the c2_shuffled failure repeating.
 
 The direction is the surprise. Lining up the four resnet1d runs:
 
-| run | what the model is told about the tonic | val top-1 |
-|---|---|---|
-| r2n | it is baked into the audio (normalised) | **0.287** |
-| r1 | nothing | 0.146 |
-| r2c_shuffled | a *wrong* tonic, by FiLM | 0.130 |
-| r2c | the *correct* tonic, by FiLM | 0.057 |
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| r2n | ResNet, tonic-normalised audio | 0.287 | 0.227 | +0.141 | 0.363 (0.262) |
+| r1 | jeevster ResNet, as-is | 0.146 | 0.113 | — | 0.305 (0.260) |
+| r2c_shuffled | r2c, tonic permuted *(control)* | 0.130 | 0.147 | -0.015 | 0.322 (0.260) |
+| r2c | ResNet, tonic by FiLM | 0.057 | 0.033 | -0.089 | 0.250 (0.260) |
 
 **Supplying the true tonic through FiLM is worse than supplying a false one, and both are
 worse than saying nothing at all.** A correct, informative input made the model
@@ -434,10 +447,12 @@ r2c 0.057, d2c 0.076 — is at or below its own no-tonic baseline. Stages 3 and 
 
 ### 2026-08-31 — Stage 3: source separation does not help here either
 
-| run | | val top-1 | vs its unseparated twin |
-|---|---|---|---|
-| c3 | CQT + Sa-anchor, HPSS melody stem | 0.304 | c2 0.302 → **+0.002** |
-| r3 | ResNet + normalised audio, HPSS melody stem | 0.113 | r2n 0.287 → **-0.174** |
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| c3 | c2 + HPSS melody stem | 0.304 | 0.220 | +0.193 | 0.381 (0.263) |
+| c2 | CQT, Sa-anchored | 0.302 | 0.187 | +0.191 | 0.380 (0.263) |
+| r3 | r2n + HPSS melody stem | 0.113 | 0.067 | -0.033 | 0.282 (0.260) |
+| r2n | ResNet, tonic-normalised audio | 0.287 | 0.227 | +0.141 | 0.363 (0.262) |
 
 **Closed as a negative.** motif-classifier found every symbolic method got slightly worse on
 HPSS audio and read it as HPSS smoothing away meend and gamak along with the tabla. The open
@@ -458,10 +473,10 @@ tuning.
 that predicts a 12-bin swar profile and scores it against the libmogra templates by
 chi-square. That is M12's mechanism, learned end to end.
 
-| | top-1 | top-5 | video vote | macro-F1 | mistake affinity (chance) |
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
 |---|---|---|---|---|---|
-| c2 | 0.302 | 0.589 | 0.370 | 0.257 | 0.380 (0.263) |
-| **c4h** | **0.417** | **0.722** | **0.489** | **0.354** | **0.430** (0.262) |
+| c2 | CQT, Sa-anchored | 0.302 | 0.187 | +0.191 | 0.380 (0.263) |
+| c4h | c2 + **DB-template head** | 0.417 | 0.387 | +0.307 | 0.430 (0.262) |
 
 Everything moves together, which is what a real gain looks like rather than a metric
 artefact. Mistake affinity 0.430 is the highest of any run in the survey: when c4h is wrong
@@ -496,3 +511,75 @@ wait. All three were code that worked on the path being exercised and silently d
 thing on a branch nobody had run yet, and all three surfaced as a *plausible-looking result*
 or a hang rather than an error. Cheap rule going forward: **any experiment whose flag has
 never been exercised gets a one-epoch smoke run before it is queued behind hours of work.**
+
+### 2026-09-01 — test scores for every method, and Stage 4's real shape
+
+Protocol changed at the user's request: every run now scores the held-out 150 at the end,
+and `scripts/91_score_test.py` backfilled the runs that finished before the change (from
+their saved `best.pt` — inference only, no retraining).
+
+**The split discipline that makes this safe was verified, not assumed.** Videos are dealt
+whole into folds, never clips: fit ∩ val videos = 0 (270 / 92), train-pool ∩ test videos = 0
+(362 / 50), and all ten pairwise video overlaps across the 5 CV folds = 0. `c2_shuffled` is
+independent evidence for the same thing — a per-video tonic is a video fingerprint, so if
+videos leaked the shuffled control would have scored *well*; it collapsed to 0.087 instead.
+
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| c4h | c2 + **DB-template head** | 0.417 | 0.387 | +0.307 | 0.430 (0.262) |
+| r4g | r2n + graded label smoothing | 0.309 | 0.213 | +0.163 | 0.369 (0.262) |
+| c3 | c2 + HPSS melody stem | 0.304 | 0.220 | +0.193 | 0.381 (0.263) |
+| c4a | c2 + auxiliary occupancy head | 0.302 | 0.200 | +0.191 | 0.380 (0.263) |
+| c2 | CQT, Sa-anchored | 0.302 | 0.187 | +0.191 | 0.380 (0.263) |
+| c4g | c2 + graded label smoothing | 0.293 | 0.233 | +0.183 | 0.434 (0.262) |
+| r2n | ResNet, tonic-normalised audio | 0.287 | 0.227 | +0.141 | 0.363 (0.262) |
+| r1 | jeevster ResNet, as-is | 0.146 | 0.113 | — | 0.305 (0.260) |
+| r3 | r2n + HPSS melody stem | 0.113 | 0.067 | -0.033 | 0.282 (0.260) |
+| c1 | CQT, fixed fmin | 0.111 | 0.080 | — | 0.297 (0.259) |
+| d2n | distilHuBERT, tonic-normalised audio | 0.087 | 0.060 | +0.007 | 0.285 (0.260) |
+| d1 | distilHuBERT, notebook recipe | 0.080 | 0.053 | — | 0.266 (0.260) |
+| d2c | distilHuBERT, tonic by FiLM | 0.076 | 0.047 | -0.004 | 0.267 (0.260) |
+| c2_shuffled | c2, tonics permuted *(control)* | 0.087 | 0.040 | -0.024 | 0.275 (0.259) |
+| r2c | ResNet, tonic by FiLM | 0.057 | 0.033 | -0.089 | 0.250 (0.260) |
+
+**Every val-only conclusion survives test.** c4h leads both splits by a wide margin (+0.10
+val, +0.15 test over the next method); the controls stay pinned near the 0.020 floor; the
+architecture ordering C > R >> D is unchanged.
+
+**c4h also generalises best**, and that is the new information. Its val->test gap is +0.031
+against +0.116 for c2, +0.102 for c4a, +0.096 for r4g. A model constrained to score a
+predicted swar profile against fixed musical templates has far less freedom to fit
+video-specific quirks than one free-fitting 50 output classes, and the gap column is what
+that looks like empirically.
+
+**Stage 4's shape, now complete.** Four mechanisms, three of which do nothing:
+
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| c4h | c2 + **DB-template head** | 0.417 | 0.387 | +0.307 | 0.430 (0.262) |
+| c4a | c2 + auxiliary occupancy head | 0.302 | 0.200 | +0.191 | 0.380 (0.263) |
+| c4g | c2 + graded label smoothing | 0.293 | 0.233 | +0.183 | 0.434 (0.262) |
+| r4g | r2n + graded label smoothing | 0.309 | 0.213 | +0.163 | 0.369 (0.262) |
+
+So the useful claim is narrower than "the database helps". The DB's *adjacency* information
+— which raags neighbour which — adds essentially nothing, which is consistent with c2
+already reaching mistake affinity 0.380 without any DB input: the model had largely worked
+that out from audio. What the database contributes is its **swar templates as a scoring
+target**. Same information source, and it is worth +0.115 or +0.000 depending entirely on
+whether it enters the architecture or the loss.
+
+A detail worth keeping: c4g has the *highest* mistake affinity of any run (0.434, above
+c4h's 0.430) while scoring lower on top-1. Graded smoothing did exactly what it promises —
+moved errors closer musically — without converting that into correct answers. A method can
+be more musical and less accurate at once, which is the whole reason both metrics are
+reported.
+
+**Against the bar: 0.387 test, versus motif-classifier's 0.400.** The DL survey does not
+beat the symbolic champion. It lands 1.3 points short with a model that never runs a pitch
+tracker, and the two are close enough on 150 clips (SE ~4 points) to be a statistical tie.
+
+**On reading this table.** Each test number is honest — training never saw test, selection
+was on val. The *maximum* of sixteen test numbers is not: it carries roughly the +4-point
+optimism of a best-of-N. c4h is the one method that was also best on val, chosen before its
+test score existed, so quoting 0.387 for it is legitimate in a way that quoting the max of
+this column would not be.

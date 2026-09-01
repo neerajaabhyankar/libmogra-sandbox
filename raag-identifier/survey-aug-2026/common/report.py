@@ -1,38 +1,56 @@
-"""Collect every run's `result.json` into one table.
+"""Every results table in this project, from one loader, one deriver, one renderer.
 
-Runs land in `results/v1.1/<run_id>/result.json` in a fixed schema, which means the results
-table is generated rather than hand-maintained -- so it cannot drift from what was actually
-measured, and a run that was never finished shows up as missing instead of as a stale row.
+Runs land in `results/v1.1/<run_id>/result.json` in a fixed schema, so tables are generated
+and cannot drift from what was measured. A new table is a row in `TABLES` -- never another
+JSON walk and another f-string.
 
-    python scripts/90_report.py               # markdown table to stdout
-    python scripts/90_report.py --write       # also refresh results/v1.1/RESULTS.md
+    table("full")                      -> results/v1.1/RESULTS.md
+    table("notebook", order=[...])     -> a plan.md entry, same shape every time
+    table("status")                    -> the ranked list scripts/status.sh prints
 """
 
 import json
+import math
 
 from .paths import RESULTS
 
-COLUMNS = [
-    ("run_id", "run", "{}"),
-    ("arch", "arch", "{}"),
-    ("_tonic", "tonic", "{}"),
-    ("_sep", "sep", "{}"),
-    ("_prior", "DB prior", "{}"),
-    ("_split", "split", "{}"),
-    ("_top1", "top-1", "{:.3f}"),
-    ("_top5", "top-5", "{:.3f}"),
-    ("_mrr", "MRR", "{:.3f}"),
-    ("_f1", "macro-F1", "{:.3f}"),
-    ("_vote", "video", "{:.3f}"),
-    ("_test", "**test top-1**", "{}"),
-    ("_mins", "min", "{:.0f}"),
-]
+#: Each architecture's Stage 1 run: the baseline "vs stage 1" always means.
+BASELINE = {"cqt": "c1", "resnet1d": "r1", "hubert": "d1"}
+
+#: Short descriptions, so a run reads the same wherever it appears.
+WHAT = {
+    "c1": "CQT, fixed fmin", "c2": "CQT, Sa-anchored",
+    "c2_shuffled": "c2, tonics permuted *(control)*", "c3": "c2 + HPSS melody stem",
+    "c4g": "c2 + graded label smoothing", "c4a": "c2 + auxiliary occupancy head",
+    "c4h": "c2 + **DB-template head**",
+    "r1": "jeevster ResNet, as-is", "r2n": "ResNet, tonic-normalised audio",
+    "r2c": "ResNet, tonic by FiLM", "r2c_shuffled": "r2c, tonic permuted *(control)*",
+    "r3": "r2n + HPSS melody stem", "r4g": "r2n + graded label smoothing",
+    "d1": "distilHuBERT, notebook recipe", "d2n": "distilHuBERT, tonic-normalised audio",
+    "d2c": "distilHuBERT, tonic by FiLM", "d1_unfrozen": "d1, conv encoder unfrozen",
+}
+
+#: name -> (columns as (field, heading, format), markdown?)
+TABLES = {
+    "full": ([("run", "run", "{}"), ("arch", "arch", "{}"), ("tonic", "tonic", "{}"),
+              ("sep", "sep", "{}"), ("prior", "DB prior", "{}"), ("split", "split", "{}"),
+              ("val", "top-1", "{:.3f}"), ("top5", "top-5", "{:.3f}"),
+              ("mrr", "MRR", "{:.3f}"), ("f1", "macro-F1", "{:.3f}"),
+              ("vote", "video", "{:.3f}"), ("test", "test top-1", "{}"),
+              ("mins", "min", "{:.0f}")], True),
+    "notebook": ([("run", "run", "{}"), ("what", "what", "{}"),
+                  ("val", "val top-1", "{:.3f}"), ("test", "test top-1", "{}"),
+                  ("delta", "vs stage 1", "{}"),
+                  ("aff", "mistake affinity (chance)", "{}")], True),
+    "status": ([("val", "val", "{:.3f}"), ("test", "test", "{}"), ("run", "run", "{}"),
+                ("arch", "arch", "{}"), ("stage", "stage", "{}")], False),
+}
 
 
 def load_runs(results_dir=None):
-    root = results_dir or RESULTS
+    """Every readable `result.json` under the results directory."""
     runs = []
-    for f in sorted(root.glob("*/result.json")):
+    for f in sorted((results_dir or RESULTS).glob("*/result.json")):
         try:
             runs.append(json.loads(f.read_text()))
         except json.JSONDecodeError:
@@ -40,63 +58,81 @@ def load_runs(results_dir=None):
     return runs
 
 
-def _flatten(r):
-    cfg, m = r.get("config", {}), r.get("metrics", {})
-    tonic = []
-    if cfg.get("tonic") == "normalise":
-        tonic.append("audio")
-    if cfg.get("tonic_mode") == "condition":
-        tonic.append("FiLM")
-    if cfg.get("shuffle_tonics"):
-        tonic.append("SHUFFLED")
-    prior = []
-    if cfg.get("graded_alpha"):
-        prior.append(f"graded {cfg['graded_alpha']}")
-    if cfg.get("aux_weight"):
-        prior.append(f"aux {cfg['aux_weight']}")
+def derive(r, by_id=None):
+    """One `result.json` -> every field any table needs. The only place that knows the
+    schema; add a field here rather than reaching into the json somewhere else."""
+    cfg, m, mu = r.get("config", {}), r.get("metrics", {}), r.get("musical", {})
+    tag = lambda cond, s: [s] if cond else []                            # noqa: E731
+    tonic = (tag(cfg.get("tonic") == "normalise", "audio")
+             + tag(cfg.get("tonic_mode") == "condition", "FiLM")
+             + tag(cfg.get("shuffle_tonics"), "SHUFFLED"))
+    prior = (tag(cfg.get("graded_alpha"), f"graded {cfg.get('graded_alpha')}")
+             + tag(cfg.get("aux_weight"), f"aux {cfg.get('aux_weight')}")
+             + tag(cfg.get("db_head"), f"DB head lam={cfg.get('db_lam')}"))
+
+    val = m.get("top1", float("nan"))
     test = r.get("test", {}).get("metrics", {}).get("top1")
+    base = (by_id or {}).get(BASELINE.get(r.get("arch")), {}).get("metrics", {}).get("top1")
+    aff, chance = mu.get("mistake_affinity"), mu.get("mistake_affinity_chance")
+
     return {
-        **r,
-        "_tonic": "+".join(tonic) or "-",
-        "_sep": cfg.get("separate") or "-",
-        "_prior": ", ".join(prior) or "-",
-        "_split": r.get("split", "?").replace("grouped-", ""),
-        "_top1": m.get("top1", float("nan")),
-        "_top5": m.get("top5", float("nan")),
-        "_mrr": m.get("mrr", float("nan")),
-        "_f1": m.get("macro_f1", float("nan")),
-        "_vote": m.get("video_vote", float("nan")),
-        "_test": f"**{test:.3f}**" if test is not None else "-",
-        "_mins": r.get("wall_clock_s", 0) / 60.0,
+        "run": r.get("run_id", "?"), "what": WHAT.get(r.get("run_id"), r.get("run_id", "?")),
+        "arch": r.get("arch", "?"), "stage": r.get("stage", "?"),
+        "tonic": "+".join(tonic) or "-", "sep": cfg.get("separate") or "-",
+        "prior": ", ".join(prior) or "-", "split": r.get("split", "?").replace("grouped-", ""),
+        "val": val, "top5": m.get("top5", float("nan")), "mrr": m.get("mrr", float("nan")),
+        "f1": m.get("macro_f1", float("nan")), "vote": m.get("video_vote", float("nan")),
+        "test": f"{test:.3f}" if test is not None else "-",
+        "gap": f"{val - test:+.3f}" if test is not None and not math.isnan(val) else "-",
+        "delta": ("—" if BASELINE.get(r.get("arch")) == r.get("run_id")
+                  else f"{val - base:+.3f}" if base is not None and not math.isnan(val)
+                  else "-"),
+        "aff": f"{aff:.3f} ({chance:.3f})" if aff is not None else "-",
+        "mins": r.get("wall_clock_s", 0) / 60.0,
     }
 
 
-def markdown_table(runs, sort_by="_top1"):
-    rows = sorted((_flatten(r) for r in runs), key=lambda r: -r.get(sort_by, 0))
-    out = ["| " + " | ".join(h for _k, h, _f in COLUMNS) + " |",
-           "|" + "|".join("---" for _ in COLUMNS) + "|"]
-    for r in rows:
-        cells = [fmt.format(r.get(key)) for key, _h, fmt in COLUMNS]
-        out.append("| " + " | ".join(cells) + " |")
-    return "\n".join(out)
+def table(name, runs=None, order=None, sort_by="val"):
+    """A named table. `order` fixes the rows by run id; otherwise sorted by `sort_by`."""
+    columns, markdown = TABLES[name]
+    runs = load_runs() if runs is None else runs
+    by_id = {r.get("run_id"): r for r in runs}
+
+    if order is None:
+        rows = sorted((derive(r, by_id) for r in runs),
+                      key=lambda r: r["val"] if isinstance(r["val"], float) else 0,
+                      reverse=True)
+    else:                       # a missing run is shown as missing, never silently dropped
+        rows = [derive(by_id[i], by_id) if i in by_id
+                else {**{k: "-" for k, _h, _f in columns}, "run": i,
+                      "what": WHAT.get(i, i), "val": float("nan"), "delta": "*not run*"}
+                for i in order]
+
+    def cell(row, key, fmt):
+        try:
+            return fmt.format(row.get(key, "-"))
+        except (ValueError, TypeError):
+            return str(row.get(key, "-"))
+
+    body = [[cell(r, k, f) for k, _h, f in columns] for r in rows]
+    if not markdown:
+        return "\n".join("  ".join(c) for c in body)
+    head = [h for _k, h, _f in columns]
+    return "\n".join(["| " + " | ".join(head) + " |",
+                      "|" + "|".join("---" for _ in columns) + "|"]
+                     + ["| " + " | ".join(c) + " |" for c in body])
 
 
-def write_results_md(runs, path=None):
+def write_results_md(runs=None, path=None):
     path = path or (RESULTS / "RESULTS.md")
-    body = [
-        "# Results - dataset v1.1",
-        "",
-        "Generated by `scripts/90_report.py` from every `results/v1.1/*/result.json`. "
-        "Do not hand-edit; re-run the script.",
-        "",
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join([
+        "# Results — dataset v1.1", "",
+        "Generated by `scripts/90_report.py`. Do not hand-edit; re-run the script.", "",
         "Chance = 0.020. `split` is how the non-test column was measured: `val` is one "
         "video-grouped 20 % split of the 1810 train clips, `Nfold-cv` is pooled "
-        "out-of-fold predictions over all of them. The **test** column is the held-out 150 "
-        "clips, scored once.",
-        "",
-        markdown_table(runs),
-        "",
-    ]
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(body))
+        "out-of-fold predictions over all of them. `test top-1` is the held-out 150 clips, "
+        "video-disjoint from everything above.", "",
+        table("full", runs), "",
+    ]))
     return path
