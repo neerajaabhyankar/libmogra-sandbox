@@ -51,9 +51,19 @@ class Objective:
         self.Q = graded_targets(graded_alpha, graded_gamma, device) if graded_alpha > 0 else None
         self.O = occupancy_targets(device) if aux_weight > 0 else None
 
+    def _on(self, t, device):
+        """Targets follow the logits. Built once on the training device, but evaluation
+        may hand us tensors from anywhere, and a device mismatch here is a crash at the
+        end of epoch 0 rather than at startup."""
+        if t is not None and t.device != device:
+            t = t.to(device)
+        return t
+
     def __call__(self, outputs, batch):
         logits = outputs["logits"]
         y = batch["labels"].to(logits.device)
+        self.Q = self._on(self.Q, logits.device)
+        self.O = self._on(self.O, logits.device)
         if self.Q is None:
             main = F.cross_entropy(logits, y)
         else:

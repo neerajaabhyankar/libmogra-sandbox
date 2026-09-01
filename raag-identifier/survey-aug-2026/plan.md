@@ -431,3 +431,68 @@ the four; worth checking against `history.json` before it is believed.
 a side channel.** c2 (0.302) and r2n (0.287) both normalise; every conditioning variant —
 r2c 0.057, d2c 0.076 — is at or below its own no-tonic baseline. Stages 3 and 4 use
 `--tonic normalise` exclusively, and `--tonic-mode condition` is retired.
+
+### 2026-08-31 — Stage 3: source separation does not help here either
+
+| run | | val top-1 | vs its unseparated twin |
+|---|---|---|---|
+| c3 | CQT + Sa-anchor, HPSS melody stem | 0.304 | c2 0.302 → **+0.002** |
+| r3 | ResNet + normalised audio, HPSS melody stem | 0.113 | r2n 0.287 → **-0.174** |
+
+**Closed as a negative.** motif-classifier found every symbolic method got slightly worse on
+HPSS audio and read it as HPSS smoothing away meend and gamak along with the tabla. The open
+question was whether a model reading a *spectrogram* rather than a pitch track would be hurt
+the same way. Answer: the CQT net is indifferent (+0.002, noise) and the waveform ResNet is
+severely hurt (-0.174).
+
+That the ResNet suffers most is consistent with the ornamentation story — it reads the raw
+waveform at 8 kHz, so HPSS's median filtering removes signal it was using directly, while the
+CQT net sees a log-magnitude spectrogram where the harmonic content survives the filtering.
+Either way no architecture benefits, and this closes Stage 3 for this dataset. Revisiting
+needs a separator that removes percussion without smoothing the melodic line, not more HPSS
+tuning.
+
+### 2026-08-31 — Stage 4: the DB-template head is the biggest single win in the survey
+
+**c4h = 0.417**, against c2's 0.302 — **+0.115** from replacing `Linear(D, 50)` with a head
+that predicts a 12-bin swar profile and scores it against the libmogra templates by
+chi-square. That is M12's mechanism, learned end to end.
+
+| | top-1 | top-5 | video vote | macro-F1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| c2 | 0.302 | 0.589 | 0.370 | 0.257 | 0.380 (0.263) |
+| **c4h** | **0.417** | **0.722** | **0.489** | **0.354** | **0.430** (0.262) |
+
+Everything moves together, which is what a real gain looks like rather than a metric
+artefact. Mistake affinity 0.430 is the highest of any run in the survey: when c4h is wrong
+it is wrong about a musically adjacent raag more often than any other model here.
+
+**This is the run that justifies the C architecture.** The whole argument for a CQT anchored
+so bin 0 is Sa was that its feature space is the same 12-bin space as the libmogra
+templates, so the DB prior plugs in natively rather than being bolted on. That was a design
+bet made in Stage 0; c4h is the evidence for it.
+
+Not yet comparable to the bar: **0.417 is val, motif-classifier's 0.400 is test.** The test
+split has still not been touched. The comparison happens once, at the end.
+
+The three loss-level Stage 4 runs (c4g graded smoothing, c4a auxiliary occupancy head, r4g
+graded smoothing on the ResNet) crashed on a harness bug and are re-running; their results
+decide whether the DB helps *only* through the structural route or also as a softer target.
+
+### 2026-08-31 — a harness bug that only fired on unused branches
+
+c4g, c4a and r4g all died at the end of epoch 0. One root cause: `trainer.evaluate` computed
+the validation loss by rebuilding a dict holding **only** logits, moved to CPU. So
+
+* a graded target matrix `Q` built on `mps` met CPU logits → device mismatch (c4g, r4g);
+* the auxiliary occupancy output was absent from that dict → `KeyError` (c4a).
+
+The models were built correctly; evaluation was misrepresenting what the forward pass
+produced. `evaluate` now computes the loss from the real forward output, batch by batch, on
+device, and `Objective` moves its targets to the logits' device instead of assuming one.
+
+Third bug of this shape in one day, after the CQT cache key and the self-matching process
+wait. All three were code that worked on the path being exercised and silently did the wrong
+thing on a branch nobody had run yet, and all three surfaced as a *plausible-looking result*
+or a hang rather than an error. Cheap rule going forward: **any experiment whose flag has
+never been exercised gets a one-epoch smoke run before it is queued behind hours of work.**

@@ -105,8 +105,9 @@ An earlier c2_shuffled scoring 0.313 was void — cache-key bug, fixed, re-run. 
 
 ### Batch 3 — source separation and the DB prior 🔄
 
-**Running since 2026-08-31 21:07.** Log: `/tmp/batch3.out`. Builds the HPSS cache first
-(~20 min), then the six runs in the order listed.
+First pass 2026-08-31 21:07 (log `/tmp/batch3.out`): c3, r3, c4h completed; c4g, c4a, r4g
+crashed at the end of epoch 0 on a `trainer.evaluate` bug — see `plan.md`. Fixed, smoke-
+tested one epoch each, relaunched 23:10 (log `/tmp/batch3b.out`) for the three that failed.
 
 ```bash
 nohup bash scripts/run_batch3_sep_db.sh > /tmp/batch3.out 2>&1 &
@@ -117,12 +118,12 @@ winner — audio-level tonic normalisation — since that is what Batch 1 settle
 
 | id | stage | what | status |
 |---|---|---|---|
-| c3 | 3 | CQT + Sa-anchor, over HPSS melody stem | 🔄 |
-| r3 | 3 | resnet1d + normalised audio, over HPSS melody stem | 🟨 |
-| c4g | 4 | CQT + Sa-anchor, graded label smoothing (`--graded-alpha 0.3`) | 🟨 |
-| c4a | 4 | CQT + Sa-anchor, auxiliary swar-occupancy head (`--aux-weight 0.3`) | 🟨 |
-| c4h | 4 | CQT + Sa-anchor, DB-template head — M12's mechanism, learned | 🟨 |
-| r4g | 4 | resnet1d + normalised audio, graded label smoothing | 🟨 |
+| c3 | 3 | CQT + Sa-anchor, over HPSS melody stem | ✅ 0.304 |
+| r3 | 3 | resnet1d + normalised audio, over HPSS melody stem | ✅ 0.113 |
+| c4g | 4 | CQT + Sa-anchor, graded label smoothing (`--graded-alpha 0.3`) | 🔄 |
+| c4a | 4 | CQT + Sa-anchor, auxiliary swar-occupancy head (`--aux-weight 0.3`) | 🟨 queued |
+| c4h | 4 | CQT + Sa-anchor, DB-template head — M12's mechanism, learned | ✅ **0.417** best so far |
+| r4g | 4 | resnet1d + normalised audio, graded label smoothing | 🟨 queued |
 
 ---
 

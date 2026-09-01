@@ -80,15 +80,32 @@ def predict(model, dataset, cfg, batch_size=None):
     return out
 
 
+@torch.no_grad()
 def evaluate(model, dataset, cfg, loss_fn=None):
-    """Metrics on a dataset, plus mean loss if an objective is given."""
-    logits = predict(model, dataset, cfg)
+    """Metrics on a dataset, plus mean loss if an objective is given.
+
+    The loss is computed from the model's **full** forward output, batch by batch, on the
+    training device. It used to be computed from the returned logits alone, moved to CPU --
+    which silently broke every objective that needs more than logits: a graded target
+    matrix living on `mps` hit a device mismatch, and the auxiliary occupancy head was
+    simply absent from the dict, so `--aux-weight` raised `KeyError` at the first
+    validation. Both surfaced only at the end of epoch 0, i.e. after the caches were built.
+    """
+    model.eval()
+    dl = loader(dataset, cfg.batch_size, shuffle=False, num_workers=cfg.num_workers)
+    logits = np.zeros((len(dataset), 50), dtype=np.float32)
+    total, seen = 0.0, 0
+    for batch in dl:
+        out = _forward(model, batch, cfg.device)
+        logits[batch["index"].numpy()] = out["logits"].float().cpu().numpy()
+        if loss_fn is not None:
+            loss, _ = loss_fn(out, batch)
+            n = int(out["logits"].shape[0])
+            total += float(loss) * n
+            seen += n
     m, rows = metrics.score(dataset.clips, logits)
-    if loss_fn is not None:
-        y = torch.tensor([c.label for c in dataset.clips])
-        with torch.no_grad():
-            loss, _ = loss_fn({"logits": torch.from_numpy(logits)}, {"labels": y})
-        m["loss"] = float(loss)
+    if loss_fn is not None and seen:
+        m["loss"] = total / seen
     return m, rows
 
 
