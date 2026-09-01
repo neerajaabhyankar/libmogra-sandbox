@@ -93,11 +93,12 @@ def backbone(unfreeze_blocks=2, checkpoint=None, **_ignored):
 
 
 def build(num_labels=50, tonic_mode="none", aux_occupancy=False, unfreeze_blocks=2,
-          head_hidden=(64,), dropout=0.2, checkpoint=None):
+          head_hidden=(64,), dropout=0.2, checkpoint=None, side_dim=0, side_out=64):
     backbone = JeevsterBackbone(checkpoint, unfreeze_blocks=unfreeze_blocks)
     return RaagClassifier(backbone, backbone.out_dim, num_labels=num_labels,
                           tonic_mode=tonic_mode, aux_occupancy=aux_occupancy,
-                          head_hidden=head_hidden, dropout=dropout)
+                          head_hidden=head_hidden, dropout=dropout,
+                          side_dim=side_dim, side_out=side_out)
 
 
 def param_groups(model, lr=1e-4, head_lr=None, weight_decay=1e-4):
@@ -106,7 +107,7 @@ def param_groups(model, lr=1e-4, head_lr=None, weight_decay=1e-4):
     for name, p in model.named_parameters():
         if not p.requires_grad:
             continue
-        (head_params if name.startswith(("head.", "film.", "occupancy.")) else back_params).append(p)
+        (head_params if name.startswith(("head.", "film.", "side.", "occupancy.")) else back_params).append(p)
     groups = [{"params": head_params, "lr": head_lr, "weight_decay": 0.0}]
     if back_params:
         groups.append({"params": back_params, "lr": lr, "weight_decay": weight_decay})

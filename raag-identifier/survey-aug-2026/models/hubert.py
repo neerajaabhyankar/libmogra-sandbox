@@ -48,11 +48,13 @@ def backbone(freeze_encoder=True, freeze_all=False, model_id=MODEL_ID, **_ignore
 
 
 def build(num_labels=50, tonic_mode="none", aux_occupancy=False, freeze_encoder=True,
-          freeze_all=False, head_hidden=(256,), dropout=0.3, model_id=MODEL_ID):
+          freeze_all=False, head_hidden=(256,), dropout=0.3, model_id=MODEL_ID,
+          side_dim=0, side_out=64):
     backbone = HubertBackbone(model_id, freeze_encoder=freeze_encoder, freeze_all=freeze_all)
     return RaagClassifier(backbone, backbone.out_dim, num_labels=num_labels,
                           tonic_mode=tonic_mode, aux_occupancy=aux_occupancy,
-                          head_hidden=head_hidden, dropout=dropout)
+                          head_hidden=head_hidden, dropout=dropout,
+                          side_dim=side_dim, side_out=side_out)
 
 
 def param_groups(model, lr=1e-4, head_lr=None, weight_decay=1e-4):
@@ -68,7 +70,7 @@ def param_groups(model, lr=1e-4, head_lr=None, weight_decay=1e-4):
     for name, p in model.named_parameters():
         if not p.requires_grad:
             continue
-        (head_params if name.startswith(("head.", "film.", "occupancy.")) else back_params).append(p)
+        (head_params if name.startswith(("head.", "film.", "side.", "occupancy.")) else back_params).append(p)
     groups = [{"params": head_params, "lr": head_lr, "weight_decay": 0.0}]
     if back_params:
         groups.append({"params": back_params, "lr": lr, "weight_decay": weight_decay})

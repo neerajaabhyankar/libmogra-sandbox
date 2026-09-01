@@ -41,7 +41,7 @@ import time
 import numpy as np
 
 import _bootstrap  # noqa: F401
-from common import audio, metrics
+from common import audio, melody, metrics
 from common.data import fold_indices, labels, load_clips, summarise
 from common.paths import CACHE, RESULTS
 
@@ -106,48 +106,8 @@ def _jeevster_frozen(clips):
     return np.stack(out)
 
 
-def _melody_hist(clips, tracker="crepe", n_bins=120, smooth=1.0, power=0.5):
-    """M11's fingerprint, rebuilt here: a 120-bin octave-folded histogram of CREPE's f0
-    track, in cents against the *annotated* tonic.
-
-    This is the harness self-test. It reuses ../motif-classifier's already-extracted pitch
-    tracks and its own `fold_histogram`, so the only things this project contributes are
-    the splits, the label mapping, the tonic lookup and the metrics. M11 scored 0.395 train
-    CV over there; a number near that here means all four are right.
-
-    It is also a genuinely useful feature in its own right -- the Stage 5 hybrid is exactly
-    the question of whether this vector adds anything to a deep model's.
-    """
-    from common.paths import MOTIF_DIR, add_sibling_paths
-    add_sibling_paths()
-    from methods.m11_histogram import fold_histogram
-
-    npz = MOTIF_DIR / "cache" / f"notes_{tracker}_v1.1.npz"
-    if not npz.exists():
-        raise FileNotFoundError(f"{npz} not found -- this probe reuses motif-classifier's "
-                                f"pitch tracks; extract them there first")
-    out, missing = [], 0
-    with np.load(npz, allow_pickle=True) as z:
-        keys = set(z.files)
-        for c in clips:
-            k = c.clip_id
-            if f"{k}|f0" not in keys:
-                missing += 1
-                out.append(np.zeros(n_bins))
-                continue
-            f0 = np.asarray(z[f"{k}|f0"], dtype=float)
-            n = int(z[f"{k}|meta"][1])
-            voiced = np.unpackbits(z[f"{k}|voiced"])[:n].astype(bool)
-            f0 = f0[:n][voiced]
-            cents = 1200.0 * np.log2(np.clip(f0, 1e-6, None) / c.tonic_hz)
-            out.append(fold_histogram(cents, None, n_bins, smooth, power))
-    if missing:
-        print(f"    WARNING {missing} clips missing from {npz.name}")
-    return np.stack(out)
-
-
 REPRESENTATIONS = {
-    "melody_hist": _melody_hist,
+    "melody_hist": melody.cached,   # common/melody.py -- also the Stage 5 hybrid feature
     "chroma_anchor": lambda cs: np.stack([_chroma(c, "anchor", "energy") for c in cs]),
     "chroma_fixed": lambda cs: np.stack([_chroma(c, "none", "energy") for c in cs]),
     "chroma_argmax": lambda cs: np.stack([_chroma(c, "anchor", "argmax") for c in cs]),

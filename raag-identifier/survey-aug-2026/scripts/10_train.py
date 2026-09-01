@@ -23,6 +23,9 @@ comparison between them means nothing.
     python scripts/10_train.py --arch cqt --run-id c4_graded --tonic normalise --graded-alpha 0.3
     python scripts/10_train.py --arch cqt --run-id c4_aux    --tonic normalise --aux-weight 0.2
 
+    # Stage 5 -- the hybrid: the naive melody histogram alongside the learned feature
+    python scripts/10_train.py --arch cqt --run-id hybrid_feat --tonic normalise --melody
+
     # 5-fold grouped CV instead of a single val split (affordable for cqt, not for hubert)
     python scripts/10_train.py --arch cqt --run-id c2_cv --tonic normalise --folds 5
 
@@ -37,14 +40,14 @@ import argparse
 import json
 import sys
 import time
-from dataclasses import asdict
+from functools import lru_cache
 
 import numpy as np
 import torch
 
 import _bootstrap  # noqa: F401
 import models
-from common import audio, datasets, metrics, trainer
+from common import audio, datasets, melody, metrics, trainer
 from common.data import fold_indices, grouped_split, labels, load_clips, summarise
 from common.losses import Objective
 from common.paths import DATA_REVISION, RESULTS
@@ -58,11 +61,22 @@ ARCH_INPUT = {
 }
 
 
+@lru_cache(maxsize=1)
+def melody_side():
+    """{clip_id: (120,)} naive melody histograms for every clip, built once per process.
+
+    Read from disk rather than passed in, so that the two scripts that rebuild a finished
+    model from its recorded config -- `91_score_test.py` and `20_fuse_symbolic.py` -- get
+    the side vector without knowing it exists.
+    """
+    return melody.by_clip_id(load_clips())
+
+
 def make_dataset(arch, clips, args, tonic_override, train):
     spec = ARCH_INPUT[arch]
     common_kw = dict(tonic=args.tonic, separate=args.separate, seconds=args.seconds,
                      length_policy=args.length_policy, tonic_override=tonic_override,
-                     train=train)
+                     train=train, side=melody_side() if getattr(args, "melody", False) else None)
     if spec["kind"] == "wave":
         return datasets.WaveformDataset(clips, spec["sr"], channels=spec["channels"],
                                         gain_jitter_db=args.gain_jitter if train else 0.0,
@@ -74,8 +88,13 @@ def make_dataset(arch, clips, args, tonic_override, train):
 
 def build_model(args):
     """The default classifier head, or -- with --db-head -- one that scores against the
-    libmogra templates (M12's mechanism, learned end to end)."""
+    libmogra templates (M12's mechanism, learned end to end).
+
+    `--melody` widens whichever head is in use by an encoded melody histogram."""
     arch_kw = {}
+    melody_on = getattr(args, "melody", False)      # absent from pre-Stage-5 configs
+    side_kw = dict(side_dim=len(next(iter(melody_side().values()))) if melody_on else 0,
+                   side_out=getattr(args, "melody_dim", 64))
     if args.arch == "hubert":
         arch_kw.update(freeze_encoder=not args.unfreeze_encoder)
     elif args.arch == "resnet1d":
@@ -90,9 +109,9 @@ def build_model(args):
         return RaagClassifierDB(backbone, backbone.out_dim, num_labels=len(labels()),
                                 tonic_mode=args.tonic_mode, lam=args.db_lam,
                                 n_bins=args.db_bins,
-                                learn_templates=not args.db_freeze_templates)
+                                learn_templates=not args.db_freeze_templates, **side_kw)
     return models.build(args.arch, num_labels=len(labels()), tonic_mode=args.tonic_mode,
-                        aux_occupancy=args.aux_weight > 0, **arch_kw)
+                        aux_occupancy=args.aux_weight > 0, **arch_kw, **side_kw)
 
 
 def fit_once(args, train_clips, val_clips, out_dir, tonic_override, cfg):
@@ -165,6 +184,13 @@ def main():
     g.add_argument("--length-policy", default="fixed", choices=["fixed", "musical"])
     g.add_argument("--cqt-frames", type=int, default=431)
     g.add_argument("--gain-jitter", type=float, default=0.0, help="dB, train only")
+    g.add_argument("--melody", action="store_true",
+                   help="STAGE 5 HYBRID: concatenate the naive melody histogram "
+                        "(common/melody.py -- 120 bins of CREPE pitch mass against the "
+                        "annotated Sa) onto the pooled feature, and train the two "
+                        "together. Works with any arch and either head")
+    g.add_argument("--melody-dim", type=int, default=64,
+                   help="width the melody histogram is encoded to before concatenation")
     g.add_argument("--freq-jitter", type=int, default=0,
                    help="CQT bins of random pitch jitter, train only; keep under a semitone "
                         "(36 bins/octave -> 3 bins per semitone)")
@@ -236,6 +262,9 @@ def main():
     print(f"  tonic: audio={args.tonic} model={args.tonic_mode}"
           f"{' SHUFFLED-CONTROL' if args.shuffle_tonics else ''} | separate={args.separate} "
           f"| length={args.length_policy}")
+    if args.melody:
+        print(f"  hybrid: melody histogram -> {args.melody_dim} dims, concatenated onto "
+              f"the pooled feature")
     print(f"  db prior: graded_alpha={args.graded_alpha} aux_weight={args.aux_weight}"
           + (f" | DB-template head lam={args.db_lam} bins={args.db_bins}"
              f"{' frozen' if args.db_freeze_templates else ''}" if args.db_head else ""))

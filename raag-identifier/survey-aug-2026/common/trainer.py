@@ -62,8 +62,14 @@ class TrainConfig:
 
 def _forward(model, batch, device):
     """Models here return a dict with at least 'logits'. Anything extra (an auxiliary
-    occupancy head) is passed through to the objective untouched."""
-    out = model(input_values=batch["input_values"].to(device), tonic=batch["tonic"].to(device))
+    occupancy head) is passed through to the objective untouched.
+
+    `side` is passed only when the dataset produced one *and* the model was built to take
+    one -- so a side-vector dataset can be fed to an ordinary model and vice versa, and
+    the mismatch that matters (a side model with no vector) raises in `concat_side`."""
+    out = model(input_values=batch["input_values"].to(device), tonic=batch["tonic"].to(device),
+                **({"side": batch["side"].to(device)}
+                   if "side" in batch and getattr(model, "side", None) is not None else {}))
     return out if isinstance(out, dict) else {"logits": out.logits}
 
 

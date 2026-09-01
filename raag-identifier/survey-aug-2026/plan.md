@@ -879,3 +879,234 @@ For the record, the survey's defensible conclusions, all of them multiples of th
 3. A template-scoring head beats a linear classifier by +0.115; the templates may be learned.
 4. Source separation does not help; speech-pretrained distilHuBERT does not transfer.
 5. Everything finer than that awaits a better instrument than 150 clips.
+
+### 2026-09-01 — Batch 6 [hybrid] launched, and a package-name collision worth knowing about
+
+Stage 5 is the brief's stretch goal — *"only if nothing here beats motif-classifier"* — and
+Batch 5 confirmed the condition: 0.373 ± 0.031 against a reported 0.400, indistinguishable.
+
+`scripts/20_fuse_symbolic.py` fuses without training anything. It reads a finished run's
+`best.pt`, refits the symbolic method on **the same 1350-clip fit half** (same seed, same
+video-grouped split), scores the same 460 val and 150 test clips with both, converts each
+score matrix to probabilities at a temperature fitted on val, then sweeps the mixing weight
+on val and applies it once to test.
+
+Two design points that matter for whether the number means anything:
+
+* **Refit, do not reuse.** motif-classifier's published M14 was fitted on all 1810 train
+  clips, which includes our 460 val clips. Fusing that against the DL model and choosing a
+  weight on val would be choosing on data the symbolic half had memorised. It is refitted on
+  the fit half instead.
+* **Calibrate before adding.** The symbolic scores are unnormalised affinities and the DL
+  logits are not calibrated either. Summing them raw would hand the fusion to whichever has
+  the larger numeric scale, and the "best weight" would be measuring scale, not skill.
+
+**The collision.** The first attempt died on `ModuleNotFoundError: models.gamadhani`. Both
+projects define a top-level package called `models` — ours at `survey-aug-2026/models/`, and
+the one `represent.py` reaches via `pipeline.estimate_tonic_hz` at
+`melody-first/sequence/models/`. Whichever is imported first wins for the whole process, so
+importing our trainer and *then* motif-classifier makes Python look for `gamadhani` inside
+our package, where it correctly does not exist. Nothing was broken; the two halves simply
+cannot share a `sys.modules` entry.
+
+Fixed with a `_shadowed("models")` context manager that evicts the cached package while the
+symbolic side imports and restores ours afterwards, so each half gets the package it means.
+Renaming either package would have been cleaner and touches code this folder does not own.
+
+This is the cost of the "import from the sibling projects rather than reimplementing" rule,
+and it is still the right rule — but a second project with a `models/`, `utils/` or
+`common/` will hit exactly this, and the fix is the shadowing helper, not a subprocess.
+
+### 2026-09-01 — Batch 6 [hybrid]: fusion is the largest effect in the survey, and it replicates
+
+`aug_jitter` fused with M14, at three seeds, weight swept on val and applied once to test.
+
+| | seed 0 | seed 1 | seed 2 | mean | sd |
+|---|---|---|---|---|---|
+| DL alone, val | 0.467 | 0.415 | 0.417 | 0.433 | 0.030 |
+| **fused, val** | 0.570 | 0.546 | 0.524 | **0.546** | 0.023 |
+| DL alone, test | 0.400 | 0.340 | 0.380 | 0.373 | 0.031 |
+| **fused, test** | 0.440 | 0.440 | 0.460 | **0.447** | 0.012 |
+
+val **+0.113 ± 0.022** (t = 5.2) · test **+0.073 ± 0.019** (t = 3.9)
+
+Both significant, unlike every fine distinction this survey has chased since Stage 2. The
+fused test mean is **0.447, 95 % CI [0.418, 0.475]** — the interval clears the entire
+symbolic family, whose test scores run 0.373 (M14) to 0.400 (m9plus, m12).
+
+The chosen weight lands at 0.55-0.70 across seeds and the sweep is a plateau rather than a
+spike, so the optimum is not an artifact of picking the best point on a jagged curve. A
+fourth fusion with a different DL parent (`c4h`, no augmentation) gives val 0.552 / test
+0.427 — the effect is a property of combining the two families, not of one checkpoint.
+
+**Fused test variance is a third of the DL model's** (sd 0.012 against 0.031). Averaging two
+partly independent error patterns stabilises the prediction as well as improving it, which
+is what a genuine ensemble gain looks like and what a lucky seed does not.
+
+#### What this says about the two families
+
+Neither parent is close: 0.433 val for the CQT net, 0.502 for M14 scored on the same clips.
+Together, 0.546. The gain is not a tiebreak between two views of the same evidence — they
+are reading different things. The CQT net sees Sa-anchored spectral energy and no pitch
+track; M14 sees CREPE note events and no spectral content. **The single most useful thing
+this survey found is that these two are complementary**, and it was the brief's stretch goal,
+attempted only after everything else had been exhausted.
+
+It also reframes the bar. The comparison was never "DL versus symbolic" — it is that the DL
+model contributes something the symbolic pipeline does not have, worth +0.073 test on top of
+it, and vice versa.
+
+#### The bar, corrected
+
+motif-classifier's `final.json` records per-method test scores that were not being read
+correctly earlier in this notebook. **M14, its best method on CV (0.468), scores 0.373 on
+test** — not 0.400. The 0.400 figure belongs to m9plus and m12, neither of which is the
+CV-best method.
+
+So the symbolic side shows the same CV→test inversion measured on our side, and its three
+strongest methods span 0.373-0.400 — one noise width. Every "the bar is 0.400" statement in
+this notebook should be read as "the symbolic family lands in 0.373-0.400 on 150 clips".
+
+| | test top-1 |
+|---|---|
+| symbolic family (m11, m12, m9, m9plus, m14) | 0.373 - 0.400 |
+| DL alone, best config, 3 seeds | 0.373 ± 0.031 |
+| **fused, 3 seeds** | **0.447 ± 0.012** |
+
+
+### 2026-09-01 — Batch 7 [hybrid] launched: the histogram as an *input*, not a second opinion
+
+Batch 6 answered "do the two families agree in different places?" — yes, worth +0.073 test.
+It did not answer the brief's actual Stage 5 question, which is whether the naive melody
+feature helps a network *while it trains*. The two are different experiments:
+
+| | what it can express |
+|---|---|
+| fusion (Batch 6) | a weighted average of two finished 50-way opinions |
+| concatenation (Batch 7) | the head reads both representations at once, so it can learn "this CQT pattern means Bageshree **only when** the histogram shows a weak Ga" |
+
+Fusion is the safer bet — it cannot overfit, since it adds one parameter swept on val.
+Concatenation has the higher ceiling and the obvious failure mode: 120 extra input
+dimensions on 1350 clips is a way to memorise videos.
+
+#### What was built
+
+`--melody` on `10_train.py`, working for any architecture and either head. The vector is
+`common/melody.py` — **the same 120-bin histogram the Stage 0 probe scored**, moved out of
+the probe script so the network and the probe cannot drift apart. It reaches the head
+through a small encoder (`heads.SideFeatures`, 120 → 64), because a normalised histogram
+concatenated raw onto 432 learned activations is diluted to nothing by the first Linear.
+
+Applied *after* FiLM: the tonic conditions what the backbone heard, while the histogram is
+already expressed relative to Sa and has nothing left to condition.
+
+#### The control, run first
+
+A hybrid number is uninterpretable without both halves measured the same way. The CQT half
+was already on the board; `scripts/21_melody_only.py` supplies the other — logistic
+regression on the histogram, fitted on the same 1350 clips, scored on the same val and test.
+
+| | val top-1 | test top-1 |
+|---|---|---|
+| melody histogram alone, 3 seeds | 0.396 ± 0.032 | **0.373 ± 0.024** |
+| CQT net alone (aug_jitter), 3 seeds | 0.433 ± 0.030 | **0.373 ± 0.031** |
+| M14, the symbolic champion | — | 0.373 |
+
+**The two branches are exactly equally strong on test, and a 120-bin histogram with no
+musical knowledge in it matches the symbolic pipeline's best method.** Everything M14 does
+after the histogram — note segmentation, n-grams with skips, the 12-way tonic search, the
+chi-square DB templates — is worth nothing on the held-out 150 relative to the raw pitch
+mass, once the tonic is a hand annotation rather than an estimate. That is a result in its
+own right and it belongs on the record whatever Batch 7 does.
+
+It also sharpens what Batch 6 measured: fusion of two 0.373 branches reaching 0.447 is a
+combination effect, not one strong model dragging a weak one along.
+
+#### Queued
+
+`hybrid_feat` is `aug_jitter` + `--melody`, so the only difference from a run already on the
+board is the melody vector. Three seeds, because this survey has been fooled by a single
+seed three times. `hybrid_nodb` drops the DB-template head — with a real pitch histogram as
+an input, the head that learned to *infer* one may have nothing left to do.
+
+Prediction, recorded before the runs finish: concatenation beats either branch but not
+fusion's 0.447, because 1350 clips is too few to learn the interaction that is the only
+thing concatenation can express and averaging cannot.
+
+
+### 2026-09-01 — Batch 7 [hybrid]: concatenation loses to averaging, and the prediction was half wrong
+
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| melody_only | melody histogram alone, logreg *(control)* | 0.430 | 0.347 | - | 0.410 (0.267) |
+| melody_only_seed1 | melody histogram alone, seed 1 | 0.367 | 0.393 | - | 0.433 (0.263) |
+| melody_only_seed2 | melody histogram alone, seed 2 | 0.391 | 0.380 | - | 0.412 (0.261) |
+| hybrid_feat | aug_jitter + **melody histogram as an input** | 0.457 | 0.380 | +0.346 | 0.438 (0.266) |
+| hybrid_seed1 | hybrid_feat at seed 1 | 0.452 | 0.373 | +0.341 | 0.416 (0.267) |
+| hybrid_seed2 | hybrid_feat at seed 2 | 0.446 | 0.340 | +0.335 | 0.422 (0.265) |
+| hybrid_nodb | hybrid_feat without the DB-template head | 0.441 | 0.327 | +0.330 | 0.403 (0.264) |
+
+Three seeds each, against the two branches and against Batch 6's fusion:
+
+| | val top-1 | test top-1 |
+|---|---|---|
+| melody histogram alone | 0.396 ± 0.032 | 0.373 ± 0.024 |
+| CQT net alone (aug_jitter) | 0.433 ± 0.030 | 0.373 ± 0.031 |
+| **hybrid — histogram as an input** | **0.451 ± 0.005** | **0.364 ± 0.021** |
+| **fusion — the two averaged (Batch 6)** | **0.546 ± 0.023** | **0.447 ± 0.012** |
+
+| | val | test |
+|---|---|---|
+| hybrid − CQT alone | +0.018 (t 1.1) | −0.009 (t −0.4) |
+| hybrid − melody alone | +0.055 (t 3.0) | −0.009 (t −0.5) |
+| **fusion − hybrid** | **+0.095 (t 7.0)** | **+0.082 (t 5.9)** |
+
+**On test the hybrid is indistinguishable from either of its own halves, and fusion beats it
+decisively.** The prediction above was half right — it does lose to fusion — and half wrong:
+it does not beat either branch. Giving the network the histogram as an input recovers what
+the histogram already knew and nothing more.
+
+`hybrid_nodb` (0.441 val / 0.327 test, one seed) is at or below the DB-head version, which
+is the third independent sign that the DB-template head is not doing the work its Stage 4
+result suggested.
+
+#### Why averaging beats concatenating, measured rather than asserted
+
+The two branches disagree constantly: they pick the same raag on **28.7 %** of the 150 test
+clips, and both are right on only 20 %. Either-one-right — the oracle a perfect selector
+would reach — is **0.547**. So there is a large pool of complementary evidence, and the
+question is how much of it each combination method harvests:
+
+| | test top-1 | share of the 0.547 oracle it captures | clips right that *neither* branch got |
+|---|---|---|---|
+| hybrid (concatenated) | 0.380 | 0.537 | **13** |
+| fusion (averaged) | 0.440 | **0.732** | 6 |
+
+The hybrid finds *more* genuinely new answers than fusion does — 13 clips against 6, which is
+the interaction effect concatenation is supposed to buy and averaging cannot express. It
+just loses far more of what the branches already had. Its predictions agree with the melody
+branch (0.427) more than with the CQT branch (0.307): with 120 clean, immediately usable
+input dimensions available, the trunk has little gradient pressure to keep improving, and
+the best checkpoints land at **epoch 3, 7 and 8** — against the teens and twenties for the
+same configuration without the histogram. It converges onto the easy feature and stops.
+
+This is a real result about the method and not a tuning failure, but it is the version of
+the failure that is fixable: the fix is to stop the shortcut, not to add capacity. Two ways,
+neither run — modality dropout (zero the histogram on a fraction of training steps, so the
+trunk must stay useful alone), and training the trunk first and the joint head second.
+
+#### Where the survey now stands
+
+| | test top-1 |
+|---|---|
+| symbolic family (m11, m12, m9, m9plus, m14) | 0.373 – 0.400 |
+| melody histogram alone, logreg, 3 seeds | 0.373 ± 0.024 |
+| CQT net alone, best config, 3 seeds | 0.373 ± 0.031 |
+| hybrid, histogram as an input, 3 seeds | 0.364 ± 0.021 |
+| **fusion of the two, 3 seeds** | **0.447 ± 0.012** |
+| oracle: either branch right | 0.547 |
+
+Everything that is not a *combination* of the two families sits at 0.373 ± noise, including
+a 120-bin histogram with no musical knowledge in it. Combining them is the only thing in
+this survey that moved the number, and averaging their outputs — the cheapest method
+available, one parameter swept on val, no training — remains the best way found to do it.

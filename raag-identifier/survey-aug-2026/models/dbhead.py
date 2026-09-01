@@ -79,21 +79,27 @@ class RaagClassifierDB(nn.Module):
     """
 
     def __init__(self, backbone, feature_dim, num_labels=50, tonic_mode="none",
-                 lam=0.3, n_bins=12, learn_templates=True, dropout=0.2):
+                 lam=0.3, n_bins=12, learn_templates=True, dropout=0.2, side_dim=0,
+                 side_out=64):
         super().__init__()
-        from .heads import FiLM
+        from .heads import FiLM, SideFeatures
 
         if num_labels != 50:
             raise ValueError("the DB templates are the 50 dataset raags")
         self.backbone = backbone
         self.tonic_mode = tonic_mode
         self.film = FiLM(feature_dim) if tonic_mode == "condition" else None
-        self.head = DBTemplateHead(feature_dim, n_bins=n_bins, lam=lam,
+        self.side = SideFeatures(side_dim, side_out) if side_dim else None
+        self.head = DBTemplateHead(feature_dim + (self.side.out_dim if self.side else 0),
+                                   n_bins=n_bins, lam=lam,
                                    learn_templates=learn_templates, dropout=dropout)
 
-    def forward(self, input_values, tonic=None):
+    def forward(self, input_values, tonic=None, side=None):
+        from .heads import concat_side
+
         h = self.backbone(input_values)
         if self.film is not None:
             h = self.film(h, tonic)
+        h = concat_side(self.side, h, side)
         logits, profile = self.head(h)
         return {"logits": logits, "features": h, "occupancy": torch.log(profile + EPS)}

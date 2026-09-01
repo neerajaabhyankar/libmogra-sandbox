@@ -108,13 +108,15 @@ def backbone(n_bins=144, bins_per_octave=36, channels=(32, 64, 96, 128),
 
 def build(num_labels=50, tonic_mode="none", aux_occupancy=False, n_bins=144,
           bins_per_octave=36, channels=(32, 64, 96, 128), proj_channels=24,
-          dropout=0.1, fold_octaves=False, head_hidden=(256,), head_dropout=0.3):
+          dropout=0.1, fold_octaves=False, head_hidden=(256,), head_dropout=0.3,
+          side_dim=0, side_out=64):
     backbone = CQTBackbone(n_bins=n_bins, bins_per_octave=bins_per_octave,
                            channels=channels, proj_channels=proj_channels,
                            dropout=dropout, fold_octaves=fold_octaves)
     return RaagClassifier(backbone, backbone.out_dim, num_labels=num_labels,
                           tonic_mode=tonic_mode, aux_occupancy=aux_occupancy,
-                          head_hidden=head_hidden, dropout=head_dropout)
+                          head_hidden=head_hidden, dropout=head_dropout,
+                          side_dim=side_dim, side_out=side_out)
 
 
 def param_groups(model, lr=1e-3, head_lr=None, weight_decay=1e-4):

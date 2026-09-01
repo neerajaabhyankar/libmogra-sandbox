@@ -53,6 +53,9 @@ anything part-finished. `-w` refreshes every 30 s and exits when the machine goe
 | `scripts/run_batch3_sep_db.sh` | Batch 3 — Stages 3–4 |
 | `scripts/run_batch4_dbprior.sh` | Batch 4 — Stage 4 follow-ups + rigour |
 | `scripts/run_batch5_seeds.sh` | Batch 5 — seed replication of the best run |
+| `scripts/20_fuse_symbolic.py` | Batch 6 — Stage 5, fuse a DL run with a symbolic method |
+| `scripts/21_melody_only.py` | the melody histogram alone, same split — Batch 7's control |
+| `scripts/run_batch7_hybrid.sh` | Batch 7 — Stage 5, melody histogram as a model input |
 | `colab/batch2_hubert.ipynb` | Batch 2 on a GPU |
 
 ---
@@ -136,13 +139,46 @@ seed spread on test is larger than most differences this survey reported. See `p
 Augmentation's apparent win was a lucky seed: +0.025 ± 0.018 val over three seeds, not
 significant. See `plan.md`.
 
-### Batch 6 — Stage 5 [hybrid] 🟥
-*not written; needs `scripts/20_fuse_symbolic.py`*
+### Batch 6 — Stage 5 [hybrid] ✅
+*local · ~10 min/fusion · `scripts/20_fuse_symbolic.py`*
+
+No training: reads a DL run's `best.pt`, refits the symbolic method on the same 1350-clip
+fit half, sweeps the mixing weight on val, applies it once to test.
+
+```bash
+poetry run python scripts/20_fuse_symbolic.py --dl aug_jitter --symbolic m14
+```
 
 | id | what | status |
 |---|---|---|
-| fuse_symbolic | logit fusion of the best CQT run with motif-classifier's M14 | 🟥 |
-| hybrid_feat | melody histogram concatenated onto the CQT feature, trained | 🟥 |
+| fuse_aug_jitter_m14 | aug_jitter + M14 | ✅ |
+| fuse_aug_seed1_m14 | seed 1 | ✅ |
+| fuse_aug_seed2_m14 | seed 2 | ✅ |
+| fuse_c4h_m14 | c4h + M14, different DL parent | ✅ |
+
+Best result in the project: fused test **0.447 ± 0.012** over three seeds, against
+0.373 ± 0.031 for the DL model alone and 0.373-0.400 across the symbolic family.
+
+### Batch 7 — Stage 5 [hybrid] as a model input ✅
+*local · ~2 h · `run_batch7_hybrid.sh`*
+
+Batch 6 averaged two finished models. This one hands the melody histogram to the network
+as an input (`--melody`) and trains the two together, so the head can read both at once.
+
+| id | what | status |
+|---|---|---|
+| melody_only | the histogram alone, logreg, same split *(control)* | ✅ |
+| melody_only_seed1 / _seed2 | the same control at seeds 1, 2 | ✅ |
+| hybrid_feat | aug_jitter + the histogram as an input | ✅ |
+| hybrid_seed1 | hybrid_feat at seed 1 | ✅ |
+| hybrid_seed2 | hybrid_feat at seed 2 | ✅ |
+| hybrid_nodb | hybrid_feat without the DB-template head | ✅ |
+
+Concatenation does not beat either branch on test; Batch 6's averaging still wins. The
+histogram alone matches the symbolic champion. See `plan.md`.
+
+Not queued, from that finding: modality dropout on the histogram, and a two-phase fit
+(trunk first, joint head second) — both aimed at the shortcut the runs exposed.
 
 ---
 

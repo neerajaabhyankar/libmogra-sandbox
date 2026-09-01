@@ -37,8 +37,15 @@ WHAT = {
     "seed1": "c4h at seed 1", "seed2": "c4h at seed 2",
     "cv5": "c4h, 5-fold grouped CV",
     "aug_seed1": "aug_jitter at seed 1", "aug_seed2": "aug_jitter at seed 2",
-    "fuse_symbolic": "best CQT run + M14, logit fusion",
-    "hybrid_feat": "CQT feature + melody histogram, trained",
+    "fuse_aug_jitter_m14": "aug_jitter + M14, probability fusion",
+    "fuse_c4h_m14": "c4h + M14, probability fusion",
+    "fuse_aug_seed1_m14": "aug_jitter seed 1 + M14", "fuse_aug_seed2_m14": "aug_jitter seed 2 + M14",
+    "melody_only": "melody histogram alone, logreg *(control)*",
+    "melody_only_seed1": "melody histogram alone, seed 1",
+    "melody_only_seed2": "melody histogram alone, seed 2",
+    "hybrid_feat": "aug_jitter + **melody histogram as an input**",
+    "hybrid_seed1": "hybrid_feat at seed 1", "hybrid_seed2": "hybrid_feat at seed 2",
+    "hybrid_nodb": "hybrid_feat without the DB-template head",
 }
 
 #: name -> (columns as (field, heading, format), markdown?)

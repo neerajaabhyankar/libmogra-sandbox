@@ -7,6 +7,8 @@ Each item is a dict, so a model can take what it needs and ignore the rest:
     tonic          (15,) the tonic conditioning vector -- present always, used only by
                    models built with `tonic_mode="condition"`
     index          position in the clip list, so predictions can be matched back to clips
+    side           (d,) a per-clip vector computed outside the network -- present only when
+                   the dataset was given one (Stage 5's melody histogram)
 
 The tonic appears in an item in *two* ways and they are independent: `input_values` may have
 been pitch-normalised (`tonic="normalise"`), and `tonic` may be read by the model (FiLM).
@@ -23,8 +25,9 @@ from . import tonic as tonic_mod
 
 class _Base(Dataset):
     def __init__(self, clips, tonic="none", separate=None, seconds=audio.DEFAULT_SECONDS,
-                 length_policy="fixed", tonic_override=None, train=False):
-        """tonic_override : {video: tonic_hz}, for the shuffled-tonic control."""
+                 length_policy="fixed", tonic_override=None, train=False, side=None):
+        """tonic_override : {video: tonic_hz}, for the shuffled-tonic control.
+        side            : {clip_id: vector}, attached to every item as "side"."""
         self.clips = list(clips)
         self.tonic = tonic
         self.separate = separate
@@ -32,6 +35,7 @@ class _Base(Dataset):
         self.length_policy = length_policy
         self.tonic_override = tonic_override or {}
         self.train = train
+        self.side = side
 
     def __len__(self):
         return len(self.clips)
@@ -41,12 +45,16 @@ class _Base(Dataset):
 
     def _wrap(self, x, i):
         c = self.clips[i]
-        return {
+        item = {
             "input_values": x,
             "labels": torch.tensor(c.label, dtype=torch.long),
             "tonic": torch.from_numpy(tonic_mod.conditioning(self.tonic_hz(c))),
             "index": torch.tensor(i, dtype=torch.long),
         }
+        if self.side is not None:
+            item["side"] = torch.from_numpy(np.asarray(self.side[c.clip_id],
+                                                       dtype=np.float32))
+        return item
 
 
 class WaveformDataset(_Base):
