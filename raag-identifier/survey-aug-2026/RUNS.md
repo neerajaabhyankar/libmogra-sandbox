@@ -159,6 +159,23 @@ poetry run python scripts/20_fuse_symbolic.py --dl aug_jitter --symbolic m14
 Best result in the project: fused test **0.447 ± 0.012** over three seeds, against
 0.373 ± 0.031 for the DL model alone and 0.373-0.400 across the symbolic family.
 
+### Release 09/01 ✅
+*`../best-model-09-01/` · not a survey run*
+
+The fusion, rebuilt as a standalone model: no imports outside its own directory, `pip
+install -r requirements.txt`, `train.py` to reproduce it from the pinned dataset. Its
+symbolic half is the naive histogram rather than M14 -- the same score at seed 0 without the
+native `vamp` dependency (see `plan.md`).
+
+Retrained on **all 1810 training clips** by its own script: **test top-1 0.487, top-5 0.820**
+through the public inference path. The same script holding out a fifth reproduces the survey
+at 0.447 (survey: 0.440), which is what says the rewrite is faithful.
+
+| id | what | status |
+|---|---|---|
+| fuse_aug_jitter_melody | CQT + histogram fusion, seed 0 | ✅ |
+| fuse_aug_seed1_melody / _seed2 | the same at seeds 1, 2 | ✅ |
+
 ### Batch 7 — Stage 5 [hybrid] as a model input ✅
 *local · ~2 h · `run_batch7_hybrid.sh`*
 

@@ -1110,3 +1110,68 @@ Everything that is not a *combination* of the two families sits at 0.373 ± nois
 a 120-bin histogram with no musical knowledge in it. Combining them is the only thing in
 this survey that moved the number, and averaging their outputs — the cheapest method
 available, one parameter swept on val, no training — remains the best way found to do it.
+
+
+### 2026-09-01 — a correction, and a portable partner for the fusion
+
+**`--gain-jitter` never did anything to a CQT run.** `make_dataset` passes `gain_jitter_db`
+to `WaveformDataset` only; `CQTDataset` takes `freq_shift_bins` and nothing else. So
+`aug_jitter` and every run descended from it is **pitch jitter alone** -- a roll of up to 2
+CQT bins, 22 cents. The flag was accepted and ignored. Nothing that was concluded changes
+(the augmentation was not significant either way), but "pitch/gain jitter" was wrong
+wherever it appears above and should be read as "pitch jitter".
+
+**A second fusion partner, for packaging.** M14 needs both pitch trackers -- pYIN through
+the `vamp` native plugin for its notes, and torchcrepe for its histogram -- which makes it
+awkward to hand to anyone else. `20_fuse_symbolic.py --symbolic melody` fuses the CQT net
+with the naive histogram + logreg instead, which needs one pip package:
+
+| fusion partner | val top-1, 3 seeds | test top-1, 3 seeds | seed 0 (the artifact) |
+|---|---|---|---|
+| M14 (motif-classifier) | 0.546 ± 0.023 | 0.447 ± 0.012 | 0.440 |
+| melody histogram + logreg | 0.508 ± 0.035 | 0.440 ± 0.047 | 0.440 |
+
+Identical at seed 0 and indistinguishable on the three-seed mean (test diff 0.007, se
+0.028). M14 is a little steadier across re-deals -- its test sd is a quarter of the
+histogram's -- which is worth knowing but is a statement about the method's variance, not
+about the shipped model. The released artifact in `../best-model-09-01/` uses the histogram.
+
+This is also the third piece of evidence that everything M14 does downstream of a pitch
+histogram is not paying for itself on held-out data: the histogram matches it alone (0.373
+each), matches it as a fusion partner, and beats it on dependencies.
+
+
+### 2026-09-01 — the released model: `../best-model-09-01/`
+
+The fusion, rebuilt as a standalone package (no imports outside its own directory) and
+retrained by its own `train.py` on **all 1810 training clips** rather than the 1350-clip fit
+half. Two runs, both from that script:
+
+| | fit on | val top-1 | test top-1 | test top-5 |
+|---|---|---|---|---|
+| reproduction, holding out a fifth of the videos | 1350 | 0.522 | 0.447 | 0.793 |
+| the survey's own equivalent (`fuse_aug_jitter_melody`) | 1350 | 0.548 | 0.440 | 0.793 |
+| **released model** | **1810** | *(none held out)* | **0.487** | **0.820** |
+
+**The standalone rewrite reproduces the survey.** 0.447 against 0.440 test, from code that
+shares no files with it -- and the temperatures it fitted on val came out at 0.925 and 2.360,
+the same values to three decimals. Remaining differences are batch order, a per-clip rather
+than per-batch pitch roll, and a fixed 34 epochs instead of early stopping.
+
+**Refitting on the val fifth as well is worth about +0.04 test** (0.447 -> 0.487), from 34 %
+more training data. That is one noise width, so it is a soft claim; it is also the expected
+direction and the standard recipe -- select the epoch count and the calibration constants on
+a held-out fifth, then refit everything at those settings.
+
+Two things the packaging exposed that the survey had not noticed:
+
+* **Test clips are 53 s, not 20 s.** `clip_tensor` centre-crops to 20 s, so every model in
+  this survey trained and was scored on the middle 20 s of each clip and ignored the rest.
+  The released model's `predict` averages *all* the 20 s windows instead, which is the more
+  natural thing to do with a user's recording. It scores 0.487 that way against 0.507 on the
+  centre crop -- the same within noise, and the card reports 0.487 because that is what the
+  shipped code does.
+* **A train/eval mode bug of the kind that only bites at batch size 1.** A helper left the
+  network in `train()` mode; the next single-window forward pass died inside batch norm. It
+  was caught by checking that the raw-audio path and the cached-feature path agree, which is
+  a check worth having wherever a model is repackaged.
