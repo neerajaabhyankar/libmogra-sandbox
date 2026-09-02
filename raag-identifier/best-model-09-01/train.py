@@ -24,6 +24,9 @@ same weights up to non-determinism in the CQT/CREPE kernels.
 * The melody branch is a plain multinomial logistic regression. It is fitted on the same
   clips the network saw, so the fusion weight is not chosen with any help from data the
   network was validated on.
+* CREPE's pitch dither is seeded (`melody_branch.f0_track`), so the cached histograms --
+  and therefore this branch -- come out the same on every rebuild. Without that the same
+  audio gives a different pitch track every run.
 
 Cost: about 25 minutes on an M1 (10 for the feature cache, 15 for 34 epochs), plus the
 dataset download. CREPE dominates the cache build; pass `--device mps` or `--device cuda`.

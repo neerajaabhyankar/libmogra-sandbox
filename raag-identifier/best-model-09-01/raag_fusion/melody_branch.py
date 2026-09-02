@@ -26,17 +26,34 @@ SMOOTH = 1.0
 POWER = 0.5
 
 
-def f0_track(y16000, device="cpu"):
-    """(f0 in Hz, voiced mask), one value per 10 ms frame."""
+def f0_track(y16000, device="cpu", dither_seed=0):
+    """(f0 in Hz, voiced mask), one value per 10 ms frame.
+
+    **The dither seed is not optional decoration.** torchcrepe decodes pitch to a 20-cent
+    bin grid and then adds triangular noise of +-20 cents to every frame to hide the
+    quantisation (`torchcrepe.convert.dither`), drawn from numpy's *global* RNG. Left
+    alone, that makes this function return a different answer every process: measured on
+    one 24 s clip, the model's top-1 probability moved between 0.39 and 0.61 and the
+    ranking below first place reshuffled. Seeding fixes the draw, so the same recording
+    always gets the same answer.
+
+    The caller's RNG state is saved and restored, because quietly reseeding numpy is not
+    a reasonable side effect of asking for a pitch track.
+    """
     import torch
     import torchcrepe
 
     wav = torch.from_numpy(np.ascontiguousarray(y16000)).float().unsqueeze(0)
-    with torch.no_grad():
-        f0, periodicity = torchcrepe.predict(
-            wav, SR, hop_length=HOP, fmin=50.0, fmax=2000.0, model=MODEL_SIZE,
-            return_periodicity=True, batch_size=512, device=device,
-            decoder=torchcrepe.decode.weighted_argmax)
+    state = np.random.get_state()
+    try:
+        np.random.seed(dither_seed)
+        with torch.no_grad():
+            f0, periodicity = torchcrepe.predict(
+                wav, SR, hop_length=HOP, fmin=50.0, fmax=2000.0, model=MODEL_SIZE,
+                return_periodicity=True, batch_size=512, device=device,
+                decoder=torchcrepe.decode.weighted_argmax)
+    finally:
+        np.random.set_state(state)
     return f0.squeeze(0).numpy(), periodicity.squeeze(0).numpy() >= CONFIDENCE
 
 

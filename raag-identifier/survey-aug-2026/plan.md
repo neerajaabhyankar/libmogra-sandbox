@@ -1175,3 +1175,22 @@ Two things the packaging exposed that the survey had not noticed:
   network in `train()` mode; the next single-window forward pass died inside batch norm. It
   was caught by checking that the raw-audio path and the cached-feature path agree, which is
   a check worth having wherever a model is repackaged.
+* **torchcrepe dithers its output, and nothing in this repo knew.** `convert.bins_to_cents`
+  decodes pitch onto a 20-cent grid and then adds triangular noise of +-20 cents to every
+  frame to mask the quantisation, from numpy's unseeded global RNG. Our histogram bins are
+  10 cents wide, so that noise is wider than two bins. Consequences, in order of how much
+  they matter:
+
+  1. **Inference was not reproducible.** The same clip gave top-1 probabilities of 0.43,
+     0.61 and 0.46 in three processes, with the ranking below first place reshuffling.
+     Seeded now in `melody_branch.f0_track`, with the caller's RNG state restored.
+  2. **Every melody-histogram number in this notebook carries a dither draw** -- the Stage 0
+     probe, `melody_only`, `hybrid_feat`, and the `--symbolic melody` fusions. It is one
+     draw each, averaged over 1578 voiced frames per clip and 150-1810 clips, so it is
+     noise on top of noise already accounted for, not a bias. But it is one more reason the
+     fine distinctions this survey chased were never resolvable.
+  3. Refitting the released model on seeded histograms moved its test score from 0.487 to
+     0.480 -- one clip.
+
+  The CQT branch retrained **bit-for-bit identically** across the two runs, which is the
+  reassuring half of the story: the pipeline is deterministic everywhere we control it.

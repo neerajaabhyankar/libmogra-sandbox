@@ -14,9 +14,7 @@ Give it a sung or hummed recording and the tonic, and it names the five most lik
 out of 50, with probabilities.
 
 **The tonic is required and it is not a formality.** A raag is a pattern of intervals above
-Sa, not a set of frequencies. With the tonics deliberately shuffled, the same network drops
-significantly in accuracy. Hum a steady Sa for five seconds (`quickstart.py` does this for
-you), name it (`--tonic-note D3`), or pass the frequency.
+Sa, not a set of frequencies.
 
 ## Usage
 
@@ -31,33 +29,37 @@ pip install torch librosa soundfile torchcrepe huggingface_hub datasets
 ```python
 import sys
 
+# Download Model
+
 from huggingface_hub import snapshot_download
 
 repo = snapshot_download("neerajaabhyankar/cqt-histogram-hindustani-raag-small")
 sys.path.insert(0, repo)
 
-import datasets
+# Load Model
+
 from raag_fusion import RaagIdentifier
 
-model = RaagIdentifier.load()          # reads <repo>/weights
+model = RaagIdentifier.load()
 
-ds = datasets.load_dataset("neerajaabhyankar/hindustani-raag-small", split="test")
-audio, tonic_hz = ds[0]["audio"], ds[0]["tonic_hz"]
+# Use the following inputs
+#   audio (1d numpy array)
+#   sampling_rate (int)
+#   tonic_hz (float)
 
-top5 = model.predict(audio["array"], audio["sampling_rate"], tonic_hz=tonic_hz)
-predicted_raag = top5[0].raag
+top5 = model.predict(audio, sampling_rate, tonic_hz=tonic_hz)
 ```
 
 ```python
 >>> top5
-[Prediction(raag='AheerBhairav', probability=0.430),
- Prediction(raag='Khamaj', probability=0.221),
- Prediction(raag='Bageshree', probability=0.047),
- Prediction(raag='Des', probability=0.042),
+[Prediction(raag='Khamaj', probability=0.430),
+ Prediction(raag='Des', probability=0.221),
+ Prediction(raag='TilakKamod', probability=0.047),
+ Prediction(raag='Pilu', probability=0.042),
  Prediction(raag='AlhaiyaBilawal', probability=0.041)]
 ```
 
-On your own audio, with the tonic given three ways:
+To test on a saved audio, you may supply the tonic any of these ways:
 
 ```python
 from raag_fusion import audio, tonic_from_hum
@@ -71,25 +73,31 @@ y, sr = audio.load("alap.wav")                                   # arrays, if yo
 model.predict(y, sr, tonic_hz=146.83, top_k=10)
 ```
 
+or straight from the shell
+
+```bash
+python predict.py alap.wav --tonic-note D3      # or --tonic-hz / --tonic-file
+```
+
+To test on live audio, see `quickstart.py`. Hum a steady Sa for five seconds (prompts you to do this),
+or pass the frequency or note like `--tonic-note D3` or  `--tonic-note 440.0`.
+
+```bash
+python quickstart.py                            # hum into your microphone
+```
+
 Probabilities for all 50 raags, in `weights/raags.json` order, come from
 `model.probabilities(y, sr, tonic_hz)`. Recordings longer than 20 s are cut into 20 s
 windows and averaged, so pass the whole thing rather than a slice.
 
-From a shell, without writing any Python:
-
-```bash
-python predict.py alap.wav --tonic-note D3      # or --tonic-hz / --tonic-file
-python quickstart.py                            # hum into your microphone
-```
-
 ## Accuracy
 
-On 150 held-out clips, **the right raag is the top guess 49 % of the time and somewhere in
+On 150 held-out clips, **the right raag is the top guess 48 % of the time and somewhere in
 the five 82 % of the time.** Chance is 2 % and 10 %.
 
 | | top-1 | top-5 |
 |---|---|---|
-| **this model** (all 1810 training clips), scored through `predict` | **0.487** | **0.820** |
+| **this model** (all 1810 training clips), scored through `predict` | **0.480** | **0.820** |
 | the same recipe fit on 80 %, validated on the other 20 % | 0.447 | 0.793 |
 | — its CQT branch alone | 0.400 | 0.680 |
 | — its melody branch alone | 0.347 | 0.753 |
@@ -100,13 +108,13 @@ Averaged over three re-deals of the split the two branches come out level, at 0.
 The first row is measured by calling the same `predict` you would call, on the same audio
 you would pass: every 20 s window of each clip, averaged. The rows under it score only the
 middle 20 s of each clip, which is what a *training* example is. Scoring the released model
-that way gives 0.507 — the same to within the noise on 150 clips, and reported here as
-0.487 because that is what the code in this directory actually does.
+that way gives 0.473 — the same to within the noise on 150 clips, and reported here the
+other way because that is what the code in this directory actually does.
 
 The 150 test clips come from 50 recordings that appear nowhere in training, so nothing here
 is recording recall. On 150 clips the standard error of a top-1 figure is about 4 points,
 and re-dealing the train/validation split moves this method's test score over a range of
-about 9 points. **Read the headline as "roughly one in two", not as 0.487.**
+about 9 points. **Read the headline as "roughly one in two", not as 0.480.**
 
 **The mistakes are musical.** When it is wrong, the raag it names is much closer to the true
 one than a random raag would be: mistake affinity 0.46 against a chance floor of 0.26

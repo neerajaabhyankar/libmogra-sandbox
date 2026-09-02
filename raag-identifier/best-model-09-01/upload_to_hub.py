@@ -6,9 +6,9 @@
 Nothing is uploaded without `--repo-id`, and `--dry-run` lists exactly what would go. Log
 in first with `huggingface-cli login`, or pass `--token`.
 
-What gets uploaded: the code, the weights, the model card and its figure. What does not:
-`cache/` (250 MB of derived features, rebuildable by `train.py`), `__pycache__`, and any
-audio you happen to have left lying here.
+What gets uploaded: the code, `weights/`, the model card and its figure. What does not:
+`cache/` (250 MB of derived features, rebuildable by `train.py`), any `weights_*/` backup
+directory, `__pycache__`, and any audio you happen to have left lying here.
 """
 
 import argparse
@@ -20,7 +20,11 @@ HERE = Path(__file__).resolve().parent
 #: fnmatch's `*` crosses directory separators, so a bare `*.pyc` catches nested ones too --
 #: but a pattern with no wildcard at all (`.DS_Store`) only ever matches at the root.
 IGNORE = ["cache/*", "*__pycache__*", "*.pyc", "*.DS_Store",
-          "*.wav", "*.mp3", "*.flac"]
+          "*.wav", "*.mp3", "*.flac",
+          # only the canonical weights/ ships -- `weights_1/`, `weights_old/` and friends
+          # are local backups, and a repo containing two checkpoints is a repo nobody can
+          # tell apart
+          "weights_*/*"]
 
 
 def files_that_would_upload(root=HERE):
