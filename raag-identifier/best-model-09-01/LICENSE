@@ -1,0 +1,328 @@
+================================================================================
+LICENSE AND TERMS OF USE
+
+  Model:    cqt-histogram-hindustani-raag-small
+  Location: https://huggingface.co/neerajaabhyankar/cqt-histogram-hindustani-raag-small
+  Version:  1.0
+  Date:     2026-09-01
+
+  Author:   Neeraja Abhyankar
+  Notices:  neeraja.abhyankar@gmail.com
+================================================================================
+
+
+--------------------------------------------------------------------------------
+0.  SUMMARY  (orientation only; the operative terms are Sections 1-10)
+--------------------------------------------------------------------------------
+
+This repository contains two kinds of thing, licensed separately:
+
+  * SOURCE CODE — the raag_fusion package and the training, prediction and
+    upload scripts. Licensed under the Apache License, Version 2.0.
+
+  * MODEL ARTEFACTS — the trained weights, the learned fusion parameters, the
+    raag templates, the pitch-histogram model and the accompanying
+    configuration. Licensed under CC BY-NC-SA 4.0: attribution required,
+    non-commercial use only, derivatives under the same terms.
+
+The Author wrote the code and trained the weights, and so has standing to
+license both. The Author has chosen to license the Model Artefacts under
+CC BY-NC-SA 4.0. This choice is consistent with the research-oriented terms
+under which the Source Dataset is distributed, but does not depend on a claim
+that those terms legally propagate into trained model weights. Section 4
+sets out the training-data provenance in full, because You are entitled to know
+it before You build on this.
+
+================================================================================
+
+
+--------------------------------------------------------------------------------
+1.  DEFINITIONS
+--------------------------------------------------------------------------------
+
+1.1  "Model" means the trained artefacts distributed in this repository: the
+     CQT-branch network weights, the melody-branch (pitch-histogram) model, the
+     raag templates, the learned fusion temperature and mixing weights, the
+     label mapping, and the configuration files needed to load them.
+
+1.2  "Code" means the source code in this repository, including the raag_fusion
+     package and the train, predict, quickstart and upload scripts.
+
+1.3  "Source Dataset" means hindustani-raag-small, at
+     https://huggingface.co/datasets/neerajaabhyankar/hindustani-raag-small ,
+     from which the Model's training and test data were drawn.
+
+1.4  "Author" means the person named above who wrote the Code and trained the
+     Model.
+
+1.5  "You" means the individual or entity exercising the permissions granted
+     here.
+
+1.6  “Derivative Model” means a model produced by fine-tuning, continued training,
+     distillation from internal representations or logits, pruning, quantisation,
+     merging, parameter transformation, or other modification of the Model or its
+     weights. It does not include a model trained solely on ordinary outputs made
+     available under Section 3.3(b).
+
+
+--------------------------------------------------------------------------------
+2.  CODE LICENCE
+--------------------------------------------------------------------------------
+
+2.1  The Code is licensed under the Apache License, Version 2.0:
+
+         https://www.apache.org/licenses/LICENSE-2.0
+
+2.2  Apache 2.0 is used for the Code, rather than a Creative Commons licence,
+     because Creative Commons recommends against using CC licences for
+     software: they contain no terms about the distribution of source code,
+     they grant no patent rights, and they are not compatible with the GPL.
+
+
+--------------------------------------------------------------------------------
+3.  MODEL LICENCE
+--------------------------------------------------------------------------------
+
+3.1  The Model is licensed under the Creative Commons
+     Attribution-NonCommercial-ShareAlike 4.0 International Public License
+     (CC BY-NC-SA 4.0):
+
+         https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+
+3.2  In summary, and subject to the full licence text: You may use, copy, adapt
+     and redistribute the Model for non-commercial purposes, provided You give
+     appropriate credit (see Section 9) and license any adapted material under
+     the same terms.
+
+3.3  DERIVATIVE MODELS AND OUTPUTS. Whether training on, or fine-tuning from,
+     licensed material creates "adapted material" in the copyright sense is an
+     unsettled question, and this document does not purport to answer it. What
+     the Author does do is set the terms of this grant:
+
+     (a)  As a condition of the permission granted in Section 3.1, the Author
+          requires that any publicly distributed Derivative Model be
+          distributed under CC BY-NC-SA 4.0 or a later version of that license
+          where permitted by its terms..
+
+     (b)  The Author places no restriction on the Model's outputs. Raag labels
+          and confidence scores produced by running the Model are Yours to use
+          as You see fit, including in ways this licence would not permit for
+          the Model itself.
+
+3.4  The Author states — and this is an express representation, carved out of
+     the disclaimer in Section 7.1 — that the Author wrote the Code and trained
+     the Model, and holds whatever rights subsist in them by virtue of having
+     done so. The Author makes no representation beyond that, and in particular
+     none as to whether third parties may have claims arising from the
+     provenance of the training data; see Sections 4 and 7.
+
+
+--------------------------------------------------------------------------------
+4.  TRAINING DATA PROVENANCE — DISCLOSURE
+--------------------------------------------------------------------------------
+
+This Section is disclosure, not restriction. It is here so You can make Your own
+assessment before building on the Model.
+
+4.1  The Model was trained from scratch on the Source Dataset — a corpus of
+     approximately 1,960 clips segmented from roughly 412 videos across 50 raag
+     classes, collected from publicly accessible internet sources, principally
+     video-sharing platforms. Training used the corpus's 1,810-clip training
+     split; the remaining 150 clips are the held-out test set.
+
+4.2  The Author does not own the recordings in the Source Dataset and did not
+     obtain permission from their rightsholders. The Source Dataset is
+     distributed under its own terms, which grant no licence in those
+     recordings and restrict redistribution of them. If You intend to retrain,
+     reproduce or extend this work using that corpus, read those terms first.
+
+4.3  The following characteristics of the Model bear on how it relates to its
+     training material, and are stated for that reason:
+
+     (a)  The Model is DISCRIMINATIVE, not generative. It maps audio and a
+          tonic frequency to a probability distribution over 50 raag classes.
+          It has no decoder, no vocoder and no synthesis capability, and cannot
+          reproduce or reconstruct any training recording.
+
+     (b)  The CQT branch is a small 2-D residual network of approximately
+          554,000 parameters trained on roughly 1,810 clips. The melody branch
+          is logistic regression over a 120-bin pitch histogram expressed in
+          cents above the tonic. Neither is designed to memorise training
+          audio, and at this architecture and scale memorisation sufficient to
+          recover a recording is very unlikely — though the Author has not run
+          a memorisation or extraction study and does not assert the point as
+          established. The melody branch's input representation is
+          non-invertible by construction: a folded pitch histogram discards
+          time, timbre, dynamics and phase, and no recording can be recovered
+          from it.
+
+     (c)  What the Model encodes is the interval structure of raags — which
+          scale degrees occur, with what relative weight, above Sa. A raag as
+          such is a traditional musical framework of considerable antiquity,
+          held in common, and is not anyone's copyrighted property. Particular
+          compositions in a raag — a bandish, an arrangement, a notated
+          realisation — may well be protected, as is every recording; the raag
+          in the abstract is not.
+
+4.4  The Author's understanding, offered as context and not as a legal opinion,
+     is that a small discriminative classifier sits differently from a
+     generative model trained on the same material, and differently again from
+     the corpus itself. In Bartz v. Anthropic PBC, No. 3:24-cv-05417 (N.D. Cal.
+     June 23, 2025), Judge Alsup held that training large language models on
+     lawfully acquired copyrighted books was "exceedingly transformative" and a
+     fair use, and that format-shifting lawfully purchased books was too, while
+     downloading and retaining pirated copies to build a permanent central
+     library was not — and could not be cured by transformative use downstream.
+
+     Three qualifications matter and are stated because they cut against the
+     Author's own interest. First, the training holding rested on lawfully
+     acquired copies; the acquisition step is judged separately, and it is the
+     acquisition step that is unlicensed here. Second, Bartz concerned
+     generative language models and says nothing about audio classifiers, so
+     applying it to a model of this kind is extrapolation. Third, it is one
+     unreviewed district court decision: it was followed by a USD 1.5 billion
+     settlement, granted final approval in July 2026, rather than by appellate
+     review, and it binds no one outside that court.
+
+4.5  Nothing in this Section is a representation that the Model is free of
+     third-party claims. See Section 7.
+
+
+--------------------------------------------------------------------------------
+5.  PERMITTED PURPOSES
+--------------------------------------------------------------------------------
+
+The Model is made available for non-commercial purposes, including:
+
+  (a)  scientific research in music information retrieval, computational
+       musicology, ethnomusicology and machine learning;
+
+  (b)  teaching, private study and self-directed learning of raag structure;
+
+  (c)  reproducing, verifying, benchmarking and critiquing the published
+       results;
+
+  (d)  building non-commercial tools, demonstrations and educational
+       applications; and
+
+  (e)  fine-tuning and extension for any of the above, subject to Section 3.3.
+
+
+--------------------------------------------------------------------------------
+6.  RESPONSIBLE USE RECOMMENDATIONS
+--------------------------------------------------------------------------------
+
+The following uses are strongly discouraged and are outside the intended scope
+of this research release:
+
+  (a)  use of the Model as a component of, or a starting point for, any generative
+       or voice-synthesis system intended to reproduce or imitate the voice,
+       style or performance of any identifiable performer;
+
+  (b)  present the Model's output as authoritative musicological
+       identification
+
+  (c)  use the Model to make consequential decisions about people —
+       assessment, examination, grading, hiring, admission or ranking of
+       musicians — or in any context where a misclassification carries material
+       consequence for an individual; or
+
+  (e)  represent that the Model was trained on licensed or cleared audio, or
+       that any rightsholder, performer or platform endorsed, authorised or
+       reviewed it.
+
+These statements describe the Author's intended and responsible use of the Model
+and do not modify the permissions granted by CC BY-NC-SA 4.0.
+
+
+--------------------------------------------------------------------------------
+7.  NO WARRANTY
+--------------------------------------------------------------------------------
+
+7.1  EXCEPT FOR THE EXPRESS REPRESENTATION IN SECTION 3.4, THE MODEL AND CODE
+     ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+     INCLUDING WITHOUT LIMITATION ANY WARRANTY OF TITLE, NON-INFRINGEMENT,
+     MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+7.2  In particular, the Author makes no representation that:
+
+     (a)  the Model is free of third-party claims arising from the provenance
+          of its training data;
+
+     (b)  the Model is accurate. Reported performance is 48% top-1 and 82%
+          top-5 on 150 held-out clips across 50 classes, against 2% and 10%
+          chance baselines. These are noisy point estimates: the standard error
+          on the top-1 figure is roughly 4 points, and re-dealing the split
+          moves it over a range of about 9 points. Read the headline as
+          "roughly one in two", not as 0.480. Performance degrades on ensemble
+          recordings, on fragments shorter than about 20 seconds, and on any
+          raag outside the 50-class vocabulary — there is no "not a raag"
+          output, so the Model will return a confident wrong answer rather than
+          abstain;
+
+     (c)  the tonic supplied to the Model is correct. The Model requires the
+          tonic as an input and its output is only as good as that estimate; or
+
+     (d)  the 50-class vocabulary is a representative or balanced sample of
+          Hindustani raags. The training corpus is small and unevenly
+          distributed across classes, and the Model's behaviour reflects that.
+
+7.3  TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE AUTHOR SHALL NOT BE LIABLE FOR
+     ANY CLAIM, DAMAGE OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT OR
+     OTHERWISE, ARISING FROM OR IN CONNECTION WITH THE MODEL, THE CODE, OR
+     THEIR USE.
+
+
+--------------------------------------------------------------------------------
+8.  NOTICE AND REMOVAL
+--------------------------------------------------------------------------------
+
+8.1  If You hold, or represent the holder of, rights in material used to train
+     the Model, or in a performance appearing in the Source Dataset, and You
+     have a concern about this Model, write to the address at the head of this
+     document. The Author will engage in good faith and will not treat a
+     removal request as adversarial.
+
+8.2  The Hugging Face Hub operates its own notice-and-takedown process at
+     dmca@huggingface.co under its Content Policy. That route is available
+     independently of this Section.
+
+
+--------------------------------------------------------------------------------
+9.  ATTRIBUTION AND CITATION
+--------------------------------------------------------------------------------
+
+Attribution under CC BY-NC-SA 4.0 is satisfied by citing the Model. Suggested
+form:
+
+    [Neeraja Abhyankar]. cqt-histogram-hindustani-raag-small: a
+    tonic-anchored CQT and pitch-histogram classifier for Hindustani raag
+    identification [Model]. Hugging Face.
+    https://huggingface.co/neerajaabhyankar/cqt-histogram-hindustani-raag-small
+
+If You report results obtained with the Model, please report the test-set size
+alongside any accuracy figure, and carry the uncertainty in Section 7.2(b)
+rather than quoting the point estimates alone.
+
+
+--------------------------------------------------------------------------------
+10.  MISCELLANEOUS
+--------------------------------------------------------------------------------
+
+10.1  SEVERABILITY. If any provision is held unenforceable, it shall be
+      reformed to the minimum extent necessary and the remainder shall continue
+      in effect.
+
+10.2  RELATION TO THE SOURCE DATASET. This document governs the Model and Code
+      only. The Source Dataset is governed by its own terms, and nothing here
+      grants any right in it or in the recordings it contains.
+
+10.3  NO ENDORSEMENT. Nothing here implies endorsement by any rightsholder,
+      performer, platform or institution.
+
+10.4  This document is not legal advice and was not drafted by a lawyer. It
+      states the Author's intent and understanding. It does not adjudicate
+      anyone's rights and should not be relied on as a legal opinion by anyone,
+      including the Author.
+
+================================================================================

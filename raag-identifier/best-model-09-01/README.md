@@ -1,5 +1,6 @@
 ---
-license: cc-by-4.0
+license: other
+license_name: mixed-terms
 pipeline_tag: audio-classification
 tags: [audio, music, music-information-retrieval, raga, raag, hindustani-classical-music, indian-classical-music]
 datasets: [neerajaabhyankar/hindustani-raag-small]
@@ -222,8 +223,16 @@ graded label smoothing from the raag database, and a learned-template head.
 The tonic representation and this two-branch fusion were the only two changes that
 moved the number by more than the noise.
 
-## License and citation
+## License
 
-This project is shared under a Creative Commons 4.0 license, which means you're totally
-free to share and adapt it as long as you give me proper credit. It is strictly for
-**NonCommercial** use, and any shared tweaks must use the exact same license (**ShareAlike**).
+This repository uses separate licenses for its components:
+
+- **Source code:** Apache License 2.0
+- **Trained model artifacts:** CC BY-NC-SA 4.0
+
+The model was trained on
+[`neerajaabhyankar/hindustani-raag-small`](https://huggingface.co/datasets/neerajaabhyankar/hindustani-raag-small),
+which contains third-party audio not licensed by the dataset curator.
+
+The model license does **not** grant any rights in the recordings used to train it.
+See [LICENSE](./LICENSE) for full terms and training-data provenance.
