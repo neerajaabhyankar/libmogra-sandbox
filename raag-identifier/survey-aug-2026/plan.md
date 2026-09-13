@@ -1194,3 +1194,671 @@ Two things the packaging exposed that the survey had not noticed:
 
   The CQT branch retrained **bit-for-bit identically** across the two runs, which is the
   reassuring half of the story: the pipeline is deterministic everywhere we control it.
+
+
+### 2026-09-10 — Batches 8–10 planned: Essentia, the full recordings, and a trunk nobody tuned
+
+Five questions, each answered below either from what is already known or with the runs
+that will answer it. The instrument, as established in Batches 4–5: a single seed resolves
+about **0.06 on val**; three seeds resolve about **0.10 on test**. Everything below is read
+against that.
+
+| starting point (3 seeds) | val top-1 | test top-1 |
+|---|---|---|
+| CQT branch, aug_jitter | 0.433 ± 0.030 | 0.373 ± 0.031 |
+| melody branch, CREPE histogram | 0.396 ± 0.032 | 0.373 ± 0.024 |
+| fused (the released recipe) | 0.508 ± 0.035 | 0.440 ± 0.047 |
+
+#### 1. Essentia instead of CREPE for the melody branch — Batch 8
+
+On one Bageshree clip, Essentia's Melodia (Saraga's settings: hop 196, 10-cent bins, no
+guessing through unvoiced frames) against CREPE-tiny:
+
+| | speed | voiced | frame-to-frame steps over 100 c |
+|---|---|---|---|
+| Essentia Melodia | 57× real time | 70 % | **0.7 %** |
+| CREPE tiny | 4× real time | 93 % | 5.3 % |
+
+What should and should not matter: the melody branch reads an *octave-folded* histogram,
+so the octave errors that dominate the contour plots cost it nothing. Melodia can only help
+through **which frames get counted** — it leaves out a quarter of what CREPE's 0.4
+confidence threshold admits, plausibly tanpura and accompaniment — and through the
+non-octave spikes. (CREPE's ±20-cent dither and Melodia's 10-cent grid both blur by about
+one bin, which the histogram's own smoothing absorbs.)
+
+Paired runs, same three splits: `melody_only_essentia` against `melody_only`, and each
+Essentia fusion against its CREPE twin. **Prediction:** the melody branch gains +0.02–0.04
+val; the fusion gains less, because it already down-weights that branch's noise.
+**Decision rule:** if Essentia wins on the paired comparison, it becomes the melody
+branch's tracker, and the one for the full recordings too — at 57× real time, the 159 h
+are about 3 CPU-hours; CREPE would need about 40.
+
+Environment: essentia 2.1b6.dev1389 installed with pip into the poetry env. It is not in
+`pyproject.toml`.
+
+#### 2. The full recordings — Batch 10
+
+All 412 Hub videos have their full recording on disk, filed under the same raag every
+time. 22 further recordings belong to no split; they are listed in
+`splits/v1.1_unassigned.csv` and nothing reads them. The partition is now written down in
+`splits/v1.1_video_splits.csv` (fit / val / test per video, seeds 0–2), and it matches a
+fresh derivation from the Hub clips.
+
+| role | videos | full recordings | what the Hub shows the model |
+|---|---|---|---|
+| fit | 270 | 102.6 h | 7.5 h (7.3 %) |
+| val | 92 | 37.9 h | 2.6 h (6.7 %) |
+| test | 50 | 18.3 h | 0.8 h (4.5 %) |
+
+**Design.** Same fit videos. `common/fullaudio.py` caches each recording's Sa-anchored CQT
+once, then serves fresh random 20 s windows every epoch. Window features match the Hub
+pipeline's to within one storage step (max difference 0.0037 on a checked window). A gentle
+filter skips the first and last 30 s and any window less than 80 % loud (within 20 dB of the
+recording's median frame); 85 % of positions pass on the first recording checked.
+
+Validation and test remain the Hub clips, so every number stays comparable with every
+earlier run. `92_score_full.py` adds a second view: 20 fixed windows of every val and test
+recording, with the Hub-trained baselines scored the same way.
+
+| run | what it isolates |
+|---|---|
+| `full_aug` ×3 seeds | the headline: 20 windows/video/epoch, 20 epochs |
+| `full_w5` | aug_jitter's exact step count, different audio: diversity alone |
+| `full_nofilter` | what the filter is worth |
+| `full_wide` | whether 13.7× the audio supports a bigger trunk |
+
+**What this can and cannot fix.** More windows per video is not more videos. The fit set is
+still 270 performances — often one or two artists per raag — and everything so far has
+pointed at a ceiling set by data. If that ceiling is *audio per performance*, `full_aug`
+moves; if it is *number of performances*, it will not, and the only fix is more
+recordings. That distinction is the answer to whether the dataset should be upgraded, so
+it matters more than the headline number. **Prediction:** val +0.05–0.10 over aug_jitter,
+most of it visible in `full_w5` too. Under +0.03 means the ceiling is performances.
+
+#### 3. Melodic order in the CQT branch — Batch 9, pooling
+
+**Not tried before.** The trunk is not order-blind: its temporal receptive field is 80 frames,
+**3.7 s**, with a stride of 0.74 s, so each of the ~26 positions left in a 20 s window already
+encodes a few seconds of melody in order. What the final mean discards is order *between*
+those stretches. The temporal swar head proposed under Next steps §3 is the full version of
+this idea, and it was never run. These are the cheap versions:
+
+| pool | order-sensitive | receptive field | params |
+|---|---|---|---|
+| `mean` (current) | within 3.7 s | 3.7 s | 496 k |
+| `tconv` — dilated convs 1, 2, 4, residual, zero-initialised | yes | ~14 s | 817 k |
+| `gru` — bidirectional, concatenated with the mean | yes | 20 s | 927 k |
+| `attn` *(control)* | no — weights moments | 3.7 s | 551 k |
+| `stats` *(control)* | no — adds variance | 3.7 s | 496 k |
+
+A layer whose kernel spans the entire time axis is left out on purpose. It learns a
+separate weight for each absolute position, and a window cropped from a random point in a
+performance has no meaningful absolute positions: the same phrase at second 3 and at
+second 13 would become different features. `tconv` and `gru` test the underlying
+hypothesis while staying shift-invariant.
+
+**Prediction and ceiling.** Order should fix the same-scale confusions — Bhupali/Deshkar,
+Bageshree/Bheempalasi — which are 10.9 % of test errors (8.4× chance). Fixing every one of
+them moves test by +0.066. So even perfect order modelling is a modest gain on this split.
+Predict ≤ +0.03 val. If `attn` or `stats` gain as much as `tconv` or `gru`, the gain was a
+richer summary, not order.
+
+#### 4. Where the CQT network came from — Batch 9, shape
+
+**Assembled, not taken from a paper, and never swept.** The parts are standard: a 5×5 stem,
+pre-activation residual blocks of 3×3 convolutions with batch norm, and the music-CNN habit
+of pooling time harder than frequency, because here frequency is the label. The numbers are
+mine: 4 blocks, channels 32/64/96/128, a 24-channel projection, dropout 0.1, frequency
+halved in three blocks. Every sweep in this survey — `db_lam`, swar bins, jitter, seeds —
+happened downstream of that trunk.
+
+Working this answer out turned up the choice I would now question most. **Three frequency
+halvings leave 18 cells for 4 octaves, about 2.7 semitones each** — coarser than the swar
+grid the head is supposed to read, so sub-cell pitch has to be carried in the channels.
+
+A one-factor sweep around the default, single seed:
+
+| run | change | params |
+|---|---|---|
+| `arch_w05` / `arch_w2` | width ×0.5 / ×2 | 124 k / 1.98 M |
+| `arch_d3` / `arch_d5` | 3 / 5 blocks | 224 k / 932 k |
+| `arch_f36` / `arch_f72` | 36 / 72 frequency cells | 496 k — same convs; the head's input grows to 864 / 1728 |
+
+**Decision rule** for Batch 9 as a whole: anything ≥ +0.03 val over aug_jitter's seed 0 gets
+seeds 1 and 2; the winner then runs on the full recordings.
+
+#### 5. Decisions revisited — and ones deliberately left alone
+
+- **The gentle filter** is the one new data-quality choice the full recordings force: raw
+  concert video has dead air and applause at its edges. On, with `full_nofilter` as its
+  ablation. Speech and applause detection were not attempted — that needs a classifier and
+  a threshold nobody has checked.
+- **Epoch budget.** The full-audio epochs are 4× longer, so 20 epochs with patience 6.
+  `full_w5` keeps the old schedule for a like-for-like comparison.
+- **Capacity.** Width is the setting most likely to change with more data, hence
+  `full_wide`.
+- **HPSS: not re-run.** On clips it gave c3 0.304 vs c2 0.302 val, and r3 was worse.
+  Re-testing a measured null on 159 h would cost ~2.5 CPU-hours and 1.8 GB on a disk with
+  11 GB free.
+- **Band-limiting is irrelevant to the CQT branch by construction.** Its top bin is 16× its
+  `fmin`, at most **1.76 kHz**, so it never sees anything a 16 kHz resample removes. The CQT
+  branch's val gain attributed to band-limiting in
+  `../augmentation-utils/deidentifier.md` §9.3 (0.443 → 0.478) therefore cannot come from
+  what was removed; it is a different random draw (~1.5 SE). The de-identification cost in
+  §9.2 (0.045) can still be real, since whitening changes the harmonic balance inside the
+  band.
+- **De-identification as a training augmentation.** §9.4 finds it safe, and a light
+  sprinkling (≈ a quarter of training windows) is a reasonable next step. It needs a
+  de-identified CQT cache of the full recordings — another 1.8 GB — so it waits. 🟥
+- **Essentia's settings** stay at Saraga's, so the tracker tested is the one whose contours
+  raised the question.
+
+**Order and cost.** GPU: Batch 10 (~6.5 h), then Batch 9 (~7 h). CPU, alongside: Batch 8
+(~30 min). The full-recording CQT cache is 1.8 GB, and the disk now has about 9 GB free.
+
+
+### 2026-09-10 — Batch 8: Essentia beats CREPE on validation, and test cannot tell them apart
+
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| melody_only | melody histogram alone, logreg *(control)* | 0.430 | 0.347 | - | 0.410 (0.267) |
+| melody_only_seed1 | melody histogram alone, seed 1 | 0.367 | 0.393 | - | 0.433 (0.263) |
+| melody_only_seed2 | melody histogram alone, seed 2 | 0.391 | 0.380 | - | 0.412 (0.261) |
+| melody_only_essentia | Essentia histogram alone, logreg | 0.491 | 0.307 | - | 0.423 (0.268) |
+| melody_only_essentia_seed1 | Essentia histogram alone, seed 1 | 0.409 | 0.347 | - | 0.432 (0.266) |
+| melody_only_essentia_seed2 | Essentia histogram alone, seed 2 | 0.448 | 0.367 | - | 0.413 (0.263) |
+| fuse_aug_jitter_melody | aug_jitter + CREPE histogram, fused | 0.548 | 0.440 | - | 0.430 (0.270) |
+| fuse_aug_seed1_melody | aug_seed1 + CREPE histogram, fused | 0.485 | 0.393 | - | 0.453 (0.267) |
+| fuse_aug_seed2_melody | aug_seed2 + CREPE histogram, fused | 0.491 | 0.487 | - | 0.430 (0.264) |
+| fuse_aug_jitter_melody_essentia | aug_jitter + **Essentia** histogram, fused | 0.565 | 0.413 | - | 0.435 (0.270) |
+| fuse_aug_seed1_melody_essentia | aug_seed1 + Essentia histogram, fused | 0.520 | 0.380 | - | 0.445 (0.270) |
+| fuse_aug_seed2_melody_essentia | aug_seed2 + Essentia histogram, fused | 0.526 | 0.427 | - | 0.430 (0.265) |
+
+| three seeds | val top-1 | test top-1 |
+|---|---|---|
+| melody branch, CREPE | 0.396 ± 0.032 | 0.373 ± 0.024 |
+| **melody branch, Essentia** | **0.449 ± 0.041** | 0.340 ± 0.031 |
+| fused, CREPE | 0.508 ± 0.035 | 0.440 ± 0.047 |
+| **fused, Essentia** | **0.537 ± 0.024** | 0.407 ± 0.024 |
+
+The means point in opposite directions on the two splits, so the paired comparison is the one
+to read — same clips, same classifier, only the tracker differs:
+
+| seed | val diff | only E right / only C right | exact p | test diff | only E / only C | exact p | test 95 % CI (video bootstrap) |
+|---|---|---|---|---|---|---|---|
+| 0 | **+0.061** | 68 / 40 | **0.009** | −0.040 | 15 / 21 | 0.41 | [−0.127, +0.053] |
+| 1 | +0.041 | 69 / 50 | 0.10 | −0.047 | 16 / 23 | 0.34 | [−0.133, +0.047] |
+| 2 | **+0.057** | 73 / 47 | **0.022** | −0.013 | 20 / 22 | 0.88 | [−0.113, +0.087] |
+
+*(melody branch alone; E = Essentia, C = CREPE)*
+
+**Validation is the comparison with power, and it is clean.** The melody branch fits
+nothing on val — the logistic regression sees only the fit clips — so there is no selection
+optimism in these val numbers. The three val sets are three different deals of 92 videos,
+and all three favour Essentia. Pooled over seeds, Essentia alone is right on 210 clips and
+CREPE alone on 137 (p ≈ 1e-4 if the three sets were independent; they overlap, so the true
+evidence is somewhat weaker).
+
+**Test does not contradict it; it cannot resolve it.** All three test scores come from the
+same 50 videos, so they are one measurement taken with three models, not three
+measurements. None of the three differences is significant. Every video-bootstrap interval
+contains both zero and the size of the val effect.
+
+**The mechanism is not coverage.** Across the corpus, Essentia counts 74 % of frames voiced
+against CREPE's 80 % (medians), and neither tracker leaves any clip with under 3 s of voiced
+pitch. The planning entry's "a quarter fewer frames" came from a single clip and overstated
+the gap. So the gain lies in *which* frames are counted and how cleanly — fewer non-octave
+spikes — not in how many.
+
+**Prediction check.** Predicted: melody branch +0.02–0.04 val, the fusion less. Measured:
++0.053 and +0.029. Direction and ordering right; the size was underestimated.
+
+**Decision, by the rule set before the runs:** Essentia becomes the development pipeline's
+melody tracker, passed as `--tracker essentia`. The defaults stay CREPE, so every earlier
+command still reproduces its result. The released model is not changed on the strength of
+a validation-only result.
+
+**Next, awaiting a go-ahead:** Essentia tracks of the full recordings — about an hour of CPU
+and about 0.3 GB of disk — for a melody branch trained on the full recordings, and a
+full-audio fusion to go with Batch 10.
+
+
+### 2026-09-10 — how many clips per performance? The model already knows its performances
+
+Asked after Batch 10's first seed: how many training clips per performance should a
+dataset keep? Two things first.
+
+**A correction about epochs.** A Hub epoch is the 1,350 fixed clips once each; a full-audio
+epoch is 5,400 fresh windows. Counted in windows seen, `full_aug` and `aug_jitter` learn at
+the *same* speed: 0.45 val after ~32k and ~30k presentations respectively. "Epoch 5
+instead of 30", as I first put it, compared clocks of different sizes.
+
+**The diagnostic that answers it.** Score each model on 5 evenly spaced windows of every
+*training* performance — audio `aug_jitter` never heard, since the Hub kept only 100 s of
+each recording — and on 5 windows of every *validation* performance. The first number is
+how well a model generalises within a performance it has studied; the second, to
+performances it has never met.
+
+| model | unseen windows, **own** training performances | windows, **new** performances (val) |
+|---|---|---|
+| aug_jitter — the Hub's 5 clips (100 s) per performance | 0.782 per window · **0.944** per performance | 0.424 · 0.576 |
+| full_aug — fresh windows from the whole recording | 0.835 · **0.967** | 0.450 · 0.565 |
+
+*(one seed each; 1,350 windows for training performances, 460 for val.
+`full_aug`'s "unseen" windows had usually been seen in training, so for it that column is
+an upper bound.)*
+
+**From 100 s per performance, the model already names the raag of 94 % of its training
+performances from audio it never heard.** Whatever a performance can teach about its raag,
+five clips have mostly taught it. Thirteen times the audio raised that to 97 %, and moved
+new performances by +0.026 per window and −0.011 per performance — noise. **The gap that
+matters, 0.78 against 0.42, is between performances, and more audio per performance does
+not close it.** This is the ceiling everything since Batch 4 has pointed at, now measured
+directly: the fit set is 270 performances, and that number is what limits the model.
+
+**Recommendation for the dataset.** Keep about 5–10 clips per performance, and spend any
+upgrade on *more performances* — more recordings per raag, and especially more artists per
+raag, since one or two artists per raag also lets the model learn voices instead of raags.
+The 22 unassigned recordings (`splits/v1.1_unassigned.csv`) are a free first step. Batch 11
+(N = 5, 10, 20, 40 fixed windows per performance, equal budget) will turn "about 5–10" into
+a measured curve. **Prediction:** flat within noise from N = 10 on.
+
+**A correction to the release entry.** It says "test clips are 53 s, not 20 s", and that
+every model "trained and was scored on the middle 20 s of each clip and ignored the rest".
+Measured over all clips, that is wrong: training and test clips alike have a **median of
+20.0 s**, and only 16 % (train) and 18 % (test) are longer. The 53 s figure came from the
+first few clips opened. So the centre crop discarded a little audio from a minority of
+clips in both splits, evenly. It is not a train/test asymmetry, and it does not change the
+released model's reported score, which was measured through `predict` in any case.
+
+
+### 2026-09-11 — Batch 10, three seeds: the full recordings give a small, consistent gain, and it survives fusion
+
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| full_aug | aug_jitter on **full recordings**, 20 windows/video/epoch | 0.480 | 0.433 | +0.370 | 0.451 (0.268) |
+| full_aug_seed1 | full_aug at seed 1 | 0.474 | 0.433 | +0.363 | 0.427 (0.264) |
+| full_aug_seed2 | full_aug at seed 2 | 0.439 | 0.433 | +0.328 | 0.417 (0.264) |
+| fuse_full_aug_melody | full_aug + CREPE histogram, fused | 0.550 | 0.487 | - | 0.443 (0.270) |
+| fuse_full_aug_seed1_melody | full_aug_seed1 + CREPE histogram, fused | 0.528 | 0.507 | - | 0.442 (0.267) |
+| fuse_full_aug_seed2_melody | full_aug_seed2 + CREPE histogram, fused | 0.511 | 0.460 | - | 0.428 (0.265) |
+| fuse_full_aug_melody_essentia | full_aug + **Essentia** histogram, fused | 0.563 | 0.447 | - | 0.431 (0.271) |
+| fuse_full_aug_seed1_melody_essentia | full_aug_seed1 + Essentia histogram, fused | 0.546 | 0.467 | - | 0.438 (0.268) |
+| fuse_full_aug_seed2_melody_essentia | full_aug_seed2 + Essentia histogram, fused | 0.539 | 0.493 | - | 0.434 (0.265) |
+
+Paired by seed, so each full-trained model faces the Hub-trained model on exactly its split:
+
+| three seeds | trained on Hub clips | trained on full recordings | paired diff |
+|---|---|---|---|
+| CQT branch alone, val | 0.433 ± 0.030 | 0.464 ± 0.022 | **+0.031** (t 2.2) |
+| CQT branch alone, test | 0.373 ± 0.031 | 0.433 ± 0.000 | **+0.060** (t 3.4) |
+| fused with CREPE, val | 0.508 ± 0.035 | 0.530 ± 0.020 | +0.022 (t 1.8) |
+| fused with CREPE, test | 0.440 ± 0.047 | 0.484 ± 0.023 | +0.044 (t 1.1) |
+| fused with Essentia, val | 0.537 ± 0.024 | **0.549 ± 0.012** | +0.012 (t 1.5) |
+| fused with Essentia, test | 0.407 ± 0.024 | 0.469 ± 0.023 | +0.062 (t 4.0) |
+
+*(t has 2 degrees of freedom: t 4.0 is p ≈ 0.06. The three test numbers in any row come
+from the same 50 videos.)*
+
+**11 of 12 paired comparisons are positive, and none is resolvable on its own.** The
+direction is not in doubt; the size is a few points, below what three seeds on this corpus
+can pin down.
+
+**Prediction check.** Predicted +0.05–0.10 val for the CQT branch, with "under +0.03 means
+the ceiling is performances". It landed at +0.031 — on the line. Read together with the
+within-/across-performance diagnostic (0.78 against 0.42), the picture is consistent: audio
+per performance is worth a few points, and the number of performances sets the ceiling.
+
+**Fusion absorbs part of the val gain but not the test gain.** Alone, the CQT branch gains
++0.031 val; fused, +0.012–0.022. Part of what the extra audio teaches the CQT net, the
+melody branch was already supplying. On test the gain stays at about +0.05 either way.
+
+**The models are steadier.** Test sd for the CQT branch fell from 0.031 to 0.000 — all three
+seeds scored exactly 65 of 150. It is the same variance reduction fusion showed, from a
+different source: more data gives less arbitrary decision boundaries.
+
+**Essentia against CREPE, again split.** Fused with the full-trained CQT branch, Essentia
+wins on val (0.549 vs 0.530) and CREPE wins on test (0.484 vs 0.469). This is the same
+pattern as Batch 8, and the same reading applies: val is the powered comparison, and test
+cannot resolve a gap this small.
+
+**Where development stands.** Chosen on val, the best configuration is **full-recording
+CQT branch + Essentia melody branch, fused: val 0.549 ± 0.012, test 0.469 ± 0.023**. That
+is not comparable with the released model (test 0.480), which was refit on all 362
+train-pool videos; the like-for-like candidate would be the same refit with full recordings
+and Essentia. That is a release decision, and nothing here forces it yet.
+
+**Still running in Batch 10:** `full_w5` (5 fresh windows per epoch on aug_jitter's schedule —
+does the gain come from more distinct audio or from more steps?), `full_nofilter`, and
+`full_wide`. Batch 11 follows, then Batch 9.
+
+
+### 2026-09-11 — Batch 10 complete: the controls, and what whole-recording evaluation shows
+
+The same runs scored two ways: on the Hub clips as always, and on 20 fixed windows of every
+val and test recording (`92_score_full.py`), where "per performance" is the vote over
+those 20.
+
+| run | what | val (Hub clips) | test (Hub clips) | val (20 win/video) | val video vote | test (20 win/video) | test video vote |
+|---|---|---|---|---|---|---|---|
+| aug_jitter | c4h + pitch jitter | 0.467 | 0.400 | 0.436 | 0.554 | 0.349 | 0.480 |
+| aug_seed1 | aug_jitter at seed 1 | 0.415 | 0.340 | 0.408 | 0.489 | 0.325 | 0.400 |
+| aug_seed2 | aug_jitter at seed 2 | 0.417 | 0.380 | 0.411 | 0.543 | 0.346 | 0.460 |
+| full_aug | aug_jitter on **full recordings**, 20 windows/video/epoch | 0.480 | 0.433 | 0.463 | 0.598 | 0.404 | 0.540 |
+| full_aug_seed1 | full_aug at seed 1 | 0.474 | 0.433 | 0.479 | 0.630 | 0.416 | 0.520 |
+| full_aug_seed2 | full_aug at seed 2 | 0.439 | 0.433 | 0.423 | 0.543 | 0.397 | 0.520 |
+| full_w5 | full recordings, 5 windows/video/epoch (aug_jitter's step count) | 0.474 | 0.413 | 0.449 | 0.554 | 0.364 | 0.420 |
+| full_nofilter | full_aug without the trim/loudness filter *(ablation)* | 0.496 | 0.447 | 0.466 | 0.609 | 0.417 | 0.600 |
+| full_wide | full_aug at double width | 0.493 | 0.447 | 0.475 | 0.641 | 0.395 | 0.520 |
+
+**On whole recordings the full-trained models are clearly better.** Three seeds, paired:
+
+| | Hub-trained | full-trained | paired diff |
+|---|---|---|---|
+| val, per window | 0.418 ± 0.015 | 0.455 ± 0.029 | +0.037 (t 2.0) |
+| val, per performance | 0.529 ± 0.035 | 0.591 ± 0.044 | +0.062 (t 1.5) |
+| test, per window | 0.340 ± 0.013 | 0.406 ± 0.010 | **+0.066** (t 5.2) |
+| test, per performance | 0.447 ± 0.042 | **0.527 ± 0.012** | **+0.080** (t 4.0) |
+
+**Read this with its bias in view.** The windows are drawn from the whole recording — the
+same distribution the full-trained models learned from — while the Hub-trained models only
+ever saw clips from wherever the Hub cut them. So part of this gain is the models matching
+the evaluation, not raag knowledge the Hub clips could not teach. It is also a real,
+practical gain: someone humming into `quickstart.py` sings from anywhere in a performance.
+**For a deployed model, train on the full recordings.** For the question of what limits
+raag recognition, the Hub-clip columns stay the neutral measure, and they moved by +0.031
+val.
+
+**The three controls** (one seed each; read against `full_aug` seed 0 — Hub val 0.480, test
+0.433):
+
+| run | Hub val | Hub test | full-window test (per perf.) | reading |
+|---|---|---|---|---|
+| `full_w5` — 5 fresh windows/epoch on aug_jitter's schedule | 0.474 | 0.413 | 0.364 (0.420) | at the Hub's step count, fresh audio ≈ the Hub's fixed clips |
+| `full_nofilter` — no trim, no loudness filter | 0.496 | 0.447 | 0.417 (0.600) | the filter does not help; nominally it hurts |
+| `full_wide` — double width | 0.493 | 0.447 | 0.395 (0.520) | 13× the audio does not call for a bigger trunk |
+
+- **`full_w5` is the most informative control.** With the same number of steps as the Hub
+  run, drawing fresh windows instead of reusing 5 fixed clips changed val by +0.007. Most
+  of what `full_aug` gained came with its larger per-epoch budget, not with the variety of
+  the audio. That is one more piece of evidence that a performance's raag is learned from
+  little of it.
+- **The gentle filter goes.** It was added on reasoning (concert edges are tuning and
+  applause), and removing it is nominally better on every column. The defaults stay as
+  they are, so `full_aug` reproduces; new full-audio runs should pass
+  `--trim-seconds 0 --loud-fraction 0`.
+- **Width stays.** A performance-limited model has nothing to spend extra capacity on.
+  Batch 9 will say whether the trunk's *shape* matters on the Hub clips.
+
+Batch 11 (clips per performance) is running; Batch 9 follows.
+
+
+### 2026-09-11 — Batch 11: ten clips per performance, then flat
+
+The dataset-design question, asked directly. Each run trains on a **fixed** set of N evenly
+spaced 20 s windows per performance, reused every epoch — what a dataset with N clips per
+video would give — at a matched budget of ~65k windows seen. Val and test are the Hub
+clips, plus the 20-window whole-recording scores.
+
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| aug_jitter | c4h + pitch jitter | 0.467 | 0.400 | +0.357 | 0.424 (0.266) |
+| clips5 | fixed 5 windows/performance, spread over the recording | 0.435 | 0.407 | +0.324 | 0.432 (0.268) |
+| clips10 | fixed 10 windows/performance | 0.504 | 0.433 | +0.393 | 0.432 (0.266) |
+| clips20 | fixed 20 windows/performance | 0.493 | 0.387 | +0.383 | 0.440 (0.265) |
+| clips40 | fixed 40 windows/performance | 0.485 | 0.427 | +0.374 | 0.452 (0.267) |
+| full_aug | aug_jitter on **full recordings**, 20 windows/video/epoch | 0.480 | 0.433 | +0.370 | 0.451 (0.268) |
+
+| run | what | val (Hub clips) | test (Hub clips) | val (20 win/video) | val video vote | test (20 win/video) | test video vote |
+|---|---|---|---|---|---|---|---|
+| aug_jitter | c4h + pitch jitter | 0.467 | 0.400 | 0.436 | 0.554 | 0.349 | 0.480 |
+| clips5 | fixed 5 windows/performance, spread over the recording | 0.435 | 0.407 | 0.434 | 0.554 | 0.360 | 0.500 |
+| clips10 | fixed 10 windows/performance | 0.504 | 0.433 | 0.487 | 0.630 | 0.402 | 0.560 |
+| clips20 | fixed 20 windows/performance | 0.493 | 0.387 | 0.467 | 0.609 | 0.387 | 0.500 |
+| clips40 | fixed 40 windows/performance | 0.485 | 0.427 | 0.482 | 0.620 | 0.397 | 0.500 |
+| full_aug | aug_jitter on **full recordings**, 20 windows/video/epoch | 0.480 | 0.433 | 0.463 | 0.598 | 0.404 | 0.540 |
+
+| clips per performance (seed 0) | Hub val | full-window val | full-window val, per performance | windows seen at best epoch |
+|---|---|---|---|---|
+| 5 — the Hub's own (aug_jitter) | 0.467 | 0.436 | 0.554 | 45.9k |
+| 5 — evenly spaced (clips5) | 0.435 | 0.434 | 0.554 | 44.6k |
+| **10** | **0.504** | **0.487** | **0.630** | 48.6k |
+| 20 | 0.493 | 0.467 | 0.609 | 37.8k |
+| 40 | 0.485 | 0.482 | 0.620 | 54.0k |
+| fresh every epoch (full_aug) | 0.480 | 0.463 | 0.598 | 59.4k |
+
+**One step, then a plateau.** Both N = 5 points sit at about 0.45 Hub val and 0.435
+full-window val. Every point from N = 10 up sits at about 0.49 and 0.475 — a step of about
++0.04 on both measures. From 10 on, the four points lie within 0.024 of each other, which
+is noise. The prediction, "flat within noise from N = 10 on", held.
+
+**Which 5 clips does not matter.** The Hub's own 5 and 5 evenly spaced windows score the
+same on whole recordings (0.436 against 0.434). Nothing about how the Hub chose its chunks
+is special.
+
+**Caveats.** One seed per point. The step rests on 2 points against 4, measured two ways
+that agree, and at about the size one seed can resolve. `clips10` at seeds 1 and 2 is
+queued after Batch 9, to be paired with `aug_seed1`/`aug_seed2` and
+`full_aug_seed1`/`full_aug_seed2`. Test runs 0.387–0.433 with no trend: it cannot resolve
+a 0.04 step.
+
+**Recommendation, now measured: 10 clips per performance — 200 s, twice what the Hub keeps.**
+Beyond that, more of the same performance buys nothing on this corpus; the plateau is the
+performances ceiling measured from the other side. The recordings are already on disk, so
+doubling clips per performance costs nothing to collect. Every further gain has to come
+from new performances. For a deployed model, training on the full recordings is as good as
+10 fixed clips and simpler, so the Batch 10 advice stands.
+
+
+### 2026-09-11 — Batch 9: melodic order adds nothing, a richer summary might, and the trunk was already in the right place
+
+Every run is aug_jitter with one change, at seed 0, on the Hub clips. The reference is
+aug_jitter's own seed 0: val 0.467, test 0.400. Resolution is about 0.06 val.
+
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| aug_jitter | c4h + pitch jitter | 0.467 | 0.400 | +0.357 | 0.424 (0.266) |
+| pool_tconv | aug_jitter + **dilated temporal convs** before the mean | 0.467 | 0.387 | +0.357 | 0.433 (0.268) |
+| pool_gru | aug_jitter + **BiGRU over time** | 0.461 | 0.353 | +0.350 | 0.427 (0.264) |
+| pool_attn | aug_jitter, attention over time *(control)* | 0.470 | 0.373 | +0.359 | 0.456 (0.265) |
+| pool_stats | aug_jitter, time pooled as mean + std *(control)* | 0.507 | 0.440 | +0.396 | 0.434 (0.266) |
+| arch_w05 | aug_jitter at half width | 0.446 | 0.393 | +0.335 | 0.431 (0.267) |
+| arch_w2 | aug_jitter at double width | 0.457 | 0.373 | +0.346 | 0.445 (0.262) |
+| arch_d3 | aug_jitter with 3 blocks | 0.452 | 0.393 | +0.341 | 0.443 (0.266) |
+| arch_d5 | aug_jitter with 5 blocks | 0.433 | 0.333 | +0.322 | 0.430 (0.263) |
+| arch_f36 | aug_jitter, 36 frequency cells (default 18) | 0.480 | 0.400 | +0.370 | 0.433 (0.265) |
+| arch_f72 | aug_jitter, 72 frequency cells (~67 cents each) | 0.467 | 0.380 | +0.357 | 0.433 (0.266) |
+
+| run | what | val (Hub clips) | test (Hub clips) | val (20 win/video) | val video vote | test (20 win/video) | test video vote |
+|---|---|---|---|---|---|---|---|
+| aug_jitter | c4h + pitch jitter | 0.467 | 0.400 | 0.436 | 0.554 | 0.349 | 0.480 |
+| pool_tconv | aug_jitter + **dilated temporal convs** before the mean | 0.467 | 0.387 | 0.422 | 0.554 | 0.331 | 0.460 |
+| pool_gru | aug_jitter + **BiGRU over time** | 0.461 | 0.353 | 0.418 | 0.630 | 0.342 | 0.520 |
+| pool_attn | aug_jitter, attention over time *(control)* | 0.470 | 0.373 | 0.432 | 0.576 | 0.377 | 0.500 |
+| pool_stats | aug_jitter, time pooled as mean + std *(control)* | 0.507 | 0.440 | 0.459 | 0.609 | 0.383 | 0.500 |
+| arch_w05 | aug_jitter at half width | 0.446 | 0.393 | 0.407 | 0.500 | 0.343 | 0.460 |
+| arch_w2 | aug_jitter at double width | 0.457 | 0.373 | 0.426 | 0.554 | 0.327 | 0.460 |
+| arch_d3 | aug_jitter with 3 blocks | 0.452 | 0.393 | 0.433 | 0.554 | 0.358 | 0.560 |
+| arch_d5 | aug_jitter with 5 blocks | 0.433 | 0.333 | 0.415 | 0.598 | 0.325 | 0.460 |
+| arch_f36 | aug_jitter, 36 frequency cells (default 18) | 0.480 | 0.400 | 0.454 | 0.587 | 0.328 | 0.420 |
+| arch_f72 | aug_jitter, 72 frequency cells (~67 cents each) | 0.467 | 0.380 | 0.444 | 0.554 | 0.388 | 0.540 |
+
+| change | val | vs aug_jitter | test |
+|---|---|---|---|
+| `tconv` — order, over ~14 s | 0.467 | +0.000 | 0.387 |
+| `gru` — order, over the whole window | 0.461 | −0.006 | 0.353 |
+| `attn` — which moments count *(control)* | 0.470 | +0.003 | 0.373 |
+| **`stats` — mean + std *(control)*** | **0.507** | **+0.040** | **0.440** |
+| width ×0.5 | 0.446 | −0.021 | 0.393 |
+| width ×2 | 0.457 | −0.010 | 0.373 |
+| 3 blocks | 0.452 | −0.015 | 0.393 |
+| 5 blocks | 0.433 | −0.034 | 0.333 |
+| 36 frequency cells | 0.480 | +0.013 | 0.400 |
+| 72 frequency cells | 0.467 | +0.000 | 0.380 |
+
+**Melodic order beyond 3.7 s is not what this model is missing.** Both order-sensitive
+summaries — dilated temporal convolutions that see ~14 s, and a BiGRU over the whole
+window — gain nothing: +0.000 and −0.006. The prediction was ≤ +0.03, against a ceiling of
++0.066 test if every same-scale confusion were fixed. The trunk's own 3.7 s of ordered
+context is apparently all the order a 20 s window can teach from 270 performances. This
+does not rule out the full temporal swar head (Next steps §3) — a different mechanism,
+supervised per frame — but it removes the cheap version of the argument for it.
+
+**The one change past the bar is a control.** Mean + std over time gains +0.040 val and
++0.040 test. What the standard deviation adds is how much each (channel, frequency) feature
+*varies* across the window: a held nyas against an oscillating andolan, slow alap against
+fast taan. That is texture, not order. The planning entry anticipated exactly this reading:
+"if stats or attn gain as much as tconv or gru, the gain was a richer summary, not order".
+Here stats gains and the order models do not. It is still one seed, at about the size one
+seed resolves, so by the rule set beforehand it gets seeds 1 and 2 before anything builds
+on it.
+
+**The trunk needed no retuning.** Width, depth and frequency resolution all land between
+−0.034 and +0.013 of the default, none past noise; 5 blocks is nominally the worst. The
+18-cell concern raised in planning did not bite — 36 or 72 frequency cells change nothing,
+so the channels carry the sub-cell pitch. The honest summary of where the architecture came
+from is now: chosen by reasoning, and a one-factor sweep afterwards found nothing better
+nearby.
+
+**Together with Batches 10 and 11:** capacity does not help, longer-range order does not
+help, and more audio per performance helps a little. Every lever that stays inside the same
+270 performances is small. **The number of performances is the ceiling.**
+
+Queued: `pool_stats` at seeds 1 and 2, after the `clips10` replication. If it holds, stats
+pooling on the full recordings is the obvious combination.
+
+
+### 2026-09-11 — Both replications hold: 10 clips per performance, and mean + std pooling
+
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| aug_jitter | c4h + pitch jitter | 0.467 | 0.400 | +0.357 | 0.424 (0.266) |
+| aug_seed1 | aug_jitter at seed 1 | 0.415 | 0.340 | +0.304 | 0.429 (0.265) |
+| aug_seed2 | aug_jitter at seed 2 | 0.417 | 0.380 | +0.307 | 0.419 (0.263) |
+| clips10 | fixed 10 windows/performance | 0.504 | 0.433 | +0.393 | 0.432 (0.266) |
+| clips10_seed1 | fixed 10 windows/performance, seed 1 | 0.450 | 0.440 | +0.339 | 0.439 (0.267) |
+| clips10_seed2 | fixed 10 windows/performance, seed 2 | 0.461 | 0.413 | +0.350 | 0.432 (0.263) |
+| pool_stats | aug_jitter, time pooled as mean + std *(control)* | 0.507 | 0.440 | +0.396 | 0.434 (0.266) |
+| pool_stats_seed1 | pool_stats at seed 1 | 0.489 | 0.360 | +0.378 | 0.454 (0.265) |
+| pool_stats_seed2 | pool_stats at seed 2 | 0.435 | 0.413 | +0.324 | 0.429 (0.263) |
+
+| run | what | val (Hub clips) | test (Hub clips) | val (20 win/video) | val video vote | test (20 win/video) | test video vote |
+|---|---|---|---|---|---|---|---|
+| aug_jitter | c4h + pitch jitter | 0.467 | 0.400 | 0.436 | 0.554 | 0.349 | 0.480 |
+| aug_seed1 | aug_jitter at seed 1 | 0.415 | 0.340 | 0.408 | 0.489 | 0.325 | 0.400 |
+| aug_seed2 | aug_jitter at seed 2 | 0.417 | 0.380 | 0.411 | 0.543 | 0.346 | 0.460 |
+| clips10 | fixed 10 windows/performance | 0.504 | 0.433 | 0.487 | 0.630 | 0.402 | 0.560 |
+| clips10_seed1 | fixed 10 windows/performance, seed 1 | 0.450 | 0.440 | 0.443 | 0.587 | 0.385 | 0.480 |
+| clips10_seed2 | fixed 10 windows/performance, seed 2 | 0.461 | 0.413 | 0.424 | 0.533 | 0.416 | 0.580 |
+| pool_stats | aug_jitter, time pooled as mean + std *(control)* | 0.507 | 0.440 | 0.459 | 0.609 | 0.383 | 0.500 |
+| pool_stats_seed1 | pool_stats at seed 1 | 0.489 | 0.360 | 0.453 | 0.587 | 0.357 | 0.520 |
+| pool_stats_seed2 | pool_stats at seed 2 | 0.435 | 0.413 | 0.407 | 0.576 | 0.383 | 0.500 |
+
+Paired by seed (same split, same seed):
+
+| three seeds | val | test | whole-recording test, per window | per performance |
+|---|---|---|---|---|
+| **10 clips vs the Hub's 5** | **+0.038** (t 14.7) | +0.056 (t 2.5) | +0.061 (t 12.4) | **+0.093** (t 7.0) |
+| 10 clips vs the full recordings | +0.007 (t 0.5) | −0.004 | −0.005 | +0.013 |
+| **mean + std vs mean pooling** | **+0.043** (t 2.6) | +0.031 (t 5.3) | +0.034 (t 23.6) | +0.060 (t 2.0) |
+
+**The clips-per-performance step is the steadiest result in the survey.** From 5 clips per
+performance to 10, val rises by +0.037, +0.035 and +0.043 in the three seeds, and the gain
+shows up on every other measure too. Ten fixed clips then match the full recordings to
+within noise on everything. The curve from Batch 11 stands, replicated: **10 clips per
+performance, and flat beyond.**
+
+**Mean + std pooling holds, and it is modest:** val +0.043, test +0.031, positive in 14 of
+15 paired comparisons. It was the order-free control in Batch 9, so what it establishes is
+that the *spread* of each feature over the window carries raag information the mean
+throws away. It does not establish order.
+
+#### The five questions of 2026-09-10, answered
+
+| question | answer | evidence |
+|---|---|---|
+| 1. Essentia instead of CREPE? | Yes, for development: melody branch +0.053 val, in every seed. Test (50 videos) cannot resolve it. | Batch 8 |
+| 2. How much can the full recordings give? | A few points, and all of it by **10 clips per performance** (+0.038 val, +0.093 per-performance test on whole recordings). Beyond that, flat. The ceiling is the **number of performances**: a Hub-trained model already names 94 % of its own training performances from audio it never heard, against 58 % of new ones. | Batches 10, 11; the within/across diagnostic |
+| 3. Melodic order in the CQT pooling? | Not tried before; now tried. Order beyond the trunk's 3.7 s adds nothing (tconv +0.000, gru −0.006). An order-free richer summary, mean + std, adds +0.043 val, replicated. | Batch 9 |
+| 4. Where did the CQT net come from? | Assembled by reasoning from standard parts, never swept. A one-factor sweep afterwards — width, depth, frequency cells — finds nothing better nearby. | Batch 9 |
+| 5. Other decisions? | The gentle filter is unnecessary. Extra width does not help even with 13× the audio. HPSS was not re-run (a measured null). Band-limiting cannot affect the CQT branch, whose top bin is ≤ 1.76 kHz. | Batches 9, 10 |
+
+**For the dataset:** keep 10 clips per performance — the recordings are already on disk, so
+that costs nothing — and spend any further effort on **new performances**, above all new
+artists per raag. The 22 unassigned recordings are the first ones available.
+
+**Queued as Batch 12:** the two replicated wins together — 10 clips per performance with
+mean + std pooling, three seeds — each fused with both melody branches, along with fusions
+of plain `clips10` for the paired comparison. Both wins are order-free and work through
+different mechanisms (more views of each performance; texture in the summary), so they
+may add.
+
+
+### 2026-09-11 — Batch 12: the two wins together, and the best configuration the survey has found
+
+| run | what | val top-1 | test top-1 | vs stage 1 | mistake affinity (chance) |
+|---|---|---|---|---|---|
+| clips10 | fixed 10 windows/performance | 0.504 | 0.433 | +0.393 | 0.432 (0.266) |
+| clips10_seed1 | fixed 10 windows/performance, seed 1 | 0.450 | 0.440 | +0.339 | 0.439 (0.267) |
+| clips10_seed2 | fixed 10 windows/performance, seed 2 | 0.461 | 0.413 | +0.350 | 0.432 (0.263) |
+| clips10_stats | 10 clips/performance + **mean/std pooling** | 0.500 | 0.447 | +0.389 | 0.444 (0.267) |
+| clips10_stats_seed1 | clips10_stats at seed 1 | 0.491 | 0.460 | +0.380 | 0.441 (0.268) |
+| clips10_stats_seed2 | clips10_stats at seed 2 | 0.489 | 0.500 | +0.378 | 0.468 (0.264) |
+| fuse_clips10_stats_melody | clips10_stats + CREPE histogram, fused | 0.537 | 0.487 | - | 0.452 (0.269) |
+| fuse_clips10_stats_seed1_melody | clips10_stats_seed1 + CREPE histogram, fused | 0.533 | 0.460 | - | 0.448 (0.270) |
+| fuse_clips10_stats_seed2_melody | clips10_stats_seed2 + CREPE histogram, fused | 0.539 | 0.520 | - | 0.468 (0.265) |
+| fuse_clips10_stats_melody_essentia | clips10_stats + Essentia histogram, fused | 0.572 | 0.480 | - | 0.455 (0.270) |
+| fuse_clips10_stats_seed1_melody_essentia | clips10_stats_seed1 + Essentia histogram, fused | 0.548 | 0.453 | - | 0.449 (0.272) |
+| fuse_clips10_stats_seed2_melody_essentia | clips10_stats_seed2 + Essentia histogram, fused | 0.563 | 0.500 | - | 0.464 (0.266) |
+
+| run | what | val (Hub clips) | test (Hub clips) | val (20 win/video) | val video vote | test (20 win/video) | test video vote |
+|---|---|---|---|---|---|---|---|
+| aug_jitter | c4h + pitch jitter | 0.467 | 0.400 | 0.436 | 0.554 | 0.349 | 0.480 |
+| clips10 | fixed 10 windows/performance | 0.504 | 0.433 | 0.487 | 0.630 | 0.402 | 0.560 |
+| pool_stats | aug_jitter, time pooled as mean + std *(control)* | 0.507 | 0.440 | 0.459 | 0.609 | 0.383 | 0.500 |
+| clips10_stats | 10 clips/performance + **mean/std pooling** | 0.500 | 0.447 | 0.464 | 0.630 | 0.415 | 0.540 |
+| clips10_stats_seed1 | clips10_stats at seed 1 | 0.491 | 0.460 | 0.486 | 0.641 | 0.414 | 0.620 |
+| clips10_stats_seed2 | clips10_stats at seed 2 | 0.489 | 0.500 | 0.486 | 0.598 | 0.480 | 0.620 |
+
+**Do they add?** Paired by seed, three seeds:
+
+| clips10_stats against | val | test | whole-recording test | per performance |
+|---|---|---|---|---|
+| `clips10` (so: what mean + std adds) | +0.022 (t 1.6) | +0.040 (t 1.7) | +0.035 (t 2.3) | +0.053 |
+| `pool_stats` (so: what the data adds) | +0.017 (t 0.9) | +0.064 (t 2.2) | +0.062 (t 3.3) | +0.087 (t 3.6) |
+| **`aug_jitter`, the Hub baseline** | **+0.060** (t 4.4) | **+0.096** (t 3.9) | **+0.096** (t 4.8) | **+0.147** (t 3.1) |
+
+On val the two are **sub-additive**: +0.038 and +0.043 alone, +0.060 together rather than
++0.081. On test and on whole recordings they are close to additive (+0.056 and +0.031
+alone, +0.096 together). Either way the combination is clearly better than either part, and
+it is the largest paired gain over the baseline in the survey.
+
+**It is also the steadiest model yet measured here**: val 0.500 / 0.491 / 0.489 across three
+seeds — sd 0.006, against 0.030 for the Hub baseline. Both ingredients reduce variance, as
+extra data and richer summaries tend to.
+
+**Fused with the melody branch** (three seeds each, val / test):
+
+| CQT branch | + CREPE histogram | + Essentia histogram |
+|---|---|---|
+| Hub clips (the released recipe) | 0.508 / 0.440 | 0.537 / 0.407 |
+| full recordings | 0.530 / 0.484 | 0.549 / 0.469 |
+| 10 clips per performance | — | 0.549 / 0.460 |
+| **10 clips + mean/std pooling** | 0.536 / **0.489 ± 0.030** | **0.561 ± 0.012** / 0.478 |
+
+**Chosen on val, as every decision in this survey has been: 10 clips per performance +
+mean/std pooling + the Essentia melody branch — val 0.561 ± 0.012, test 0.478 ± 0.023.**
+Against the released recipe measured the same way (Hub clips + CREPE, fit on 1350 clips:
+0.508 / 0.440) that is **+0.053 val and +0.038 test**, and none of it needed new data.
+
+**Fusion keeps absorbing improvements to the CQT branch.** `clips10_stats` beats `clips10`
+by +0.022 val alone but only +0.012 fused; the melody branch was already supplying part of
+what the better CQT branch learned. The same pattern held in Batch 10. The two branches
+overlap more than their independent-error story suggests, and the fused number moves much
+less than either branch does.
+
+**A release candidate, not yet built.** The released model was refit on all 362 train-pool
+videos; these runs hold out a fifth. The like-for-like candidate is: 10 clips per
+performance from the full recordings, mean/std pooling, refit on all 362 videos, fused with
+the Essentia histogram. Expected to land near the released model's 0.480 test plus the
++0.038 measured here. That is a release decision and nothing here forces it.

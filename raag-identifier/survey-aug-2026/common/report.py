@@ -33,7 +33,7 @@ WHAT = {
     "dbprior_36bins": "c4h at 36 swar bins (~33 cents)",
     "dbprior_144bins": "c4h at 144 swar bins",
     "dbprior_frozen": "c4h, database templates frozen",
-    "aug_jitter": "c4h + pitch/gain jitter",
+    "aug_jitter": "c4h + pitch jitter",
     "seed1": "c4h at seed 1", "seed2": "c4h at seed 2",
     "cv5": "c4h, 5-fold grouped CV",
     "aug_seed1": "aug_jitter at seed 1", "aug_seed2": "aug_jitter at seed 2",
@@ -46,6 +46,59 @@ WHAT = {
     "hybrid_feat": "aug_jitter + **melody histogram as an input**",
     "hybrid_seed1": "hybrid_feat at seed 1", "hybrid_seed2": "hybrid_feat at seed 2",
     "hybrid_nodb": "hybrid_feat without the DB-template head",
+    "fuse_aug_jitter_melody": "aug_jitter + CREPE histogram, fused",
+    "fuse_aug_seed1_melody": "aug_seed1 + CREPE histogram, fused",
+    "fuse_aug_seed2_melody": "aug_seed2 + CREPE histogram, fused",
+    # Batch 8 -- Essentia's Melodia as the melody branch's tracker
+    "melody_only_essentia": "Essentia histogram alone, logreg",
+    "melody_only_essentia_seed1": "Essentia histogram alone, seed 1",
+    "melody_only_essentia_seed2": "Essentia histogram alone, seed 2",
+    "fuse_aug_jitter_melody_essentia": "aug_jitter + **Essentia** histogram, fused",
+    "fuse_aug_seed1_melody_essentia": "aug_seed1 + Essentia histogram, fused",
+    "fuse_aug_seed2_melody_essentia": "aug_seed2 + Essentia histogram, fused",
+    # Batch 9 -- the CQT trunk: how time is pooled, and its shape
+    "pool_stats": "aug_jitter, time pooled as mean + std *(control)*",
+    "pool_attn": "aug_jitter, attention over time *(control)*",
+    "pool_tconv": "aug_jitter + **dilated temporal convs** before the mean",
+    "pool_gru": "aug_jitter + **BiGRU over time**",
+    "pool_stats_seed1": "pool_stats at seed 1", "pool_stats_seed2": "pool_stats at seed 2",
+    "arch_w05": "aug_jitter at half width", "arch_w2": "aug_jitter at double width",
+    "arch_d3": "aug_jitter with 3 blocks", "arch_d5": "aug_jitter with 5 blocks",
+    "arch_f36": "aug_jitter, 36 frequency cells (default 18)",
+    "arch_f72": "aug_jitter, 72 frequency cells (~67 cents each)",
+    # Batch 10 -- trained on the full recordings
+    "full_aug": "aug_jitter on **full recordings**, 20 windows/video/epoch",
+    "full_aug_seed1": "full_aug at seed 1", "full_aug_seed2": "full_aug at seed 2",
+    "full_w5": "full recordings, 5 windows/video/epoch (aug_jitter's step count)",
+    "full_nofilter": "full_aug without the trim/loudness filter *(ablation)*",
+    "full_wide": "full_aug at double width",
+    "fuse_full_aug_melody": "full_aug + CREPE histogram, fused",
+    "fuse_full_aug_seed1_melody": "full_aug_seed1 + CREPE histogram, fused",
+    "fuse_full_aug_seed2_melody": "full_aug_seed2 + CREPE histogram, fused",
+    "fuse_full_aug_melody_essentia": "full_aug + **Essentia** histogram, fused",
+    "fuse_full_aug_seed1_melody_essentia": "full_aug_seed1 + Essentia histogram, fused",
+    "fuse_full_aug_seed2_melody_essentia": "full_aug_seed2 + Essentia histogram, fused",
+    # Batch 11 -- a fixed set of N windows per performance: the dataset-design question
+    "clips5": "fixed 5 windows/performance, spread over the recording",
+    "clips10": "fixed 10 windows/performance", "clips20": "fixed 20 windows/performance",
+    "clips40": "fixed 40 windows/performance",
+    "clips10_seed1": "fixed 10 windows/performance, seed 1",
+    "clips10_seed2": "fixed 10 windows/performance, seed 2",
+    # Batch 12 -- the two replicated wins together
+    "clips10_stats": "10 clips/performance + **mean/std pooling**",
+    "clips10_stats_seed1": "clips10_stats at seed 1", "clips10_stats_seed2": "clips10_stats at seed 2",
+    "fuse_clips10_melody": "clips10 + CREPE histogram, fused",
+    "fuse_clips10_melody_essentia": "clips10 + Essentia histogram, fused",
+    "fuse_clips10_seed1_melody": "clips10_seed1 + CREPE histogram, fused",
+    "fuse_clips10_seed1_melody_essentia": "clips10_seed1 + Essentia histogram, fused",
+    "fuse_clips10_seed2_melody": "clips10_seed2 + CREPE histogram, fused",
+    "fuse_clips10_seed2_melody_essentia": "clips10_seed2 + Essentia histogram, fused",
+    "fuse_clips10_stats_melody": "clips10_stats + CREPE histogram, fused",
+    "fuse_clips10_stats_melody_essentia": "clips10_stats + Essentia histogram, fused",
+    "fuse_clips10_stats_seed1_melody": "clips10_stats_seed1 + CREPE histogram, fused",
+    "fuse_clips10_stats_seed1_melody_essentia": "clips10_stats_seed1 + Essentia histogram, fused",
+    "fuse_clips10_stats_seed2_melody": "clips10_stats_seed2 + CREPE histogram, fused",
+    "fuse_clips10_stats_seed2_melody_essentia": "clips10_stats_seed2 + Essentia histogram, fused",
 }
 
 #: name -> (columns as (field, heading, format), markdown?)
@@ -60,6 +113,12 @@ TABLES = {
                   ("val", "val top-1", "{:.3f}"), ("test", "test top-1", "{}"),
                   ("delta", "vs stage 1", "{}"),
                   ("aff", "mistake affinity (chance)", "{}")], True),
+    # the same runs scored on 20 fixed windows of every val/test recording (92_score_full.py)
+    "fullaudio": ([("run", "run", "{}"), ("what", "what", "{}"),
+                   ("val", "val (Hub clips)", "{:.3f}"), ("test", "test (Hub clips)", "{}"),
+                   ("fval", "val (20 win/video)", "{}"), ("fvalv", "val video vote", "{}"),
+                   ("ftest", "test (20 win/video)", "{}"),
+                   ("ftestv", "test video vote", "{}")], True),
     "status": ([("val", "val", "{:.3f}"), ("test", "test", "{}"), ("run", "run", "{}"),
                 ("arch", "arch", "{}"), ("stage", "stage", "{}")], False),
 }
@@ -92,6 +151,9 @@ def derive(r, by_id=None):
     test = r.get("test", {}).get("metrics", {}).get("top1")
     base = (by_id or {}).get(BASELINE.get(r.get("arch")), {}).get("metrics", {}).get("top1")
     aff, chance = mu.get("mistake_affinity"), mu.get("mistake_affinity_chance")
+    fe = r.get("full_eval") or {}
+    full = lambda role, key: (f"{fe[role][key]:.3f}"                     # noqa: E731
+                              if role in fe and key in fe[role] else "-")
 
     return {
         "run": r.get("run_id", "?"), "what": WHAT.get(r.get("run_id"), r.get("run_id", "?")),
@@ -107,6 +169,8 @@ def derive(r, by_id=None):
                   else "-"),
         "aff": f"{aff:.3f} ({chance:.3f})" if aff is not None else "-",
         "mins": r.get("wall_clock_s", 0) / 60.0,
+        "fval": full("val", "top1"), "fvalv": full("val", "video_vote"),
+        "ftest": full("test", "top1"), "ftestv": full("test", "video_vote"),
     }
 
 
@@ -127,8 +191,11 @@ def table(name, runs=None, order=None, sort_by="val"):
                 for i in order]
 
     def cell(row, key, fmt):
+        v = row.get(key, "-")
+        if isinstance(v, float) and math.isnan(v):       # a run that has not reported
+            return "-"
         try:
-            return fmt.format(row.get(key, "-"))
+            return fmt.format(v)
         except (ValueError, TypeError):
             return str(row.get(key, "-"))
 

@@ -26,6 +26,14 @@ comparison between them means nothing.
     # Stage 5 -- the hybrid: the naive melody histogram alongside the learned feature
     python scripts/10_train.py --arch cqt --run-id hybrid_feat --tonic normalise --melody
 
+    # the CQT trunk's shape and how it summarises time (Batch 9)
+    python scripts/10_train.py --arch cqt --run-id pool_tconv --tonic normalise --db-head --cqt-pool tconv
+    python scripts/10_train.py --arch cqt --run-id arch_w2    --tonic normalise --db-head --cqt-width 2
+
+    # train on the full recordings instead of the Hub clips; val/test stay the Hub clips (Batch 10)
+    python scripts/10_train.py --arch cqt --run-id full_aug --tonic normalise --db-head \
+        --train-source full --windows-per-video 20
+
     # 5-fold grouped CV instead of a single val split (affordable for cqt, not for hubert)
     python scripts/10_train.py --arch cqt --run-id c2_cv --tonic normalise --folds 5
 
@@ -72,7 +80,35 @@ def melody_side():
     return melody.by_clip_id(load_clips())
 
 
+def full_audio_train_set(clips, args, tonic_override):
+    """The *same* fit videos as `clips`, read from their full recordings instead of their
+    five Hub clips each. Validation and test are never drawn from here -- they stay the Hub
+    clips, so a full-audio run is selected and scored exactly like every other run."""
+    from common import fullaudio
+    from common.paths import SPLITS_FILE
+
+    if args.arch != "cqt":
+        raise ValueError("--train-source full is implemented for the CQT architecture only")
+    if tonic_override or args.separate or getattr(args, "melody", False):
+        raise ValueError("--train-source full supports neither the shuffled-tonic control, "
+                         "--separate, nor --melody: the cache is one anchored CQT per video")
+    index = fullaudio.by_id()
+    vids = sorted({c.video for c in clips})
+    wrong = [v for v in vids if index[v].role(args.seed) != "fit"]
+    if wrong:
+        raise RuntimeError(f"{len(wrong)} training videos are not 'fit' under seed "
+                           f"{args.seed} in {SPLITS_FILE.name}: the two split derivations "
+                           f"disagree, and nothing should train until that is understood")
+    return fullaudio.FullAudioCQTDataset(
+        [index[v] for v in vids], args.windows_per_video, train=True,
+        freq_shift_bins=args.freq_jitter, trim_seconds=args.trim_seconds,
+        loud_fraction=args.loud_fraction, loudness_db=args.loudness_db,
+        fixed_pool=getattr(args, "window_pool", False))
+
+
 def make_dataset(arch, clips, args, tonic_override, train):
+    if train and getattr(args, "train_source", "hub") == "full":
+        return full_audio_train_set(clips, args, tonic_override)
     spec = ARCH_INPUT[arch]
     common_kw = dict(tonic=args.tonic, separate=args.separate, seconds=args.seconds,
                      length_policy=args.length_policy, tonic_override=tonic_override,
@@ -100,7 +136,11 @@ def build_model(args):
     elif args.arch == "resnet1d":
         arch_kw.update(unfreeze_blocks=args.unfreeze_blocks)
     elif args.arch == "cqt":
-        arch_kw.update(fold_octaves=args.fold_octaves)
+        arch_kw.update(fold_octaves=args.fold_octaves,
+                       pool=getattr(args, "cqt_pool", "mean"),
+                       width=getattr(args, "cqt_width", 1.0),
+                       depth=getattr(args, "cqt_depth", 4),
+                       freq_pools=getattr(args, "cqt_freq_pools", 3))
 
     if args.db_head:
         from models.dbhead import RaagClassifierDB
@@ -227,6 +267,35 @@ def main():
     g.add_argument("--unfreeze-blocks", type=int, default=2, help="resnet1d only")
     g.add_argument("--unfreeze-encoder", action="store_true", help="hubert only; needs a GPU")
     g.add_argument("--fold-octaves", action="store_true", help="cqt only")
+    g.add_argument("--cqt-pool", default="mean",
+                   choices=["mean", "stats", "attn", "tconv", "gru"],
+                   help="cqt only: how the trunk's ~26 positions are summarised over time. "
+                        "tconv/gru are order-sensitive; stats/attn are their controls. See "
+                        "models/cqtnet.py")
+    g.add_argument("--cqt-width", type=float, default=1.0,
+                   help="cqt only: channel multiplier on (32, 64, 96, 128) and the 24-ch proj")
+    g.add_argument("--cqt-depth", type=int, default=4, help="cqt only: residual blocks")
+    g.add_argument("--cqt-freq-pools", type=int, default=3,
+                   help="cqt only: blocks that halve frequency. 3 -> 18 output cells over 4 "
+                        "octaves (~2.7 semitones each), 2 -> 36, 1 -> 72")
+
+    g = ap.add_argument_group("training data")
+    g.add_argument("--train-source", default="hub", choices=["hub", "full"],
+                   help="hub = the dataset's clips. full = random 20 s windows of the same "
+                        "fit videos' full recordings (common/fullaudio.py). val/test are "
+                        "the Hub clips either way")
+    g.add_argument("--windows-per-video", type=int, default=20,
+                   help="full only: windows drawn per video per epoch; the Hub has 5")
+    g.add_argument("--window-pool", action="store_true",
+                   help="full only: train on a FIXED set of --windows-per-video evenly "
+                        "spaced windows per video, reused every epoch -- a dataset with N "
+                        "clips per performance -- instead of fresh random windows")
+    g.add_argument("--trim-seconds", type=float, default=30.0,
+                   help="full only: never start a window this close to either end")
+    g.add_argument("--loud-fraction", type=float, default=0.8,
+                   help="full only: share of a window's frames that must be loud. 0 = off")
+    g.add_argument("--loudness-db", type=float, default=20.0,
+                   help="full only: 'loud' = within this many dB of the median frame")
 
     g = ap.add_argument_group("protocol")
     g.add_argument("--folds", type=int, default=1,
@@ -262,6 +331,14 @@ def main():
     print(f"  tonic: audio={args.tonic} model={args.tonic_mode}"
           f"{' SHUFFLED-CONTROL' if args.shuffle_tonics else ''} | separate={args.separate} "
           f"| length={args.length_policy}")
+    if args.train_source == "full":
+        kind = "fixed pool of" if args.window_pool else "fresh"
+        print(f"  training data: FULL RECORDINGS, {kind} {args.windows_per_video} windows/video/epoch, "
+              f"trim {args.trim_seconds:.0f}s, loud fraction {args.loud_fraction}")
+    if args.arch == "cqt" and (args.cqt_pool, args.cqt_width, args.cqt_depth,
+                               args.cqt_freq_pools) != ("mean", 1.0, 4, 3):
+        print(f"  cqt trunk: pool={args.cqt_pool} width={args.cqt_width} "
+              f"depth={args.cqt_depth} freq_pools={args.cqt_freq_pools}")
     if args.melody:
         print(f"  hybrid: melody histogram -> {args.melody_dim} dims, concatenated onto "
               f"the pooled feature")
@@ -278,6 +355,8 @@ def main():
     t0 = time.time()
     n_classes = len(labels())
 
+    if args.folds > 1 and args.train_source == "full":
+        raise ValueError("--train-source full is not wired for --folds; use seeds instead")
     if args.folds > 1:
         oof = np.zeros((len(train_clips), n_classes), dtype=np.float32)
         index = {c.clip_id: i for i, c in enumerate(train_clips)}

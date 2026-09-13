@@ -31,6 +31,22 @@ run () {
   echo
 }
 
+# `run` for the scripts that are not 10_train.py but still write
+# results/v1.1/<run-id>/result.json: same skip rule, same log lines.
+once () {
+  local id="$1"; shift
+  if [[ -f "$RESULTS/$id/result.json" && "${FORCE:-0}" != "1" ]]; then
+    echo "== SKIP $id (result.json exists; FORCE=1 to redo)"
+    return 0
+  fi
+  echo "== RUN  $id  $*"
+  local t0=$SECONDS
+  ( cd "$SURVEY" && poetry run python "$@" ) 2>&1
+  local rc=$?
+  echo "== $( [[ $rc -eq 0 ]] && echo DONE || echo FAILED\(rc=$rc\) ) $id in $(( (SECONDS-t0)/60 )) min"
+  echo
+}
+
 report () {
   ( cd "$SURVEY" && poetry run python scripts/90_report.py --write )
 }

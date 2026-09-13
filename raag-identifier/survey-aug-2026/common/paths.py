@@ -26,12 +26,30 @@ DATA_DIR = Path(os.environ["RAAG_DATASET_DIR"]).expanduser() \
 CACHE = HERE / "cache"
 RESULTS = HERE / "results" / DATA_VERSION
 
+#: The full-length recordings the dataset's 20 s clips were cut from, one mp3 per video,
+#: `<Raag>/<title> [<video id>].mp3`. Local only, never uploaded, and **read-only**: nothing
+#: in this project opens a file there for writing. Override with RAAG_FULLAUDIO_DIR.
+FULL_AUDIO_DIR = Path(os.environ["RAAG_FULLAUDIO_DIR"]).expanduser() \
+    if os.environ.get("RAAG_FULLAUDIO_DIR") else REPO / "hindustani-raag-fullaudios"
+
+#: Which video is in which split, written once by `scripts/03_save_splits.py`. Every data
+#: source -- the Hub clips and the full recordings -- takes its splits from here.
+SPLITS_FILE = HERE / "splits" / f"{DATA_VERSION}_video_splits.csv"
+
 # sibling projects we import from (read-only -- nothing here writes to them)
 MOTIF_DIR = REPO / "motif-classifier"
 SEP_DIR = REPO / "source-separation"
 MELODY_DIR = REPO / "melody-extraction"
 JEEVSTER_DIR = REPO / "carnatic-raga-classifier-jeevster"
 RESNET_DIR = REPO / "hindustani-raag-classifier-resnet"
+
+#: Frame-level pitch tracks of the Hub clips, in `utils.extract`'s format, one file per
+#: tracker. CREPE's is motif-classifier's and only read; Essentia's is ours, written by
+#:     RAAG_CACHE_DIR=<this folder>/cache/tracks python -m utils.extract --tracker essentia
+TRACK_CACHES = {
+    "crepe": MOTIF_DIR / "cache" / f"notes_crepe_{DATA_VERSION}.npz",
+    "essentia": CACHE / "tracks" / f"notes_essentia_{DATA_VERSION}.npz",
+}
 
 
 def add_sibling_paths():

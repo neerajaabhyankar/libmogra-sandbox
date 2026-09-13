@@ -132,7 +132,52 @@ def _crepe(audio, sr):
     return notes, f0_hz, voiced, float(hop)
 
 
-TRACKERS = {"tony": _tony, "crepe": _crepe}
+def _essentia(audio, sr):
+    """Essentia's Melodia, with the settings behind Saraga's and Dunya's pitch annotations.
+
+    44.1 kHz, `EqualLoudness` first, 2048-sample frames, a 196-sample hop (225 fps), 10-cent
+    bins referenced to 55 Hz, no guessing through unvoiced stretches -- reproduced against a
+    Saraga `.pitch.txt` in ../augmentation-utils/temp_comparison.py (median error 0.00 c).
+
+    Melodia is a *predominant*-melody tracker, built for polyphonic audio: it forms pitch
+    contours and filters them for voicing and octave errors before choosing the melody. That
+    is why its track is smooth where CREPE's is spiky -- on one Bageshree clip 0.7 % of
+    frame-to-frame steps exceed 100 cents against CREPE's 5.3 % -- and why it leaves out
+    frames CREPE keeps (70 % voiced against 93 %). About 60x real time on an M1, against
+    CREPE-tiny's 4x.
+
+    Output is quantised to a 10-cent grid; notes come from melody-extraction's
+    `segment_notes`, as for CREPE, so the cache has the same four fields.
+    """
+    import essentia
+    import essentia.standard as es
+
+    _add_tracker_paths()
+    from note_segmentation import segment_notes
+
+    essentia.log.warningActive = False
+    target_sr, hop_samples = 44100, 196
+    if sr != target_sr:
+        audio = librosa.resample(audio, orig_sr=sr, target_sr=target_sr)
+    audio = np.ascontiguousarray(audio, dtype=np.float32)
+    f0_hz, _confidence = es.PredominantPitchMelodia(
+        sampleRate=target_sr, frameSize=2048, hopSize=hop_samples, binResolution=10,
+        guessUnvoiced=False)(es.EqualLoudness(sampleRate=target_sr)(audio))
+    f0_hz = np.asarray(f0_hz, dtype=np.float32)
+    voiced = f0_hz > 0
+    hop = hop_samples / target_sr
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        cents = 1200.0 * np.log2(np.clip(f0_hz, 1e-6, None))
+    segs = segment_notes(cents, voiced, hop, tol_cents=50.0, min_note_dur=0.2)
+    notes = np.array(
+        [[s.t_start, s.t_end, 2.0 ** (s.cents_relative / 1200.0)] for s in segs],
+        dtype=np.float32,
+    ).reshape(-1, 3)
+    return notes, f0_hz, voiced, float(hop)
+
+
+TRACKERS = {"tony": _tony, "crepe": _crepe, "essentia": _essentia}
 
 
 # ---------------------------------------------------------------- driver

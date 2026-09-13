@@ -56,6 +56,14 @@ anything part-finished. `-w` refreshes every 30 s and exits when the machine goe
 | `scripts/20_fuse_symbolic.py` | Batch 6 — Stage 5, fuse a DL run with a symbolic method |
 | `scripts/21_melody_only.py` | the melody histogram alone, same split — Batch 7's control |
 | `scripts/run_batch7_hybrid.sh` | Batch 7 — Stage 5, melody histogram as a model input |
+| `scripts/03_save_splits.py` | which video is in which split → `splits/v1.1_video_splits.csv`; `--check` verifies |
+| `scripts/04_build_fullaudio_cache.py` | CQT of every full recording → `cache/fullcqt/` (1.8 GB) |
+| `scripts/92_score_full.py` | scores finished runs on 20 windows of every val/test recording |
+| `scripts/run_batch8_essentia.sh` | Batch 8 — Essentia melody branch (CPU) |
+| `scripts/run_batch9_cqt_trunk.sh` | Batch 9 — CQT time pooling and shape |
+| `scripts/run_batch10_fullaudio.sh` | Batch 10 — training on the full recordings |
+| `scripts/run_batch11_clips_per_performance.sh` | Batch 11 — how many clips per performance |
+| `scripts/run_batch12_stats_clips10.sh` | Batch 12 — 10 clips/performance + mean/std pooling |
 | `colab/batch2_hubert.ipynb` | Batch 2 on a GPU |
 
 ---
@@ -197,9 +205,113 @@ histogram alone matches the symbolic champion. See `plan.md`.
 Not queued, from that finding: modality dropout on the histogram, and a two-phase fit
 (trunk first, joint head second) — both aimed at the shortcut the runs exposed.
 
+
+### Batch 8 — Essentia melody branch ✅
+*local CPU · ~30 min · `run_batch8_essentia.sh`*
+
+| id | what | status |
+|---|---|---|
+| *(tracks)* | Essentia pitch tracks of the 1960 Hub clips → `cache/tracks/` | ✅ |
+| melody_only_essentia | Essentia histogram alone, seed 0 | ✅ |
+| melody_only_essentia_seed1 / _seed2 | the same at seeds 1, 2 | ✅ |
+| fuse_aug_jitter_melody_essentia | aug_jitter + Essentia histogram | ✅ |
+| fuse_aug_seed1_melody_essentia / seed2 | the same at seeds 1, 2 | ✅ |
+
+Paired with the CREPE runs of the same names minus `_essentia`. Result in `plan.md`:
+Essentia is the development tracker from here (`--tracker essentia`); defaults stay CREPE.
+
+### Batch 10 — training on the full recordings ✅
+*local GPU · ~6.5 h · `run_batch10_fullaudio.sh` · first in the GPU queue*
+
+Same 270 fit videos as every other run, read from `../hindustani-raag-fullaudios/`
+(read-only). Val and test stay the Hub clips.
+
+| id | what | status |
+|---|---|---|
+| *(cache)* | CQT of all 412 full recordings → `cache/fullcqt/` | ✅ 1.77 GB, 9 min |
+| full_aug | aug_jitter, 20 windows/video/epoch, 20 epochs | ✅ |
+| full_aug_seed1 | seed 1 | ✅ |
+| full_aug_seed2 | seed 2 | ✅ |
+| full_w5 | 5 windows/video/epoch, aug_jitter's schedule | ✅ |
+| full_nofilter | no trim or loudness filter *(ablation)* | ✅ |
+| full_wide | double width | ✅ |
+| *(scoring)* | 20 windows of every val/test recording, these + aug_jitter ×3 | ✅ |
+| fuse_full_aug*_melody[_essentia] | full_aug ×3 fused with the CREPE / Essentia histogram (CPU) | ✅ |
+
+### Batch 9 — CQT trunk: time pooling and shape ✅
+*local GPU · ~7 h · `run_batch9_cqt_trunk.sh` · last in the GPU queue, after Batch 11*
+
+aug_jitter with one thing changed, seed 0, Hub clips.
+
+| id | what | status |
+|---|---|---|
+| pool_tconv | dilated temporal convs before the mean | ✅ |
+| pool_gru | BiGRU over time | ✅ |
+| pool_attn | attention over time *(control)* | ✅ |
+| pool_stats | mean + std *(control)* | ✅ |
+| arch_w05 / arch_w2 | half / double width | ✅ |
+| arch_d3 / arch_d5 | 3 / 5 blocks | ✅ |
+| arch_f36 / arch_f72 | 36 / 72 frequency cells (default 18) | ✅ |
+| pool_stats_seed1 / _seed2 | replicating the one change past the bar | ✅ |
+
+### Batch 11 — how many clips per performance ✅
+*local GPU · ~2.5 h · `run_batch11_clips_per_performance.sh` · after Batch 10*
+
+A fixed set of N evenly spaced windows per performance, reused every epoch — a dataset
+with N clips per video. Same budget for every run (~65k windows seen).
+
+| id | what | status |
+|---|---|---|
+| clips5 | N = 5, spread over the recording | ✅ |
+| clips10 | N = 10 | ✅ |
+| clips20 | N = 20 | ✅ |
+| clips40 | N = 40 | ✅ |
+| clips10_seed1 | N = 10 at seed 1 — replicating the step | ✅ |
+| clips10_seed2 | N = 10 at seed 2 | ✅ |
+
+### Batch 12 — the two replicated wins together ✅
+*local GPU · ~2 h, then ~12 min CPU fusions · `run_batch12_stats_clips10.sh`*
+
+| id | what | status |
+|---|---|---|
+| clips10_stats | 10 clips/performance + mean/std pooling | ✅ |
+| clips10_stats_seed1 / _seed2 | seeds 1, 2 | ✅ |
+| fuse_clips10*[_stats*]_melody[_essentia] | all six fused with CREPE and Essentia (CPU) | ✅ |
+
+**Inspect:** `bash scripts/status.sh` · `tail -f /tmp/batch12.out`
+
+### Batches 8–11 — drive them
+
+GPU queue, in order: **Batch 10** ✅ → **Batch 11** ✅ → **Batch 9** ✅ → clips10 seeds ✅ →
+pool_stats seeds ✅ → **Batch 12** ✅ (`/tmp/batch12.out`). **Nothing is running.** Logs: Batch 10 `/tmp/gpu_queue.out`; Batches 11 and 9
+`/tmp/gpu_queue2.out`; clips10 seeds `/tmp/gpu_queue3.out`; pool_stats seeds
+`/tmp/gpu_queue4.out`.
+
+To restart the whole queue after a crash (finished runs are skipped, caches resume):
+
+```bash
+nohup bash -c 'bash scripts/run_batch10_fullaudio.sh; bash scripts/run_batch11_clips_per_performance.sh; bash scripts/run_batch9_cqt_trunk.sh' > /tmp/gpu_queue.out 2>&1 &
+```
+
+**Inspect:** `bash scripts/status.sh` for the live run · `tail -f /tmp/gpu_queue.out` / `/tmp/gpu_queue2.out` for the
+GPU queue · `tail -f /tmp/batch8.out` for Batch 8 · `tail -f results/v1.1/<id>/run.log`
+for one run. Full-window scores:
+`poetry run python scripts/90_report.py` then the `fullaudio` table in `common/report.py`.
+
+
+**Not queued** 🟥 — the pooling winner on the full recordings (needs Batch 9); Essentia
+tracks of the full recordings — skipped: they would serve only ~3 cheap runs and speed up
+none; revisit only if Batch 11 shows audio per performance matters;
+de-identification as a training augmentation (needs a second 1.8 GB cache; disk is 98 %
+full).
+
 ---
 
 ## Conventions
+
+**Splits** — `splits/v1.1_video_splits.csv` is the one record of which video is fit / val
+/ test (seeds 0–2), matched to its full recording. Every data source reads it.
+`poetry run python scripts/03_save_splits.py --check` confirms it still matches the Hub.
 
 **`run_id`** — the `plan.md` tag, lowercased, plus the variant: `c2`, `c2_shuffled`, `r4g`.
 One directory per run under `results/v1.1/`.

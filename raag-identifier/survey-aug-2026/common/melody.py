@@ -1,7 +1,7 @@
 """The naive melody-only feature: a tonic-referenced, octave-folded pitch histogram.
 
-This is M11's fingerprint from ../motif-classifier -- a 120-bin histogram of CREPE's f0
-track, in cents against the clip's **annotated** tonic, circularly smoothed and
+This is M11's fingerprint from ../motif-classifier -- a 120-bin histogram of a pitch
+tracker's f0 track (CREPE by default; Essentia's Melodia with `tracker="essentia"`), in cents against the clip's **annotated** tonic, circularly smoothed and
 dynamic-range compressed. It is deliberately the *naive* feature: no notes, no n-grams, no
 tonic search, nothing the symbolic pipeline does after this point.
 
@@ -17,7 +17,7 @@ not about two different features sharing a name.
 
 import numpy as np
 
-from .paths import CACHE, MOTIF_DIR, add_sibling_paths
+from .paths import CACHE, TRACK_CACHES, add_sibling_paths
 
 #: The parameters M11 settled on; also the cache key.
 DEFAULTS = dict(tracker="crepe", n_bins=120, smooth=1.0, power=0.5)
@@ -34,10 +34,13 @@ def histogram(clips, tracker="crepe", n_bins=120, smooth=1.0, power=0.5):
     add_sibling_paths()
     from methods.m11_histogram import fold_histogram
 
-    npz = MOTIF_DIR / "cache" / f"notes_{tracker}_v1.1.npz"
+    if tracker not in TRACK_CACHES:
+        raise KeyError(f"no pitch-track cache registered for {tracker!r}; "
+                       f"have {sorted(TRACK_CACHES)} (common/paths.py)")
+    npz = TRACK_CACHES[tracker]
     if not npz.exists():
-        raise FileNotFoundError(f"{npz} not found -- this feature reuses motif-classifier's "
-                                f"pitch tracks; extract them there first")
+        raise FileNotFoundError(f"{npz} not found -- extract it with "
+                                f"`python -m utils.extract --tracker {tracker}`")
     out, missing = [], 0
     with np.load(npz, allow_pickle=True) as z:
         keys = set(z.files)

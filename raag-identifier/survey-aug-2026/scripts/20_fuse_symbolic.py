@@ -98,7 +98,7 @@ def _dl_scores(run_id, clips_by_split, device="auto"):
     return out, result
 
 
-def _melody_scores(fit_clips, clips_by_split, label_order):
+def _melody_scores(fit_clips, clips_by_split, label_order, tracker="crepe"):
     """`--symbolic melody`: the naive 120-bin histogram + logreg, fitted on the same clips.
 
     The portable partner. M14 needs both pitch trackers -- pYIN through the `vamp` native
@@ -113,8 +113,9 @@ def _melody_scores(fit_clips, clips_by_split, label_order):
     from common import melody
 
     y = np.array([label_order.index(c.raag) for c in fit_clips])
-    X = melody.cached(fit_clips)
-    return {split: probe._logreg_scores(X, y, melody.cached(clips), len(label_order))
+    X = melody.cached(fit_clips, tracker=tracker)
+    return {split: probe._logreg_scores(X, y, melody.cached(clips, tracker=tracker),
+                                        len(label_order))
             for split, clips in clips_by_split.items()}
 
 
@@ -199,12 +200,16 @@ def main():
     ap.add_argument("--symbolic", default="m14",
                    help="a method in motif-classifier's final.json, or 'melody' for the "
                         "naive histogram + logreg (no motif-classifier, no vamp plugin)")
-    ap.add_argument("--run-id", default=None, help="where to write; default fuse_<dl>_<sym>")
+    ap.add_argument("--tracker", default="crepe",
+                    help="with --symbolic melody: whose pitch track the histogram uses")
+    ap.add_argument("--run-id", default=None,
+                    help="where to write; default fuse_<dl>_<sym>[_<tracker>]")
     ap.add_argument("--device", default="auto")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
-    run_id = a.run_id or f"fuse_{a.dl}_{a.symbolic}"
+    suffix = f"_{a.tracker}" if a.symbolic == "melody" and a.tracker != "crepe" else ""
+    run_id = a.run_id or f"fuse_{a.dl}_{a.symbolic}{suffix}"
     out_dir = RESULTS / run_id
     L = labels()
     train_pool = load_clips("train")
@@ -222,7 +227,7 @@ def main():
         return
 
     dl, dl_result = _dl_scores(a.dl, splits, device=a.device)
-    sym = (_melody_scores(fit_clips, splits, L) if a.symbolic == "melody"
+    sym = (_melody_scores(fit_clips, splits, L, a.tracker) if a.symbolic == "melody"
            else _symbolic_scores(a.symbolic, fit_clips, splits, L))
 
     T_dl = _fit_temperature(dl["val"], val_clips, L)
@@ -260,7 +265,8 @@ def main():
     result = {
         "run_id": run_id, "stage": 5, "arch": "fusion",
         "data_revision": dl_result["data_revision"],
-        "config": {"dl_run": a.dl, "symbolic": a.symbolic, "weight": best_w,
+        "config": {"dl_run": a.dl, "symbolic": a.symbolic, "tracker": a.tracker,
+                   "weight": best_w,
                    "T_dl": T_dl, "T_symbolic": T_sym, "seed": seed,
                    "sweep": sweep, "arch": "fusion"},
         "split": "grouped-val", "metrics": val_m,

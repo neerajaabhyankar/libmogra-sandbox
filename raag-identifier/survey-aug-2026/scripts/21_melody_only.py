@@ -26,7 +26,7 @@ import numpy as np
 import _bootstrap  # noqa: F401
 from common import melody, metrics
 from common.data import grouped_split, labels, load_clips, summarise
-from common.paths import DATA_REVISION, RESULTS
+from common.paths import DATA_REVISION, RESULTS, TRACK_CACHES
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 _probe = import_module("01_probe_representations")
@@ -37,12 +37,14 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--run-id", default="melody_only")
     ap.add_argument("--seed", type=int, default=0, help="must match the DL run's seed")
+    ap.add_argument("--tracker", default="crepe", choices=sorted(TRACK_CACHES),
+                    help="whose pitch track the histogram is built from")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
     fit, val = grouped_split(load_clips("train"), val_frac=0.2, seed=a.seed)
     test = load_clips("test")
-    print(f"=== {a.run_id} | melody histogram + logreg | seed {a.seed} ===")
+    print(f"=== {a.run_id} | {a.tracker} melody histogram + logreg | seed {a.seed} ===")
     print(f"  fit on {summarise(fit)}")
     print(f"  score {len(val)} val, {len(test)} test")
     if a.dry_run:
@@ -51,9 +53,9 @@ def main():
     t0 = time.time()
     n = len(labels())
     y = np.array([c.label for c in fit])
-    X = melody.cached(fit)
-    scores = {"val": _probe._logreg_scores(X, y, melody.cached(val), n),
-              "test": _probe._logreg_scores(X, y, melody.cached(test), n)}
+    X = melody.cached(fit, tracker=a.tracker)
+    scores = {"val": _probe._logreg_scores(X, y, melody.cached(val, tracker=a.tracker), n),
+              "test": _probe._logreg_scores(X, y, melody.cached(test, tracker=a.tracker), n)}
 
     val_m, val_rows = metrics.score(val, scores["val"])
     T = metrics.calibrate_temperature(val_rows)
@@ -66,7 +68,7 @@ def main():
     (out_dir / "result.json").write_text(json.dumps({
         "run_id": a.run_id, "stage": 5, "arch": "melody",
         "data_revision": DATA_REVISION,
-        "config": {"feature": "melody_hist", **melody.DEFAULTS, "clf": "logreg",
+        "config": {"feature": "melody_hist", **melody.DEFAULTS, "tracker": a.tracker, "clf": "logreg",
                    "seed": a.seed, "arch": "melody"},
         "split": "grouped-val", "metrics": val_m,
         "musical": metrics.musical(val_rows, temperature=T), "temperature": T,
