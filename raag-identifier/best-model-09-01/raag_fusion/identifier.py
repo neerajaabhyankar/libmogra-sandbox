@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from . import audio, cqt_branch, melody_branch
+from . import audio, cqt_branch, melody_branch, pitch
 
 WEIGHTS = Path(__file__).resolve().parent.parent / "weights"
 
@@ -89,10 +89,10 @@ class RaagIdentifier:
             logits = self.net(torch.from_numpy(x)[None].float().to(self.device))
         p_cqt = _softmax(logits[0].cpu().numpy(), c["temperature_cqt"])
 
-        f0, voiced = melody_branch.f0_track(audio.resample(y, sr, melody_branch.SR),
-                                            device=self.device)
-        hist = melody_branch.histogram(f0, voiced, tonic_hz)
-        p_mel = _softmax(self.linear.scores(hist), c["temperature_melody"])
+        track = pitch.from_audio(y, sr, device=self.device)
+        hist = melody_branch.profile(track, tonic_hz)
+        p_mel = _softmax(self.linear.scores(melody_branch.features(hist)),
+                         c["temperature_melody"])
 
         w = c["melody_weight"]
         return (1.0 - w) * p_cqt + w * p_mel, p_cqt, p_mel

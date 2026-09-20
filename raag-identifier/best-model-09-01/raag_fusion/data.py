@@ -59,7 +59,7 @@ def build_cache(cache_dir, limit=None, device="cpu", progress=print):
     import librosa
 
     from . import audio as A
-    from . import cqt_branch, melody_branch
+    from . import cqt_branch, melody_branch, pitch
 
     cache_dir = Path(cache_dir)
     (cache_dir / "cqt").mkdir(parents=True, exist_ok=True)
@@ -84,9 +84,11 @@ def build_cache(cache_dir, limit=None, device="cpu", progress=print):
                                int(round(A.SR_CQT * A.WINDOW_SECONDS)))
             np.save(cqt_path, cqt_branch.features(y22, tonic_hz)[0].astype(np.float16))
         if not mel_path.exists():
-            f0, voiced = melody_branch.f0_track(A.resample(y, sr, melody_branch.SR),
-                                                device=device)
-            np.save(mel_path, melody_branch.histogram(f0, voiced, tonic_hz).astype(np.float32))
+            track = pitch.from_audio(y, sr, device=device)
+            # the cache holds the classifier's input, not the raw histogram, so every
+            # previously cached .npy stays byte-for-byte what it was
+            np.save(mel_path, melody_branch.features(
+                melody_branch.profile(track, tonic_hz)).astype(np.float32))
         done += 1
         if done % 50 == 0:
             progress(f"  cached {done} clips ({len(clips)} seen)")
