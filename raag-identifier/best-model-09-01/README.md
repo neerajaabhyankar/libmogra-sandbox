@@ -144,6 +144,14 @@ cents above Sa, folded into one octave, 120 bins, blurred slightly and compresse
 square root. No note segmentation, no phrase model, no grammar. It scores the same 0.373 as
 an elaborate symbolic pipeline built on note n-grams and a 12-way tonic search.
 
+The track itself lives in `raag_fusion.pitch`, apart from the classifier, because it is
+tonic-free and everything that reads melody out of a recording wants it — this branch, a
+swar histogram drawn for a listener, anything built on top of one. `melody_branch.histogram`
+turns a track into a distribution over pitch classes that sums to 1 and can be drawn as
+"share of your time"; `melody_branch.features` is the square-root compression that makes it
+the classifier's input. Keeping those apart matters: the compressed array is a feature
+vector, and drawing it as time would misreport every proportion by a square root.
+
 **The fusion.** Each branch's scores become probabilities through a softmax whose
 temperature was fitted on the validation split; the two are then mixed with a weight (0.40
 on the histogram) also chosen on validation. Recordings longer than 20 s are cut into 20 s
@@ -207,10 +215,11 @@ rather than early-stopped for the released model.
 
 | | |
 |---|---|
-| `raag_fusion/` | the model: `cqt_branch`, `melody_branch`, `identifier` (fusion), `tonic` |
+| `raag_fusion/` | the model: `pitch` (CREPE), `cqt_branch`, `melody_branch`, `identifier` (fusion), `tonic` |
 | `weights/` | `cqt_net.pt`, `melody_linear.npz`, `raags.json`, `config.json` |
 | `train.py` | reproduce the weights from the pinned dataset |
 | `predict.py`, `quickstart.py` | a file, or your microphone |
+| `tests/` | `test_crepe.py` (the pitch pathway, no weights or dataset needed), `test_model.py` (accuracy against the numbers below) |
 | `upload_to_hub.py` | push this directory to the Hub |
 
 ## Provenance

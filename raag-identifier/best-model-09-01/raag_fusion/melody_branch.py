@@ -17,48 +17,38 @@ the two agree on only 29 % of test clips, so averaging them beats both.
 
 import numpy as np
 
-SR = 16000
-HOP = 160                 # 10 ms
-CONFIDENCE = 0.4          # torchcrepe periodicity below this is treated as unvoiced
-MODEL_SIZE = "tiny"
+from . import pitch
+
+# CREPE's own settings live in `pitch`; re-exported here so existing callers and the
+# README keep working.
+SR = pitch.SR
+HOP = pitch.HOP
+CONFIDENCE = pitch.CONFIDENCE
+MODEL_SIZE = pitch.MODEL_SIZE
+
 N_BINS = 120              # 10 cents per bin
 SMOOTH = 1.0
-POWER = 0.5
+POWER = 0.5               # applied by `features`, not by `histogram` -- see below
 
 
 def f0_track(y16000, device="cpu", dither_seed=0):
     """(f0 in Hz, voiced mask), one value per 10 ms frame.
 
-    **The dither seed is not optional decoration.** torchcrepe decodes pitch to a 20-cent
-    bin grid and then adds triangular noise of +-20 cents to every frame to hide the
-    quantisation (`torchcrepe.convert.dither`), drawn from numpy's *global* RNG. Left
-    alone, that makes this function return a different answer every process: measured on
-    one 24 s clip, the model's top-1 probability moved between 0.39 and 0.61 and the
-    ranking below first place reshuffled. Seeding fixes the draw, so the same recording
-    always gets the same answer.
-
-    The caller's RNG state is saved and restored, because quietly reseeding numpy is not
-    a reasonable side effect of asking for a pitch track.
+    Kept as the pair this has always returned. New code should call `pitch.track`, which
+    returns a `PitchTrack` carrying the same two arrays plus what can be read off them.
     """
-    import torch
-    import torchcrepe
-
-    wav = torch.from_numpy(np.ascontiguousarray(y16000)).float().unsqueeze(0)
-    state = np.random.get_state()
-    try:
-        np.random.seed(dither_seed)
-        with torch.no_grad():
-            f0, periodicity = torchcrepe.predict(
-                wav, SR, hop_length=HOP, fmin=50.0, fmax=2000.0, model=MODEL_SIZE,
-                return_periodicity=True, batch_size=512, device=device,
-                decoder=torchcrepe.decode.weighted_argmax)
-    finally:
-        np.random.set_state(state)
-    return f0.squeeze(0).numpy(), periodicity.squeeze(0).numpy() >= CONFIDENCE
+    t = pitch.track(y16000, device=device, dither_seed=dither_seed)
+    return t.f0_hz, t.voiced
 
 
-def histogram(f0_hz, voiced, tonic_hz, n_bins=N_BINS, smooth=SMOOTH, power=POWER):
-    """Voiced frames -> a (n_bins,) octave-folded pitch histogram, summing to 1."""
+def histogram(f0_hz, voiced, tonic_hz, n_bins=N_BINS, smooth=SMOOTH):
+    """Voiced frames -> a (n_bins,) octave-folded pitch histogram, summing to 1.
+
+    **This is a distribution over time, not a feature vector.** Each bin is the share of
+    the voiced passage spent at that pitch class, so a swar sung four times as long as
+    another is four times as tall, and the array can be drawn as "share of your time" with
+    nothing further done to it. `features` is what turns it into the classifier's input.
+    """
     f0 = np.asarray(f0_hz, dtype=float)[np.asarray(voiced, dtype=bool)]
     cents = 1200.0 * np.log2(np.clip(f0, 1e-6, None) / float(tonic_hz))
     cents = cents[np.isfinite(cents)]
@@ -72,9 +62,29 @@ def histogram(f0_hz, voiced, tonic_hz, n_bins=N_BINS, smooth=SMOOTH, power=POWER
         d = np.minimum(d, n_bins - d)
         kern = np.exp(-0.5 * (d / smooth) ** 2)
         H = np.maximum(np.real(np.fft.ifft(np.fft.fft(H) * np.fft.fft(kern / kern.sum()))), 0.0)
-    H = H ** power
     total = H.sum()
     return H / total if total > 0 else H
+
+
+def features(hist, power=POWER):
+    """A histogram -> what `LinearModel` was fitted on.
+
+    The compression is the feature engineering, not a property of the histogram: raising
+    to 0.5 stops one long held nyas note from swamping every other swar, which helps a
+    linear model and would misreport the drawn histogram by a square root.
+
+    Normalising after the power is what the model saw, and doing it in two steps changes
+    nothing -- scaling a histogram by 1/S then raising to p divides every bin by S**p,
+    which the renormalisation takes straight back out.
+    """
+    H = np.asarray(hist, dtype=float) ** power
+    total = H.sum()
+    return H / total if total > 0 else H
+
+
+def profile(track, tonic_hz, n_bins=N_BINS, smooth=SMOOTH):
+    """A `pitch.PitchTrack` -> its histogram. The shape everything new should use."""
+    return histogram(track.f0_hz, track.voiced, tonic_hz, n_bins=n_bins, smooth=smooth)
 
 
 class LinearModel:
