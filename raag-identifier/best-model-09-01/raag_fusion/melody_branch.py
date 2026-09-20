@@ -1,6 +1,6 @@
 """Branch 2 -- a pitch histogram and a linear model. Deliberately naive.
 
-CREPE gives a frame-level f0 track; every voiced frame is expressed in cents above Sa,
+Melodia gives a frame-level f0 track; every voiced frame is expressed in cents above Sa,
 folded into one octave, and dropped into 120 bins. The histogram is blurred slightly (so
 two performances tuned a few cents apart still overlap) and raised to the power 0.5 (so one
 long held nyas note cannot swamp every other swar). A multinomial logistic regression then
@@ -12,32 +12,36 @@ be a baseline for. That is why it, and not the elaborate one, is the second bran
 is as accurate, and it needs one pip package instead of a native Vamp plugin.
 
 It is also *wrong in different places* from the CQT branch, which is the entire point --
-the two agree on only 29 % of test clips, so averaging them beats both.
+the two agree on only 31 % of test clips, so averaging them beats both.
 """
 
 import numpy as np
 
 from . import pitch
 
-# CREPE's own settings live in `pitch`; re-exported here so existing callers and the
-# README keep working.
+# The tracker's own settings live in `pitch`; re-exported here so existing callers and the
+# README keep working. `CONFIDENCE` and `MODEL_SIZE` were CREPE's and are gone: Melodia has
+# no confidence threshold (it reports an unvoiced frame as 0 Hz) and no model size.
 SR = pitch.SR
 HOP = pitch.HOP
-CONFIDENCE = pitch.CONFIDENCE
-MODEL_SIZE = pitch.MODEL_SIZE
+TRACKER = pitch.TRACKER
 
 N_BINS = 120              # 10 cents per bin
 SMOOTH = 1.0
 POWER = 0.5               # applied by `features`, not by `histogram` -- see below
 
 
-def f0_track(y16000, device="cpu", dither_seed=0):
-    """(f0 in Hz, voiced mask), one value per 10 ms frame.
+def f0_track(y, device=None):
+    """(f0 in Hz, voiced mask), one value per `pitch.HOP_SECONDS` frame.
 
     Kept as the pair this has always returned. New code should call `pitch.track`, which
     returns a `PitchTrack` carrying the same two arrays plus what can be read off them.
+
+    Note that `y` is now at `pitch.SR` = 44100, not CREPE's 16000, and that the
+    `dither_seed` argument is gone -- Melodia is deterministic. Use `pitch.from_audio` if
+    you have audio at some other rate.
     """
-    t = pitch.track(y16000, device=device, dither_seed=dither_seed)
+    t = pitch.track(y, device=device)
     return t.f0_hz, t.voiced
 
 

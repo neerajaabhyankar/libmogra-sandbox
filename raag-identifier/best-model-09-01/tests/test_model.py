@@ -5,12 +5,14 @@
     pytest  tests/test_model.py                # a 20-clip sanity check
 
 `weights/test_metrics.json` records what was measured when the model was trained — top-1
-0.48 and top-5 0.82 over 150 clips. This re-measures it from audio, so a refactor that
+0.500 and top-5 0.867 over 150 clips. This re-measures it from audio, so a refactor that
 quietly moves the model has somewhere to show up.
 
-**It is slow.** CREPE at a 10 ms hop dominates: budget roughly fifteen seconds a clip, so
-the full 150 is well over half an hour. `--limit` exists for that reason, and the pytest
-entry point uses it.
+Budget about 0.6 s a clip: the full 150 takes a minute and a half. It used to be far worse
+— CREPE at a 10 ms hop dominated the cost, and the same run was well over half an hour —
+which is why `--limit` exists and why the pytest entry point uses it. Both are kept: the
+sample is still the right thing for a quick check, and the full run is now cheap enough to
+be worth doing before a release.
 
 Audio comes from a local corpus if the surrounding repository is there, and otherwise from
 the pinned Hugging Face revision `raag_fusion.data` names — so this works for someone who
@@ -41,7 +43,8 @@ LOCAL_AUDIO = ROOT.parent / "hindustani-raag-small-v1"
 LOCAL_TONICS = ROOT.parent / "raagdataset/tonics.csv"
 
 CLIP_RE = re.compile(r"^(train|test)_\[(.+)\]_chunk(\d+)\.mp3$")
-PYTEST_LIMIT = 20            # keeps `pytest` to a couple of minutes rather than an hour
+PYTEST_LIMIT = 20            # a few seconds now; it kept `pytest` under a couple of minutes
+                             # when CREPE was the tracker
 TOLERANCE = 0.02             # how far the full run may drift from the published numbers
 
 

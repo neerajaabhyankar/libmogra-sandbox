@@ -1,12 +1,15 @@
 """The pitch pathway is factored out, and usable without the classifier.
 
-    pytest tests/test_crepe.py
-    python  tests/test_crepe.py          # same checks, no pytest needed
+    pytest tests/test_pitch.py
+    python  tests/test_pitch.py          # same checks, no pytest needed
 
 Nothing here loads weights, touches the dataset, or goes near the network — the audio is
 synthesised in this file. That is the point: if the only way to get a pitch track out of
 this model were to build a `RaagIdentifier`, the swar histogram, the insights and anything
-else that reads melody would each have to run CREPE again.
+else that reads melody would each have to run the tracker again.
+
+The tracker is Essentia's Melodia. Every check below is written against the *pathway*, not
+against Melodia, so this file is what a version on a different tracker should still pass.
 
 Self-contained on purpose. This directory is uploaded to the Hub, so the tests have to pass
 for someone who downloaded the model and has none of the surrounding repository.
@@ -23,11 +26,12 @@ from raag_fusion import melody_branch, pitch          # noqa: E402
 
 TONIC = 146.83
 TONE_HZ = 220.0
-CENTS_TOLERANCE = 35.0      # CREPE dithers its bins by +-20 cents on purpose
+OTHER_SR = 16000            # a rate unlike the tracker's, for the resampling check
+CENTS_TOLERANCE = 35.0      # trackers quantise: Melodia to a 10-cent grid, CREPE to 20
 
 
 def tone(hz=TONE_HZ, seconds=3.0, sr=pitch.SR):
-    """A steady note with a few partials — something CREPE will happily track."""
+    """A steady note with a few partials — something any pitch tracker will follow."""
     t = np.arange(int(seconds * sr)) / sr
     phase = 2 * np.pi * hz * t
     y = sum(a * np.sin(k * phase) for k, a in enumerate((1.0, 0.5, 0.25, 0.12), 1))
@@ -35,7 +39,7 @@ def tone(hz=TONE_HZ, seconds=3.0, sr=pitch.SR):
 
 
 def synthetic_track(n=4000, seed=0, spread=0.5):
-    """f0/voiced arrays without running CREPE, for the histogram tests."""
+    """f0/voiced arrays without running the tracker, for the histogram tests."""
     rng = np.random.default_rng(seed)
     return TONIC * 2 ** rng.normal(0, spread, n), rng.random(n) < 0.8
 
@@ -46,7 +50,10 @@ def test_pitch_is_its_own_module():
     assert callable(pitch.track)
     assert callable(pitch.from_audio)
     assert hasattr(pitch, "PitchTrack")
-    for const in ("SR", "HOP", "CONFIDENCE", "MODEL_SIZE"):
+    # Tracker-neutral constants. CREPE's `CONFIDENCE` and `MODEL_SIZE` are deliberately
+    # not here: Melodia has no confidence threshold and no model size, and a contract that
+    # demanded them would be a contract about CREPE.
+    for const in ("SR", "HOP", "HOP_SECONDS", "TRACKER"):
         assert hasattr(pitch, const), const
 
 
@@ -88,8 +95,12 @@ def test_cents_above_is_not_folded_into_one_octave():
 
 
 def test_the_same_recording_gives_the_same_track():
-    """torchcrepe dithers its bins from numpy's *global* RNG. Unseeded, this model answers
-    differently every process — measured once at top-1 between 0.39 and 0.61 on one clip."""
+    """Melodia is deterministic, so this passes for free — and that is worth a test anyway.
+
+    CREPE was not: it dithered its bins from numpy's *global* RNG, and unseeded the model
+    answered differently every process — measured once at top-1 between 0.39 and 0.61 on
+    one clip. This check is what would catch a tracker that reintroduced that.
+    """
     a, b = pitch.track(tone()), pitch.track(tone())
     assert np.array_equal(np.asarray(a.f0_hz), np.asarray(b.f0_hz))
     assert np.array_equal(np.asarray(a.voiced), np.asarray(b.voiced))
@@ -154,10 +165,27 @@ def test_a_histogram_without_building_a_classifier():
 
 
 def test_from_audio_resamples():
-    """Callers should not have to know CREPE's rate."""
-    at_44k = tone(seconds=1.5, sr=44100)
-    track = pitch.from_audio(at_44k, 44100)
+    """Callers should not have to know the tracker's rate.
+
+    The rate here is deliberately *not* `pitch.SR` — at 44.1 kHz this would pass whether
+    `from_audio` resampled or not, and the point is that it does.
+    """
+    assert OTHER_SR != pitch.SR, "pick a rate unlike the tracker's, or this proves nothing"
+    track = pitch.from_audio(tone(seconds=1.5, sr=OTHER_SR), OTHER_SR)
     assert 1.2 < track.seconds < 1.8
+    voiced = np.asarray(track.voiced, dtype=bool)
+    assert voiced.mean() > 0.5, f"only {voiced.mean():.0%} voiced after resampling"
+    f0 = np.asarray(track.f0_hz, dtype=float)[voiced]
+    cents = float(np.median(1200 * np.log2(f0 / TONE_HZ)))
+    assert abs(cents) < CENTS_TOLERANCE, (
+        f"{TONE_HZ:g} Hz at {OTHER_SR} Hz tracked {cents:+.0f} cents off — "
+        f"a rate mismatch shows up here first")
+
+
+def test_the_tracker_is_named():
+    """Anything caching a track keys it by this, so a CREPE histogram and a Melodia one
+    cannot be read back as each other."""
+    assert isinstance(pitch.TRACKER, str) and pitch.TRACKER
 
 
 if __name__ == "__main__":

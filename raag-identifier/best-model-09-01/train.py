@@ -6,7 +6,8 @@
     python train.py --limit 60 --epochs 2 # smoke test in a few minutes
 
 Seeded end to end (torch, numpy and the split), so two runs of the same command produce the
-same weights up to non-determinism in the CQT/CREPE kernels.
+same weights up to non-determinism in the CQT and GPU kernels. The pitch tracker is not a
+source of drift: Melodia is deterministic.
 
 **What the recipe is, and why each part of it.**
 
@@ -14,6 +15,11 @@ same weights up to non-determinism in the CQT/CREPE kernels.
   arbitrary: a companion run that held out a fifth of the videos selected epoch 34 of 40 on
   validation top-1, and the released model reuses that number rather than early-stopping on
   data it is also fitting. Run with `--val-fraction 0.2` to watch that happen.
+  The count survived the move to Melodia unchanged, and deliberately so: the CQT branch
+  never sees a pitch track, its feature cache is byte-for-byte what it was, and the
+  companion run under Melodia reselected inside the same range (epoch 29 of a 34-epoch
+  search, against 34 of a 40-epoch one). Re-deriving it from the shorter search would have
+  changed the CQT branch for a reason that has nothing to do with the tracker.
 * Augmentation is a random roll of up to 2 CQT bins -- 22 cents at 36 bins per octave. It
   must stay *below* a semitone: the point is tuning drift between performances, and a roll
   of three bins would move a swar onto its neighbour and relabel the raag.
@@ -24,12 +30,16 @@ same weights up to non-determinism in the CQT/CREPE kernels.
 * The melody branch is a plain multinomial logistic regression. It is fitted on the same
   clips the network saw, so the fusion weight is not chosen with any help from data the
   network was validated on.
-* CREPE's pitch dither is seeded (`pitch.track`), so the cached histograms --
-  and therefore this branch -- come out the same on every rebuild. Without that the same
-  audio gives a different pitch track every run.
+* The pitch tracker is Essentia's Melodia, and it is deterministic, so the cached
+  histograms -- and therefore this branch -- come out the same on every rebuild. CREPE,
+  which this model used before, dithered its bins from numpy's global RNG and had to be
+  seeded to get that property. The melody cache is keyed by tracker name, so switching
+  trackers cannot silently reuse the other one's features.
 
-Cost: about 25 minutes on an M1 (10 for the feature cache, 15 for 34 epochs), plus the
-dataset download. CREPE dominates the cache build; pass `--device mps` or `--device cuda`.
+Cost: about 56 minutes on an M1 (18 for the feature cache, 38 for 34 epochs), plus the
+dataset download. The cache build is now dominated by mp3 decode and the CQT rather than by
+the pitch tracker: Melodia is CPU-only and runs at roughly 57x real time, where CREPE-tiny
+managed 4x and wanted the GPU. `--device mps` / `--device cuda` still helps the CQT half.
 """
 
 import argparse
@@ -45,9 +55,11 @@ from raag_fusion import cqt_branch, data, db_templates, melody_branch
 HERE = Path(__file__).resolve().parent
 
 #: Chosen on the validation split of the companion run; see the module docstring.
+#: `melody_weight` moved 0.40 -> 0.55 when the tracker became Melodia: the melody branch
+#: overtook the CQT branch on validation (0.491 against 0.443), so the fusion leans on it.
 DEFAULTS = dict(epochs=34, batch_size=16, lr=1e-3, weight_decay=1e-4, grad_clip=5.0,
                 freq_jitter_bins=2, db_lam=0.3, seed=0,
-                melody_weight=0.40, temperature_cqt=0.925, temperature_melody=2.360)
+                melody_weight=0.55, temperature_cqt=0.925, temperature_melody=2.360)
 
 
 def pick_device(name="auto"):

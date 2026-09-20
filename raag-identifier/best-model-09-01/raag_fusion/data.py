@@ -63,7 +63,7 @@ def build_cache(cache_dir, limit=None, device="cpu", progress=print):
 
     cache_dir = Path(cache_dir)
     (cache_dir / "cqt").mkdir(parents=True, exist_ok=True)
-    (cache_dir / "melody").mkdir(parents=True, exist_ok=True)
+    (cache_dir / _melody_dir()).mkdir(parents=True, exist_ok=True)
 
     clips, done, seen = [], 0, {}
     for raag, filename, blob, tonic_hz in stream():
@@ -98,9 +98,23 @@ def build_cache(cache_dir, limit=None, device="cpu", progress=print):
     return clips
 
 
+def _melody_dir():
+    """The melody cache is keyed by tracker.
+
+    A histogram made by CREPE and one made by Melodia are different numbers under the same
+    clip id, and the cache is resumable -- so sharing a directory would let a rebuild after
+    a tracker change silently reuse the old tracker's features for every clip already done.
+    Putting the tracker in the path makes that impossible rather than merely unlikely.
+    """
+    from . import pitch
+
+    return f"melody_{pitch.TRACKER}"
+
+
 def _paths(cache_dir, clip):
     stem = clip.clip_id.replace("/", "__").replace(".mp3", "")
-    return Path(cache_dir) / "cqt" / f"{stem}.npy", Path(cache_dir) / "melody" / f"{stem}.npy"
+    return (Path(cache_dir) / "cqt" / f"{stem}.npy",
+            Path(cache_dir) / _melody_dir() / f"{stem}.npy")
 
 
 def load_index(cache_dir):

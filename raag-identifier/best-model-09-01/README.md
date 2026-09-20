@@ -24,7 +24,7 @@ so it is loaded by putting the downloaded repository on `sys.path` rather than t
 `AutoModel`.
 
 ```bash
-pip install torch librosa soundfile torchcrepe huggingface_hub datasets
+pip install torch librosa soundfile essentia huggingface_hub datasets
 ```
 
 ```python
@@ -93,33 +93,55 @@ windows and averaged, so pass the whole thing rather than a slice.
 
 ## Accuracy
 
-On 150 held-out clips, **the right raag is the top guess 48 % of the time and somewhere in
-the five 82 % of the time.** Chance is 2 % and 10 %.
+On 150 held-out clips, **the right raag is the top guess 50 % of the time and somewhere in
+the five 87 % of the time.** Chance is 2 % and 10 %.
 
 | | top-1 | top-5 |
 |---|---|---|
-| **this model** (all 1810 training clips), scored through `predict` | **0.480** | **0.820** |
-| the same recipe fit on 80 %, validated on the other 20 % | 0.447 | 0.793 |
-| — its CQT branch alone | 0.400 | 0.680 |
-| — its melody branch alone | 0.347 | 0.753 |
+| **this model** (all 1810 training clips), scored through `predict` | **0.500** | **0.867** |
+| the same recipe fit on 80 %, validated on the other 20 % | 0.433 | 0.800 |
+| — its CQT branch alone | 0.400 | 0.713 |
+| — its melody branch alone | 0.307 | 0.733 |
 | chance | 0.020 | 0.100 |
 
-Averaged over three re-deals of the split the two branches come out level, at 0.373 each.
-
-The first row is measured by calling the same `predict` you would call, on the same audio
-you would pass: every 20 s window of each clip, averaged. The rows under it score only the
-middle 20 s of each clip, which is what a *training* example is. Scoring the released model
-that way gives 0.473 — the same to within the noise on 150 clips, and reported here the
-other way because that is what the code in this directory actually does.
+**Every** row is now measured the way you would use the model: `predict` on the raw audio,
+every 20 s window averaged. Earlier versions of this card scored the lower rows on only the
+middle 20 s of each clip — what a *training* example is — so those rows are not directly
+comparable with the ones published before this revision. The branch rows come from a single
+pass in which the decode, the CQT and the pitch track are computed once and shared, so the
+three branches are scored on byte-identical features.
 
 The 150 test clips come from 50 recordings that appear nowhere in training, so nothing here
 is recording recall. On 150 clips the standard error of a top-1 figure is about 4 points,
 and re-dealing the train/validation split moves this method's test score over a range of
-about 9 points. **Read the headline as "roughly one in two", not as 0.480.**
+about 9 points. **Read the headline as "roughly one in two", not as 0.500.**
+
+### On the pitch tracker, and why the melody row went down
+
+This model used CREPE until 2026-09-19 and now uses Essentia's Melodia. The switch was made
+for speed — 57x real time against CREPE-tiny's 4x, both on CPU, and no GPU wanted — and the
+accuracy evidence is genuinely split, so it is reported rather than summarised:
+
+| | validation (460 clips) | test (150 clips) |
+|---|---|---|
+| melody branch, CREPE | 0.430 | 0.347 |
+| melody branch, Melodia | **0.491** | 0.307 |
+
+**The tracker that wins on validation loses on test, and the test split cannot resolve it.**
+Validation is the comparison with power here: it is 460 clips against 150, the melody branch
+fits nothing on it, and the same +0.06 gap appeared in every seed of a separate three-seed
+survey. The 150 test clips are 50 recordings measured once, where 4 points is one standard
+error. The fused model came out ahead on both counts (0.480 -> 0.500 test, and +0.047 top-5),
+but +0.020 on 150 clips is inside the noise and should not be read as the tracker being
+worth two points.
+
+What is not in doubt is the cost: the feature cache for all 1960 clips dropped from about 45
+minutes to 18, and the tracker is now deterministic — CREPE dithered from numpy's global RNG
+and had to be seeded to give the same answer twice.
 
 **The mistakes are musical.** When it is wrong, the raag it names is much closer to the true
-one than a random raag would be: mistake affinity 0.46 against a chance floor of 0.26
-(measured on the validated version). Most
+one than a random raag would be: mistake affinity **0.49** against a chance floor of 0.27,
+measured on the released model itself. Most
 errors are inside a family — e.g., the Kafi-thaat cluster, the Bhairav cluster, etc. — rather than
 arbitrary.
 
@@ -139,10 +161,11 @@ with the templates initialised from the [Tanarang](http://tanarang.com) database
 [libmogra](https://pypi.org/project/libmogra/) library, so a raag with 18 training clips
 starts from something usable. 554 k parameters.
 
-**Branch 2 — a pitch histogram and a logistic regression.** CREPE's f0 track, expressed in
-cents above Sa, folded into one octave, 120 bins, blurred slightly and compressed by a
-square root. No note segmentation, no phrase model, no grammar. It scores the same 0.373 as
-an elaborate symbolic pipeline built on note n-grams and a 12-way tonic search.
+**Branch 2 — a pitch histogram and a logistic regression.** Essentia Melodia's f0 track,
+expressed in cents above Sa, folded into one octave, 120 bins, blurred slightly and
+compressed by a square root. No note segmentation, no phrase model, no grammar — and it
+lands within a few points of an elaborate symbolic pipeline built on note n-grams and a
+12-way tonic search, which is why the naive version is the one that ships.
 
 The track itself lives in `raag_fusion.pitch`, apart from the classifier, because it is
 tonic-free and everything that reads melody out of a recording wants it — this branch, a
@@ -153,16 +176,20 @@ the classifier's input. Keeping those apart matters: the compressed array is a f
 vector, and drawing it as time would misreport every proportion by a square root.
 
 **The fusion.** Each branch's scores become probabilities through a softmax whose
-temperature was fitted on the validation split; the two are then mixed with a weight (0.40
-on the histogram) also chosen on validation. Recordings longer than 20 s are cut into 20 s
+temperature was fitted on the validation split; the two are then mixed with a weight (0.55
+on the histogram) also chosen on validation. That weight was 0.40 under CREPE: the melody
+branch overtook the CQT branch on validation when the tracker changed (0.491 against 0.443),
+and the calibration sweep moved the mix toward it without being told to. Recordings longer than 20 s are cut into 20 s
 windows — the length of every training clip — and the per-window probabilities averaged.
 
-Why averaging rather than one joint model: the two branches agree on only 29 % of test
-clips while each is right on 35–40 % of them, so between them they hold the right answer for
-55 %. Averaging captures 73 % of that pool. Concatenating the histogram onto the
-network's features as an extra input and training the two together captures 54 % and lands
-at 0.364 — the network leans on the easy feature and stops improving the trunk. The cheap
-combination won, and it was measured, not assumed.
+Why averaging rather than one joint model: the two branches agree on only 31 % of test
+clips while the CQT branch is right on 47 % and the melody branch on 37 %, so between them
+they hold the right answer for 61 %. Averaging captures 82 % of that pool and lands at
+0.500. Concatenating the histogram onto the network's features as an extra input and
+training the two together captures 54 % and lands at 0.364 — the network leans on the easy
+feature and stops improving the trunk. (That last comparison was measured under CREPE and
+has not been repeated since; the agreement figures above are from the released Melodia
+model.) The cheap combination won, and it was measured, not assumed.
 
 ## What it is for, and what it is not for
 
@@ -206,8 +233,10 @@ python train.py                             # the released weights: every traini
 python train.py --val-fraction 0.2 --test   # hold a fifth of the videos out and report
 ```
 
-Seeded end to end. About 45 minutes to cache features for the 1960 clips (CREPE dominates;
-pass `--device mps` or `--device cuda`) and 20 minutes to train on a 16GB Mac (mps) device.
+Seeded end to end. About 18 minutes to cache features for the 1960 clips and 38 minutes to
+train on a 16 GB Mac (mps). The cache build used to take about 45 minutes, dominated by
+CREPE; Melodia is CPU-only and roughly 14x faster, so mp3 decode and the CQT now dominate
+instead. `--device mps` / `--device cuda` still helps the CQT half.
 `train.py --help` explains each choice in the recipe, including why the epoch count is fixed
 rather than early-stopped for the released model.
 
@@ -215,11 +244,11 @@ rather than early-stopped for the released model.
 
 | | |
 |---|---|
-| `raag_fusion/` | the model: `pitch` (CREPE), `cqt_branch`, `melody_branch`, `identifier` (fusion), `tonic` |
+| `raag_fusion/` | the model: `pitch` (Essentia Melodia), `cqt_branch`, `melody_branch`, `identifier` (fusion), `tonic` |
 | `weights/` | `cqt_net.pt`, `melody_linear.npz`, `raags.json`, `config.json` |
 | `train.py` | reproduce the weights from the pinned dataset |
 | `predict.py`, `quickstart.py` | a file, or your microphone |
-| `tests/` | `test_crepe.py` (the pitch pathway, no weights or dataset needed), `test_model.py` (accuracy against the numbers below) |
+| `tests/` | `test_pitch.py` (the pitch pathway, no weights or dataset needed), `test_model.py` (accuracy against the numbers below) |
 | `upload_to_hub.py` | push this directory to the Hub |
 
 ## Provenance

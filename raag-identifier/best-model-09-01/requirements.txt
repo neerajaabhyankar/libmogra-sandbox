@@ -1,0 +1,17 @@
+# Inference (predict.py, quickstart.py)
+numpy>=1.24
+torch>=2.0
+librosa>=0.10
+soundfile>=0.12
+essentia>=2.1b6.dev1389         # the pitch tracker; see raag_fusion/pitch.py
+
+# essentia ships prebuilt wheels for Linux and macOS on CPython <= 3.11. If pip finds no
+# wheel for your platform, `pip install essentia-tensorflow` carries the same algorithms,
+# and building from source is a last resort: https://essentia.upf.edu/installing.html
+# Nothing here needs a GPU -- Melodia is CPU-only and about 57x real time.
+
+# # Recording from a microphone (quickstart.py):
+# pip install sounddevice
+
+# # Reproducing the weights (train.py) additionally needs:
+# pip install datasets scikit-learn libmogra rapidfuzz

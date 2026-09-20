@@ -4,18 +4,22 @@ The two branches disagree on purpose, and the disagreement is copied verbatim fr
 training pipeline rather than tidied up:
 
     the CQT branch    22.05 kHz, peak-normalised, exactly 20 s per window
-    the melody branch 16 kHz, *not* normalised -- torchcrepe saw the raw decode
+    the melody branch 44.1 kHz, *not* normalised -- the pitch tracker sees the raw decode
 
 Peak normalisation matters for the CQT branch because recording level correlates with the
 source video and the source video correlates with the raag; normalising removes a cue the
 network could otherwise cheat with. It was never applied on the melody side, and matching
 training beats being consistent.
+
+The melody rate is the tracker's; `pitch.SR` is where it is decided. 44.1 kHz is Melodia's,
+where CREPE's was 16 kHz -- resampling happens in `pitch.from_audio`, so nothing outside
+that module needs to know which it is.
 """
 
 import numpy as np
 
 SR_CQT = 22050
-SR_CREPE = 16000
+SR_PITCH = 44100             # == pitch.SR; spelled out here to keep this module import-free
 WINDOW_SECONDS = 20.0        # the clip length every training example had
 
 

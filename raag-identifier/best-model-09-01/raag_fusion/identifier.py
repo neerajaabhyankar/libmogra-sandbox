@@ -6,15 +6,16 @@
         print(p.raag, p.probability)
 
 **Why the two are averaged rather than concatenated.** Both were tried. The CQT network and
-the pitch histogram disagree on 71 % of test clips while each is right about 37 % of the
-time, so between them they hold the right answer for 55 %. Averaging their probabilities
-captures 73 % of that pool and lands at 0.440. Feeding the histogram into the network as an
-extra input instead captures 54 % and lands at 0.364 -- the network leans on the easy
-feature and stops training the trunk. The cheap combination won.
+the pitch histogram disagree on 69 % of test clips -- the network is right on 47 % of them
+and the histogram on 37 % -- so between them they hold the right answer for 61 %. Averaging
+their probabilities captures 82 % of that pool and lands at 0.500. Feeding the histogram
+into the network as an extra input instead captures 54 % and lands at 0.364 (measured under
+the older CREPE tracker, and not repeated since) -- the network leans on the easy feature
+and stops training the trunk. The cheap combination won.
 
 **Calibration.** The two branches produce scores on completely different scales, so each is
 turned into a probability distribution by a softmax whose temperature was fitted on the
-validation split. Only then are they mixed, with a weight (0.40 on the histogram) also
+validation split. Only then are they mixed, with a weight (0.55 on the histogram) also
 chosen on validation. Both numbers are frozen in `weights/config.json`.
 
 **Long recordings** are cut into 20 s windows -- the length every training clip had -- and
