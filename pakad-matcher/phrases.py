@@ -22,7 +22,7 @@ SWAR = raagdb.SWAR_NAMES
 @dataclass
 class Phrase:
     raag: str            # dataset folder name
-    idx: int             # position in the DB mukhyanga list
+    idx: object          # position in the DB mukhyanga list, or a tag like "N1"
     swars: tuple         # collapsed swar indices 0..11
     octaves: tuple
     df: int              # DB raags containing the full phrase
@@ -33,6 +33,10 @@ class Phrase:
     @property
     def id(self):
         return f"{self.raag}#{self.idx}"
+
+    @property
+    def slug(self):
+        return self.id.replace("#", "_")
 
     @property
     def text(self):
@@ -54,18 +58,23 @@ def _turns(swars, octaves):
     return int(np.sum(d[1:] != d[:-1]))
 
 
-def catalogue(raag_names):
+def build(raag, idx, swars, octaves):
+    """One Phrase, with its DB document frequency and idiosyncrasy score filled in."""
     df, n_db = raagdb.ngram_document_frequency(2, 12)
     lo, hi = C.NGRAM_RANGE
+    s, o = _collapse_with_oct(swars, octaves)
+    grams = [s[j:j + n] for n in range(lo, hi + 1) for j in range(len(s) - n + 1)]
+    idf = float(np.mean([np.log(n_db / max(df.get(g, 1), 1)) for g in grams])) if grams else 0.0
+    dfull = df.get(s, 1)
+    kept = len(s) >= C.MIN_PHRASE_LEN and dfull <= C.MAX_PHRASE_DF
+    return Phrase(raag, idx, s, o, dfull, round(idf, 3), _turns(s, o), kept)
+
+
+def catalogue(raag_names):
     out = []
     for name, r in sorted(raagdb.dataset_raags(raag_names).items()):
         for i, (s, o) in enumerate(zip(r.phrases, r.phrase_octaves)):
-            s, o = _collapse_with_oct(s, o)
-            grams = [s[j:j + n] for n in range(lo, hi + 1) for j in range(len(s) - n + 1)]
-            idf = float(np.mean([np.log(n_db / max(df.get(g, 1), 1)) for g in grams])) if grams else 0.0
-            dfull = df.get(s, 1)
-            kept = len(s) >= C.MIN_PHRASE_LEN and dfull <= C.MAX_PHRASE_DF
-            out.append(Phrase(name, i, s, o, dfull, round(idf, 3), _turns(s, o), kept))
+            out.append(build(name, i, s, o))
     return out
 
 

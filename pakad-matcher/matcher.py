@@ -26,6 +26,7 @@ class Candidate:
     pitch_cost: float    # worst note's misfit (each note scored on its best-fitting frames)
     orn_frac: float      # fraction of the interval in ornament excursions (glides excluded)
     gap_frac: float      # fraction unvoiced
+    leaps: int           # steps taken in the wrong direction / octave
     path: np.ndarray     # (n_frames,) state kind per frame: note index k, or -1 ornament
     f0: int              # first frame index
     f1: int              # last frame index (inclusive)
@@ -56,6 +57,27 @@ def _transitions(note, loop):
     return A
 
 
+def _held(cents, hop, p):
+    """Frames in a run of >= held_min_s where pitch moves slower than held_slope (cents/s).
+    Kan swars and meend move; a held note sits. Peaks of a kan are too brief to count."""
+    w = max(1, int(round(p["held_win_s"] / hop / 2)))
+    slope = np.full(len(cents), np.inf)
+    if len(cents) > 2 * w:
+        slope[w:-w] = np.abs(cents[2 * w:] - cents[:-2 * w]) / (2 * w * hop)
+    slow = np.nan_to_num(slope, nan=np.inf) < p["held_slope"]
+    out = np.zeros(len(cents), bool)
+    n_min = max(1, int(round(p["held_min_s"] / hop)))
+    start = None
+    for t, v in enumerate(np.append(slow, False)):
+        if v and start is None:
+            start = t
+        elif not v and start is not None:
+            if t - start + 2 * w >= n_min:          # the window erodes w frames at each end
+                out[max(0, start - w):t + w] = True
+            start = None
+    return out
+
+
 def _in_band(cents, a, b, tol):
     """Is folded pitch within `tol` of the shortest path from swar-cents a to b?"""
     step = (b - a + 600.0) % 1200.0 - 600.0
@@ -69,8 +91,9 @@ def _emissions(cents, target, p, hop):
     voiced = ~np.isnan(cents)
     d = np.abs((cents[:, None] - target[None, :] + 600.0) % 1200.0 - 600.0)
     E = np.minimum(np.maximum(0.0, d - p["free_cents"]) / p["scale_cents"], p["note_cap"])
+    moving = ~_held(cents, hop, p)
     for j in np.flatnonzero(np.isnan(target)):
-        E[:, j] = np.where(_in_band(cents, target[j - 1], target[j + 1], p["kan_cents"]),
+        E[:, j] = np.where(_in_band(cents, target[j - 1], target[j + 1], p["kan_cents"]) & moving,
                            p["transit_cost"], p["orn_cost"])
     E[~voiced] = p["gap_cost"]
     # unvoiced runs longer than max_gap_s break matches
@@ -114,7 +137,7 @@ def _backtrack(bp, t_end, S):
     return t, np.array(states[::-1])
 
 
-def _rescore(cents, states, note, target, t0, p):
+def _rescore(cents, states, note, target, t0, p, hop):
     seg = cents[t0:t0 + len(states)]
     kinds = note[states]
     voiced = ~np.isnan(seg)
@@ -128,14 +151,35 @@ def _rescore(cents, states, note, target, t0, p):
         else:
             per_note.append(p["note_cap"])
     pitch = float(np.max(per_note))
-    orn = float(np.mean(_excursion(seg, kinds, p["kan_cents"])))
+    held = _held(seg, hop, p) & (kinds == -1)
+    orn = float(np.mean(_excursion(seg, kinds, p["kan_cents"]) | held))
     gap = float(np.mean(~voiced))
-    return pitch, orn, gap, pitch + p["orn_weight"] * orn + gap
+    leaps = _wrong_steps(seg, kinds, target, states)
+    return pitch, orn, gap, leaps, pitch + p["orn_weight"] * orn + gap + p["leap_penalty"] * leaps
+
+
+def _wrong_steps(seg, kinds, target, states):
+    """Steps between consecutive notes that go the wrong way or jump an octave.
+    Intended step = the shortest one between the two swars (octave folding hides direction)."""
+    n = 0
+    for k in range(kinds.max()):
+        a, b = seg[kinds == k], seg[kinds == k + 1]
+        if np.isnan(a).all() or np.isnan(b).all():
+            continue
+        ta, tb = target[states[kinds == k][0]], target[states[kinds == k + 1][0]]
+        intended = (tb - ta + 600.0) % 1200.0 - 600.0
+        actual = np.nanmedian(b) - np.nanmedian(a)
+        err = abs(actual - intended)
+        if abs(abs(intended) - 600.0) < 1e-6:      # a tritone is equally short either way
+            err = min(err, abs(actual - (intended + 1200.0)))
+        n += err > 600.0
+    return int(n)
 
 
 def _excursion(seg, kinds, tol):
     """Ornament frames that leave the pitch range spanned by their two neighbouring notes.
-    A glide from one note to the next, or a kan overshooting it by up to `tol`, costs nothing."""
+    A glide from one note to the next, or a kan overshooting it by up to `tol`, costs nothing.
+    (Held notes inside an ornament slot are charged separately, in `_rescore`.)"""
     out = np.zeros(len(seg), bool)
     for k in range(kinds.max()):
         m = kinds == -1
@@ -175,16 +219,16 @@ def match(contour, swars, top_k=C.TOP_K, params=None):
 
     out = []
     for t_end in np.argsort(ends):
-        if not np.isfinite(ends[t_end]) or len(out) >= top_k * 4:
+        if not np.isfinite(ends[t_end]) or len(out) >= C.CANDIDATE_POOL:
             break
         t_first, states = _backtrack(bp, int(t_end), len(note))
         t0 = int(t_end) - len(states) + 1
         if any(_iou((t0, t_end), (c.f0, c.f1)) > C.NMS_IOU for c in out):
             continue
-        pitch, orn, gap, cost = _rescore(contour.cents, states, note, target, t0, p)
+        pitch, orn, gap, leaps, cost = _rescore(contour.cents, states, note, target, t0, p, hop)
         a, b = _extend(contour.cents, t0, int(t_end), swars[0], swars[-1], p, hop)
         path = np.concatenate([np.full(t0 - a, 0), note[states], np.full(b - int(t_end), len(swars) - 1)])
-        out.append(Candidate(a * hop, (b + 1) * hop, cost, pitch, orn, gap, path, a, b))
+        out.append(Candidate(a * hop, (b + 1) * hop, cost, pitch, orn, gap, leaps, path, a, b))
     return sorted(out, key=lambda c: c.cost)[:top_k]
 
 

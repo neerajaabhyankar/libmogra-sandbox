@@ -100,6 +100,9 @@ notes an ornament state; free start and end. Octave-folded throughout.
 | v2 | per note: mean of its **best half** of frames; phrase: **worst note** | Lalit rank-2 was `M d M m` with G, N crammed into 4 off-pitch frames — scored like a real one. Worst-note = "every note must be present". Best-half = andolit Darbari *d* survives |
 | v3 | glides that stay between the neighbouring notes ±`kan_cents` (200) are **transit, not ornament** | fast Malkauns runs spent ~50 % of frames gliding/overshooting (kan) and were charged for it — the `m D (S') n D` case the problem says should count |
 | v4 | the **DP's** ornament emission uses the same band (`transit_cost` 0.1 vs `orn_cost` 0.6) | the DP still preferred cramming a note over paying for a long glide, so real renderings never reached the candidate pool. Clips with a candidate < 0.4: `,n S m` 16 → 25, `M d P` 16 → 20, `` `g `S n d `` 12 → 25 |
+| v5 | **held notes** (≥ 100 ms slower than 400 c/s over a 90 ms window) in an ornament slot are charged; **wrong steps** (actual step between notes differs from the shortest intended step by > 600 c) cost +1 each | found in S2: Malkauns `n S (held g) m` matched Bageshree `,n S m`; `` `S `` meend *down* to m matched `S` → m *up*; n above S dropping an octave matched `,n S`. These were false positives inside the own raag too |
+| v6 | held-run detection credits the window width | the 90 ms slope window eroded short plateaus; a 170 ms held P in `m P D n D` passed as transit |
+| — | candidate pool decoupled from `top_k` (`CANDIDATE_POOL` = 20) | S2 asked for `top_k=1` and silently re-scored only 4 DP endpoints |
 
 **What the plots show** (`results/s1/plots/<phrase>.png`: 6 best, ≤ 2 per video, then 2 from
 the median for contrast; `results/s1/audio/`: top 3 as wav with 1.5 s context):
@@ -116,50 +119,99 @@ the median for contrast; `results/s1/audio/`: top 3 as wav with 1.5 s context):
   around Sa that the ±200 c kan band waves through as "transit". Whether that is the phrase or
   just Sa-territory is exactly what S2 must answer.
 
-Summary: `results/s1/summary.csv`; every candidate: `results/s1/candidates.csv`.
+Summary: `results/s1/summary.csv`; every candidate: `results/s1/candidates.csv`. Plots and
+tables regenerated with v6.
 
 Known issues, deferred to S4 tuning: kan band is fixed at 200 c regardless of the step size;
-octave-aware matching not implemented (flag reserved); plots fold octave errors silently.
+a 70 ms touch still counts as a note (`min_dwell_s`), e.g. a *d* spike in Basant read as `M d P`.
 
-### 🟨 S2 — negative control: the gate before annotation
+### ✅ S2 — negative control: ran; the gate as designed fails, and was the wrong gate
 
-The failure mode I most expect: the matcher scores "is this stretch in-scale and roughly
-descending" and not "is this the phrase". That is invisible if you only look at its top hits.
-So, **with zero labels**:
+`run_s2.py --tag v6` → `results/s2/v6/{summary.csv, scores.csv, focus.png, overview.png}`.
+All 159 kept phrases, best cost per train clip (96 k scorings, ~15 min). Gates were fixed in
+`config.py` before the run: AUC vs legal ≥ 0.70 **and** AUC vs shuffles ≥ 0.60.
 
-1. Score phrase P (from raag A) against (a) raag A's clips, (b) clips of raags that **share
-   A's scale** (`scale_twins.py` next door already computes these), (c) clips of unrelated raags.
-2. If (a) does not separate from (b), the matcher has no phrase-specific signal and no amount
-   of annotation will rescue it — go back to S1.
-3. Report per phrase, by specificity tier. Expect the 2-swar tier to fail this test *by
-   construction* — that is the evidence for dropping it, and for telling you which ~90 phrases
-   are worth your attention.
-4. Second control: a **shuffled-phrase** baseline (same swar multiset, scrambled order). If
-   order doesn't matter, we are measuring a histogram.
+| group | what | median best cost (median over phrases) |
+|---|---|---|
+| own | the phrase's raag | 1.94 |
+| legal | other raags whose scale contains every swar of the phrase | 2.54 |
+| illegal | raags missing a swar (sample of 100 clips) | 2.95 |
 
-**Gate: separation on (a) vs (b) for the specific tier. Nothing below this line runs until it passes.**
+| statistic | v5 | **v6** |
+|---|---|---|
+| AUC own vs legal, clip level (median; ≥ 0.7) | 0.53; 8/151 | **0.55; 10/151** |
+| same, video level (min over a video's clips) | 0.59; 34 | **0.60; 43** |
+| AUC phrase vs its shuffles, own raag (median; ≥ 0.6) | 0.60; 79 | **0.61; 91** |
+| own-raag hit rate at 10 % legal-raag FPR (median) | 0.18 | **0.20** |
+| **pass both gates** | 5/159 | **8/159** (Kalawati ×3, Marwa ×2, Bahar, Hameer, Chandrakauns) |
 
-### 🟥 S3 — annotation, bootstrapped (needs you)
+Treating every cost ≥ 3.0 ("a note is missing") as a tie changes none of this, so it is not
+tie noise. 8 phrases have no other raag containing their swars (all of Lalit #0–#2, etc.).
 
-Only after S2. Design choices that matter more than the tool:
+**Reading it.**
+- **Scale-level: works.** Own < legal < illegal, cleanly.
+- **Phrase-level against playable raags: weak.** But the plots of the *other raags'* best
+  matches (`m D n D` in Aheer Bhairav, Alhaiya Bilawal, Des, Jaijaivanti; `M d P` in Multani,
+  Shree, Todi) are, by eye, **genuine renderings of the phrase shape**. Short mukhyanga
+  cells are shared melodic material; the DB's document frequency only counts where the DB
+  *lists* a phrase, not where it is sung. So the "legal" null is contaminated with true
+  positives, and **AUC vs legal measures exclusivity in performance, not matcher accuracy.**
+  I designed the gate wrongly: it can't separate "the matcher is wrong" from "the phrase is
+  not exclusive".
+- **Order matters, modestly** (91/159 ≥ 0.6 vs shuffles). Also contaminated: re-orderings of a
+  raag's own swars are often themselves sung in that raag (`D n D m` vs `m D n D`).
+- **The run was still worth it**: looking at why other raags matched found three real matcher
+  bugs (v5, v6 above), which the own-raag top-k plots had not shown.
 
-- **Verify candidates, don't transcribe from scratch.** Exhaustive labelling of 10 h is out.
-- **But verification-only labels measure precision and can never measure recall.** So two pools:
-  - **Pool V (verification, ~600 judgments)**: ~20 phrases × ~30 candidates, sampled
-    **stratified across score deciles** — not the top-K. Labelling only top hits teaches the
-    tuner nothing about where the boundary is.
-  - **Pool R (recall, small)**: 3–5 clips swept end-to-end by you for *all* phrases of their
-    raag. ~2 h of your time, and it is the only way to know what we are missing.
-- **Verdict is 3-way**: `yes` / `no` / `unsure`. (Review: "right notes, wrong feel" is not
-  penalised — in professional recordings of the raag, the note combination carries the feel.)
-- **You choose the phrases** (review Q6) from `results/phrases.csv` + S1/S2 plots: only ones you
-  are confident belong to the raag and know how they sound.
-- **First loop is small**: ~150 judgments over ~5 phrases (review Q1).
-- Tool: local single-key CLI or notebook — audio snippet (±2 s context) + contour plot with the
-  aligned swar path drawn on it + the swar string. Append-only JSONL:
-  `{clip_id, t0, t1, phrase, raag, verdict, notes, annotator, ts, score, config_hash}`.
-- **Re-show 10% silently** to get your own self-agreement. If you disagree with yourself 20% of
-  the time, that caps every number downstream and we should know it.
+**Consequence for S3.** No label-free null answers "is this candidate the phrase?", so the first
+annotation loop answers it directly. (I proposed source-blind mixing of own-raag and other-raag
+candidates; the review replaced it with something simpler and better targeted — see S3.)
+
+### 🔄 S3 — annotation (running)
+
+**The reframing that settles S2** (review, 2026-09-22): separate
+
+- **(a) judging a raag's character from a phrase** — *not* what we are doing. Alhaiya Bilawal
+  having `m D n D` is irrelevant here.
+- **(b) trusting a raag as a place where a phrase is *likely* to occur** — this is what the raag
+  label buys us: Bageshree is a **searching ground** for positive examples of `m D n D`.
+
+So annotation is **own raag only**, and the question per candidate is purely:
+
+| verdict | meaning |
+|---|---|
+| **yes** | an *ornamented* path that still traces the phrase — Neeraja would notate it as that phrase |
+| **no** | an approximate presence she cannot identify as it: too ornamented (`m D n SRnS n D`) or simply a different phrase (`P D n D`) |
+| unsure | can't tell from the audio |
+
+Cross-raag AUC is therefore dropped as a metric. The S2 runs stay in the notebook as the
+reason (and as the bug-finder they turned out to be).
+
+**What the phrases are.** `neeraja_mukhyangas.json` — hand-picked, may be shortened or modified,
+overlaps the tanarang DB but is not bound by it ("the DB phrases are a suggestion, not an
+airtight signature"). 12 phrases over 6 raags for this round; `mukhyangas.py` loads them as
+`phrases.Phrase`, validating every swar against the raag's scale.
+
+| | |
+|---|---|
+| tanarang, verbatim | Bageshree#0 `,n S m` · Bageshree#4 `m D n D` · DarbariKanada#2 `n m P ` S` · Malhar#2 `g m R S` · Malhar#3 `,n D ,N S` · PuriyaDhanashri#0 `,N r G M P` · Bheempalasi#0 `,n S g m P` |
+| Neeraja's | DarbariKanada#N1 `m P d n P` · PuriyaDhanashri#N1 `M G M r G` · Shree#N1 `M P d M G r` · Shree#N2 `r P r G r S` · Bheempalasi#N1 `,n S g R S` |
+
+**The pool** (`s3.py build`): candidates from the phrase's own train clips, ≤ 1 per clip and
+≤ 2 per video, sampled across **absolute cost bands** — strong (< 0.3) ×5, mid (0.3–0.8) ×4,
+weak (0.8–1.5) ×3 — so there are genuine "no"s to give. Nothing above 1.5 is offered: there a
+note is missing outright and the answer is trivially no. Order is shuffled and costs are never
+shown, so the judgments are blind. 4–12 candidates per phrase (some phrases simply do not fit
+often); snippets are the candidate ± 0.6 s, with 0.7 s of silence appended.
+
+**The loop**: `s3.py play --phrase X --batch k` (6 at a time, via `afplay`) → Neeraja answers
+`y`/`n`/`u` → `s3.py record --phrase X --batch k --answers "..."` appends to
+`annotations/labels.jsonl` (verdict + clip, interval, cost, band, matcher version, timestamp).
+`s3.py report` prints yes-rate by band per phrase.
+
+Found while building the pools: **tritone steps** (`r → P` in `r P r G r S`) were charged the
+wrong-step penalty, because "the shortest step" is ambiguous at exactly 600 cents and the code
+assumed downward. Fixed (matcher **v7**); that phrase went from best cost 1.03 to 0.03.
 
 ### 🟥 S4 — tune the heuristic on labels (still no learning)
 
@@ -246,7 +298,7 @@ Fixed now, so nothing gets chosen after the fact.
 | `../raag-identifier/utils/extract.py` | `_essentia` tracker | call it; **new cache, f0 only** |
 | `../raag-identifier/melody-extraction/note_segmentation.py` | — | **deliberately not used**, see above |
 | `../raag-identifier/motif-classifier/methods/m5_channel.py` | Baum-Welch ornament emission matrix | port in S5 |
-| `../raag-identifier/motif-classifier/scale_twins.py` | scale-twin raag pairs | the S2 null set |
+| `../raag-identifier/motif-classifier/scale_twins.py` | scale-twin raag pairs | not used: `run_s2.py` derives twins and "legal" raags from `utils.raagdb` scales directly |
 
 Nothing outside `../raag-identifier/` is imported.
 
@@ -264,3 +316,11 @@ Nothing outside `../raag-identifier/` is imported.
   8 focus raags (Bageshree, Shree, PuriyaDhanashri, Malhar, Malkauns, DarbariKanada, Lalit,
   Bhoopali). Four scoring revisions, all driven by plots (table in S1). Plots restyled per
   review. **Next: S2** — per-phrase null (scale-twins, unrelated raags, shuffled phrase).
+- **2026-09-20** — S2 ✅ ran (v6): 8/159 pass the pre-set gate. Diagnosis: the "legal raag" null
+  is full of genuine occurrences of short shared cells, so the gate measured exclusivity, not
+  accuracy. Three matcher bugs found along the way (held notes as transit, wrong-direction/octave
+  steps, pool tied to top_k), all fixed; S1 regenerated. **Next: S3**, source-blind, on
+  phrases you pick.
+- **2026-09-22** — S3 set up and **running**: `neeraja_mukhyangas.json` (12 phrases, 6 raags),
+  `mukhyangas.py`, `s3.py` (build / play / record / report). Own-raag-only pools, blind, cost-band
+  stratified. Tritone wrong-step bug found and fixed (matcher v7).

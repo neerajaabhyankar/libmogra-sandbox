@@ -87,3 +87,69 @@ def snippet(clip, t0, t1, path, pad=C.PLOT_PAD_S):
     import soundfile as sf
     y, sr = librosa.load(clip.path, sr=None, mono=True, offset=max(0, t0 - pad), duration=t1 - t0 + 2 * pad)
     sf.write(path, y, sr)
+
+
+def s2_summary(rows, path, focus):
+    """Two panels, shared phrase order: AUC vs legal raags | AUC vs shuffles. Gate + chance lines."""
+    key = lambda r: -1.0 if np.isnan(float(r["auc_legal"])) else float(r["auc_legal"])
+    rows = sorted([r for r in rows if r["raag"] in focus], key=key)
+    y = np.arange(len(rows))
+    fig, axes = plt.subplots(1, 2, figsize=(S["width"], 0.26 * len(rows) + 1.3), sharey=True)
+    panels = [("auc_legal", "own raag vs raags where the phrase is playable", C.S2_GATE_AUC_NULL),
+              ("auc_shuffle", "phrase vs its re-orderings (own raag)", C.S2_GATE_AUC_SHUFFLE)]
+    for ax, (key, title, gate) in zip(axes, panels):
+        x = np.array([float(r[key]) for r in rows])
+        ok = np.array([r["passes"] == "True" for r in rows])
+        ax.axvline(0.5, color=S["context"], lw=1)
+        ax.axvline(gate, color=S["ink2"], lw=1, ls=(0, (1, 2)))
+        ax.text(gate, len(rows) - 0.3, f"gate {gate}", fontsize=7, color=S["ink2"], ha="left", va="bottom")
+        ax.hlines(y, 0.5, x, color=S["grid"], lw=1.5)
+        ax.scatter(x[~ok], y[~ok], s=36, color=S["context"], zorder=3, edgecolor=S["surface"], lw=1.5)
+        ax.scatter(x[ok], y[ok], s=36, color=S["note"], zorder=3, edgecolor=S["surface"], lw=1.5)
+        for yi in y[np.isnan(x)]:
+            ax.text(0.505, yi, "no other raag has these swars", fontsize=7, color=S["ink2"], va="center",
+                    bbox=dict(fc=S["surface"], ec="none", pad=0.5))
+        ax.set_xlim(0.3, 1.0)
+        ax.set_title(title, loc="left", fontsize=8.5, color=S["ink"])
+        ax.grid(axis="x", color=S["grid"], lw=0.8)
+        ax.set_axisbelow(True)
+        ax.tick_params(length=0)
+        for sp in ("top", "right", "left"):
+            ax.spines[sp].set_visible(False)
+        ax.set_xlabel("AUC  (0.5 = no signal)", color=S["ink2"])
+    axes[0].set_yticks(y, [f"{r['phrase_id']}  {r['phrase']}" for r in rows])
+    for lab, r in zip(axes[0].get_yticklabels(), rows):
+        lab.set_fontweight("bold" if r["passes"] == "True" else "normal")
+        lab.set_color(S["ink"] if r["passes"] == "True" else S["ink2"])
+    fig.suptitle("S2 — does the matcher find the phrase, or just the raag's swars?", x=0.01, ha="left",
+                 fontsize=11, fontweight="bold", color=S["ink"])
+    fig.legend(handles=[Line2D([], [], marker="o", ls="", color=S["note"], label="passes both gates"),
+                        Line2D([], [], marker="o", ls="", color=S["context"], label="fails")],
+               loc="upper right", ncol=2, frameon=False, fontsize=8, labelcolor=S["ink2"])
+    fig.tight_layout(rect=(0, 0, 1, 1 - 0.5 / fig.get_figheight()))
+    fig.savefig(path, dpi=S["dpi"])
+    plt.close(fig)
+
+
+def s2_overview(rows, path, focus):
+    """Every kept phrase: AUC vs legal raags (x) against AUC vs shuffles (y); gates as a quadrant."""
+    fig, ax = plt.subplots(figsize=(6.2, 5.2))
+    x = np.array([float(r["auc_legal"]) for r in rows])
+    yv = np.array([float(r["auc_shuffle"]) for r in rows])
+    f = np.array([r["raag"] in focus for r in rows])
+    ax.axvline(C.S2_GATE_AUC_NULL, color=S["ink2"], lw=1, ls=(0, (1, 2)))
+    ax.axhline(C.S2_GATE_AUC_SHUFFLE, color=S["ink2"], lw=1, ls=(0, (1, 2)))
+    ax.scatter(x[~f], yv[~f], s=30, color=S["context"], edgecolor=S["surface"], lw=1.5, label="other raags")
+    ax.scatter(x[f], yv[f], s=36, color=S["note"], edgecolor=S["surface"], lw=1.5, label="focus raags")
+    ax.text(0.99, 0.99, "passes", transform=ax.transAxes, ha="right", va="top", fontsize=8, color=S["ink2"])
+    ax.set_xlabel("AUC: own raag vs raags where playable", color=S["ink2"])
+    ax.set_ylabel("AUC: phrase vs its re-orderings", color=S["ink2"])
+    ax.set_xlim(0.3, 1.0); ax.set_ylim(0.3, 1.0)
+    ax.grid(color=S["grid"], lw=0.8); ax.set_axisbelow(True); ax.tick_params(length=0)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+    ax.set_title(f"All {len(rows)} kept phrases", loc="left", fontsize=10, fontweight="bold", color=S["ink"])
+    ax.legend(frameon=False, fontsize=8, labelcolor=S["ink2"], loc="lower right")
+    fig.tight_layout()
+    fig.savefig(path, dpi=S["dpi"])
+    plt.close(fig)

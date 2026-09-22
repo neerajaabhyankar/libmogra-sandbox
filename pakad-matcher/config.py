@@ -22,6 +22,7 @@ MIN_PHRASE_LEN = 3            # after collapsing repeats; 2-swar entries dropped
 MAX_PHRASE_DF = 9             # drop phrases whose full n-gram occurs in >= 10 DB raags
 NGRAM_RANGE = (2, 3)          # sub-n-grams whose IDF defines "idiosyncrasy"
 PHRASES_CSV = RESULTS_DIR / "phrases.csv"
+MUKHYANGAS_JSON = HERE / "neeraja_mukhyangas.json"   # hand-picked phrases; beats the DB
 
 # first-loop raags (plan.md Q2)
 FOCUS_RAAGS = ["Bageshree", "Shree", "PuriyaDhanashri", "Malhar",
@@ -40,9 +41,14 @@ MATCH = dict(
     step_eps=0.01,            # tiny per-frame cost: prefers the tightest interval
     orn_weight=1.0,           # weight of ornament-time fraction in the final score
     kan_cents=200.0,          # glide/kan within this of the neighbouring notes' range is not ornament
-    note_trim=0.5,            # a note is scored on its best-fitting half of frames (andolan-tolerant)
+    held_slope=400.0,         # cents/s over held_win_s: slower than this is "sitting" on a pitch ...
+    held_win_s=0.09,          # slope window; Melodia's 10-cent steps make frame-to-frame slope useless
+    held_min_s=0.10,          # ... for at least this long = a held note, not a glide/kan
+    note_trim=0.5,
+    leap_penalty=1.0,         # per step whose direction/octave contradicts the phrase            # a note is scored on its best-fitting half of frames (andolan-tolerant)
 )
 TOP_K = 5                     # candidates kept per (clip, phrase)
+CANDIDATE_POOL = 20           # DP endpoints re-scored before taking the top-k (independent of top-k)
 NMS_IOU = 0.3                 # overlapping candidates above this IoU are suppressed
 PLOT_PAD_S = 1.5              # context shown either side of a candidate
 
@@ -60,3 +66,26 @@ STYLE = dict(
     note="#2a78d6", orn="#eb6834", band="#2a78d6", band_alpha=0.06,
     font="DejaVu Sans", row_h=1.9, width=9.0, dpi=130,
 )
+
+# ---- S2: negative control (fixed before looking at results)
+S2_DIR = RESULTS_DIR / "s2"          # a run writes to S2_DIR / <tag>
+S2_N_SHUFFLES = 5             # distinct re-orderings of each phrase, scored on its own raag
+S2_ILLEGAL_SAMPLE = 100       # clips sampled from raags lacking one of the phrase's swars
+S2_SEED = 0
+S2_WORKERS = 6
+S2_GATE_AUC_NULL = 0.70       # own raag vs "legal" raags (all phrase swars in scale), clip level
+S2_GATE_AUC_SHUFFLE = 0.60    # phrase vs its shuffles, on own-raag clips
+S2_FPR = 0.10                 # hit rate reported at this false-positive rate of the legal null
+
+# ---- S3: annotation (own raag only; see plan.md "what counts as a positive")
+S3_DIR = HERE / "annotations"
+S3_POOL_PER_PHRASE = 12       # candidates offered per phrase ...
+S3_BANDS = (("strong", 0.0, 0.30, 5),    # (name, cost lo, hi, how many) -- absolute cost,
+            ("mid",    0.3, 0.80, 4),    # deliberately mixed, so there are "no"s to give
+            ("weak",   0.8, 1.50, 3))    # past ~1.5 a note is missing outright: no use asking
+S3_TOP_PER_CLIP = 3           # candidates considered per clip before sampling
+S3_MAX_PER_VIDEO = 2          # no recording dominates a phrase's pool
+S3_CONTEXT_S = 0.6            # audio context either side of the candidate
+S3_TAIL_S = 0.7               # silence appended, so a sequence of clips is easy to follow
+S3_SEED = 7
+MATCHER_VERSION = "v7"        # stamped on every label, so labels outlive the matcher
