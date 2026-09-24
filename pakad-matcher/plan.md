@@ -17,310 +17,388 @@ What makes this challenging:
 3. The above two often being part of the recommended ways a certain phrase is rendered -- i.e. just a string of notes doesn't capture what melody that phrase is supposed to stand for.
 4. Presence in slow alaps as well as fast taans
 
----
+## The larger goal (review, 2026-09-22)
 
-## What the data actually looks like
+Phrase-finding is a **contained proof-of-concept**. What this is really for: statistical questions
+about a new recording, answered from its pitch track --
 
-Measured 2026-09-20 with throwaway probes (Bageshree / Bhoopali / Malkauns, train split). These numbers set the design.
+> "does ga mostly occur in the descent, or in the ascent too?" · "does this singer use a Re that
+> isn't in the raag, and how often?" · "is this bandish sung with Kamod ang -- is that combination
+> taken often?"
 
-| fact | value | consequence |
-|---|---|---|
-| dataset v1.1 train | 1810 clips × 20 s = **~10 h**, 50 raags, 8 videos/raag, 40 clips/raag | enough to find phrases; too much to annotate exhaustively |
-| **tonic is annotated per clip** (`tonics.csv`) | verified: best of 12 rotations was k=0 on **12/12** probed clips, frame-level in-scale 0.73–0.92 | the lever that dominated `motif-classifier` is *given* here. Do not re-estimate it. |
-| mukhyanga phrases | **229** over the 50 raags, mean 4.6/raag | |
-| phrase lengths | 2 swars: 33 · 3: 54 · 4: 59 · 5+: 83 | a third of "phrases" are 2-grams |
-| phrase specificity (DB document frequency) | **90/229 unique to one raag**; **65/229 occur in ≥10 raags** (`DP`, `mP`, `NS`, `RS`…) | `Kafi: m P` is not a locatable event. Phrase tiering is not optional. |
-| Essentia Melodia cost | ~60× real time on M1 | full train f0 cache ≈ **10 min**. Cheap. |
-
-### The one result that changes the representation
-
-`../raag-identifier/melody-extraction/note_segmentation.py` was tuned for the classifier
-(`tol_cents=50, min_note_dur=0.2`). Its short-segment merge **averages pitch across note
-boundaries**, so meend/kan transits land *between* swars:
-
-| segmentation | notes/clip | in-scale (count) | in-scale (**duration-weighted**) |
-|---|---|---|---|
-| frames, no segmentation | — | — | **0.77 – 0.89** |
-| `tol=50, min_dur=0.2` (the default) | 17–47 | 0.60–0.75 | 0.65–0.82 ⟵ *worse than frames* |
-| `tol=50, min_dur=0.0` | 62–352 | 0.49–0.71 | **0.73–0.92** |
-| `tol=30, min_dur=0.1` | 23–101 | 0.74–0.87 | 0.78–0.90 |
-
-Two readings:
-- the off-scale notes are the **short** ones (count-weighted ≪ duration-weighted) — they are
-  ornament transit, not error;
-- **the default merge destroys exactly the information we need.** Do not reuse the cached
-  `notes` arrays. Cache the **frame-level f0** and work on the contour.
-
-Corollary, measured: the verbatim string `m D n D` occurs **0 times** in the collapsed note
-strings of 5 Bageshree clips. Symbol-string matching is dead on arrival — consistent with
-`motif-classifier`'s M1 (0.20 of clips contained any verbatim mukhyanga) and its M5 premise.
-
-### So the shape of the solution is forced
-
-Work on the **tonic-relative cents contour**. A phrase is not a string to find; it is a
-*path* to align. That is a subsequence alignment / left-to-right HMM decode — which gives
-challenges 1, 2 and 4 for free:
-
-| challenge | mechanism |
-|---|---|
-| 2. arbitrary time dilation | per-state self-loop, unbounded dwell |
-| 1. kan swars, ornamentation | an "ornament" state between phrase states that absorbs any pitch at a fixed cost |
-| 4. alap vs taan | score normalised by matched duration, not frame count |
-| 3. melodic identity, not note string | ⟵ **this is the part that needs human data.** Stages 3–5. |
+Two properties of that goal shape everything below: **rhythm is irrelevant**, and **being right 8
+times in 10 is useful** -- an aggregate statistic tolerates per-note error, as long as the error is
+not systematically biased.
 
 ---
 
-## Approach
-
-Six stages. Each one is gated on the previous producing a number worth continuing from.
-Stage 2 is the gate before we spend any of your time annotating.
-
-### ✅ S0 — scaffolding and the f0 cache
-
-| file | what |
-|---|---|
-| `config.py` | every constant (paths, tiers, matcher costs, plot style) |
-| `_bootstrap.py` | puts `../raag-identifier` on `sys.path` |
-| `contour.py` | `python contour.py` builds `cache/f0_essentia_v1.1_train.npz` (1810 clips, raw f0 only, ~4 min on 6 workers). `contour(clip_id)` → tonic-relative cents, downsampled 225 → 56 fps by NaN-aware median |
-| `phrases.py` | `python phrases.py` → `results/phrases.csv`: all 229 phrases, `kept` flag, `df`, `idf`, `turns`. **159 kept** (≥3 swars, full-phrase DF ≤ 9); `idf` = mean IDF of 2-/3-grams, so `G D P` outranks `G m P` (Q4) |
-
-### ✅ S1 — the heuristic matcher (no learning)
-
-`matcher.py`, `plot.py`, `run_s1.py`. ~18 ms per (clip, phrase); all 28 focus phrases × their clips in ~1 min.
-
-**Model.** Subsequence Viterbi over a left-to-right chain:
-note *k* = `min_dwell_s` (70 ms) of chained sub-states, the last one with a self-loop; between
-notes an ornament state; free start and end. Octave-folded throughout.
-
-**Scoring, as it evolved** (each step came from looking at plots, not from a metric):
-
-| version | change | why |
-|---|---|---|
-| v1 | re-score = mean per-note misfit + ornament fraction | DP total cost is length-biased; re-score is duration-invariant (alap vs taan) |
-| v2 | per note: mean of its **best half** of frames; phrase: **worst note** | Lalit rank-2 was `M d M m` with G, N crammed into 4 off-pitch frames — scored like a real one. Worst-note = "every note must be present". Best-half = andolit Darbari *d* survives |
-| v3 | glides that stay between the neighbouring notes ±`kan_cents` (200) are **transit, not ornament** | fast Malkauns runs spent ~50 % of frames gliding/overshooting (kan) and were charged for it — the `m D (S') n D` case the problem says should count |
-| v4 | the **DP's** ornament emission uses the same band (`transit_cost` 0.1 vs `orn_cost` 0.6) | the DP still preferred cramming a note over paying for a long glide, so real renderings never reached the candidate pool. Clips with a candidate < 0.4: `,n S m` 16 → 25, `M d P` 16 → 20, `` `g `S n d `` 12 → 25 |
-| v5 | **held notes** (≥ 100 ms slower than 400 c/s over a 90 ms window) in an ornament slot are charged; **wrong steps** (actual step between notes differs from the shortest intended step by > 600 c) cost +1 each | found in S2: Malkauns `n S (held g) m` matched Bageshree `,n S m`; `` `S `` meend *down* to m matched `S` → m *up*; n above S dropping an octave matched `,n S`. These were false positives inside the own raag too |
-| v6 | held-run detection credits the window width | the 90 ms slope window eroded short plateaus; a 170 ms held P in `m P D n D` passed as transit |
-| — | candidate pool decoupled from `top_k` (`CANDIDATE_POOL` = 20) | S2 asked for `top_k=1` and silently re-scored only 4 DP endpoints |
-
-**What the plots show** (`results/s1/plots/<phrase>.png`: 6 best, ≤ 2 per video, then 2 from
-the median for contrast; `results/s1/audio/`: top 3 as wav with 1.5 s context):
-
-- Top-ranked candidates are, by eye, the phrase: `m D n D`, `m P d P d n P` (andolit *d* and
-  all), `G M d N d M m`, `S ,N r`. Median-band candidates are visibly forced. **Ranking within
-  a phrase works.**
-- **The cost scale is not comparable across phrases.** Genuine andolit Darbari scores 0.26–0.59;
-  a flat `S ,N r` scores 0.00. Any threshold has to be per phrase → S2's per-phrase null.
-- **Long phrases (≥ 7 swars) rarely appear whole** in 20 s chunks: median best = 3.0 (a note
-  entirely missing). Malkauns `g m n d m` found in 6/50 clips. Accepted (review: the DB is a
-  suggestion, not a signature).
-- **Short phrases light up everywhere**: `S ,N r` < 0.2 in 35/45 Shree clips. Some are gamaks
-  around Sa that the ±200 c kan band waves through as "transit". Whether that is the phrase or
-  just Sa-territory is exactly what S2 must answer.
-
-Summary: `results/s1/summary.csv`; every candidate: `results/s1/candidates.csv`. Plots and
-tables regenerated with v6.
-
-Known issues, deferred to S4 tuning: kan band is fixed at 200 c regardless of the step size;
-a 70 ms touch still counts as a note (`min_dwell_s`), e.g. a *d* spike in Basant read as `M d P`.
-
-### ✅ S2 — negative control: ran; the gate as designed fails, and was the wrong gate
-
-`run_s2.py --tag v6` → `results/s2/v6/{summary.csv, scores.csv, focus.png, overview.png}`.
-All 159 kept phrases, best cost per train clip (96 k scorings, ~15 min). Gates were fixed in
-`config.py` before the run: AUC vs legal ≥ 0.70 **and** AUC vs shuffles ≥ 0.60.
-
-| group | what | median best cost (median over phrases) |
-|---|---|---|
-| own | the phrase's raag | 1.94 |
-| legal | other raags whose scale contains every swar of the phrase | 2.54 |
-| illegal | raags missing a swar (sample of 100 clips) | 2.95 |
-
-| statistic | v5 | **v6** |
-|---|---|---|
-| AUC own vs legal, clip level (median; ≥ 0.7) | 0.53; 8/151 | **0.55; 10/151** |
-| same, video level (min over a video's clips) | 0.59; 34 | **0.60; 43** |
-| AUC phrase vs its shuffles, own raag (median; ≥ 0.6) | 0.60; 79 | **0.61; 91** |
-| own-raag hit rate at 10 % legal-raag FPR (median) | 0.18 | **0.20** |
-| **pass both gates** | 5/159 | **8/159** (Kalawati ×3, Marwa ×2, Bahar, Hameer, Chandrakauns) |
-
-Treating every cost ≥ 3.0 ("a note is missing") as a tie changes none of this, so it is not
-tie noise. 8 phrases have no other raag containing their swars (all of Lalit #0–#2, etc.).
-
-**Reading it.**
-- **Scale-level: works.** Own < legal < illegal, cleanly.
-- **Phrase-level against playable raags: weak.** But the plots of the *other raags'* best
-  matches (`m D n D` in Aheer Bhairav, Alhaiya Bilawal, Des, Jaijaivanti; `M d P` in Multani,
-  Shree, Todi) are, by eye, **genuine renderings of the phrase shape**. Short mukhyanga
-  cells are shared melodic material; the DB's document frequency only counts where the DB
-  *lists* a phrase, not where it is sung. So the "legal" null is contaminated with true
-  positives, and **AUC vs legal measures exclusivity in performance, not matcher accuracy.**
-  I designed the gate wrongly: it can't separate "the matcher is wrong" from "the phrase is
-  not exclusive".
-- **Order matters, modestly** (91/159 ≥ 0.6 vs shuffles). Also contaminated: re-orderings of a
-  raag's own swars are often themselves sung in that raag (`D n D m` vs `m D n D`).
-- **The run was still worth it**: looking at why other raags matched found three real matcher
-  bugs (v5, v6 above), which the own-raag top-k plots had not shown.
-
-**Consequence for S3.** No label-free null answers "is this candidate the phrase?", so the first
-annotation loop answers it directly. (I proposed source-blind mixing of own-raag and other-raag
-candidates; the review replaced it with something simpler and better targeted — see S3.)
-
-### 🔄 S3 — annotation (running)
-
-**The reframing that settles S2** (review, 2026-09-22): separate
-
-- **(a) judging a raag's character from a phrase** — *not* what we are doing. Alhaiya Bilawal
-  having `m D n D` is irrelevant here.
-- **(b) trusting a raag as a place where a phrase is *likely* to occur** — this is what the raag
-  label buys us: Bageshree is a **searching ground** for positive examples of `m D n D`.
-
-So annotation is **own raag only**, and the question per candidate is purely:
-
-| verdict | meaning |
-|---|---|
-| **yes** | an *ornamented* path that still traces the phrase — Neeraja would notate it as that phrase |
-| **no** | an approximate presence she cannot identify as it: too ornamented (`m D n SRnS n D`) or simply a different phrase (`P D n D`) |
-| unsure | can't tell from the audio |
-
-Cross-raag AUC is therefore dropped as a metric. The S2 runs stay in the notebook as the
-reason (and as the bug-finder they turned out to be).
-
-**What the phrases are.** `neeraja_mukhyangas.json` — hand-picked, may be shortened or modified,
-overlaps the tanarang DB but is not bound by it ("the DB phrases are a suggestion, not an
-airtight signature"). 12 phrases over 6 raags for this round; `mukhyangas.py` loads them as
-`phrases.Phrase`, validating every swar against the raag's scale.
+## Where it stands
 
 | | |
 |---|---|
-| tanarang, verbatim | Bageshree#0 `,n S m` · Bageshree#4 `m D n D` · DarbariKanada#2 `n m P ` S` · Malhar#2 `g m R S` · Malhar#3 `,n D ,N S` · PuriyaDhanashri#0 `,N r G M P` · Bheempalasi#0 `,n S g m P` |
-| Neeraja's | DarbariKanada#N1 `m P d n P` · PuriyaDhanashri#N1 `M G M r G` · Shree#N1 `M P d M G r` · Shree#N2 `r P r G r S` · Bheempalasi#N1 `,n S g R S` |
+| Finding candidates | works -- ~2 in 3 of what it surfaces is accepted by ear, before ranking |
+| Ranking them | **precision@1 0.75, @3 0.86** after tuning (was 0.58 / 0.58), leave-one-phrase-out |
+| Ranking, as AUC | per-phrase **0.67** tuned (was 0.50 = chance) |
+| Ground truth | 168 y/n judgments, 12 phrases, 6 raags, 42 recordings, 44 comments |
+| Corpus | 20.3 h of full recordings, pitch-tracked, tonic-annotated, train-split only |
 
-**The pool** (`s3.py build`): candidates from the phrase's own train clips, ≤ 1 per clip and
-≤ 2 per video, sampled across **absolute cost bands** — strong (< 0.3) ×5, mid (0.3–0.8) ×4,
-weak (0.8–1.5) ×3 — so there are genuine "no"s to give. Nothing above 1.5 is offered: there a
-note is missing outright and the answer is trivially no. Order is shuffled and costs are never
-shown, so the judgments are blind. 4–12 candidates per phrase (some phrases simply do not fit
-often); snippets are the candidate ± 0.6 s, with 0.7 s of silence appended.
-
-**The loop**: `s3.py play --phrase X --batch k` (6 at a time, via `afplay`) → Neeraja answers
-`y`/`n`/`u` → `s3.py record --phrase X --batch k --answers "..."` appends to
-`annotations/labels.jsonl` (verdict + clip, interval, cost, band, matcher version, timestamp).
-`s3.py report` prints yes-rate by band per phrase.
-
-Found while building the pools: **tritone steps** (`r → P` in `r P r G r S`) were charged the
-wrong-step penalty, because "the shortest step" is ambiguous at exactly 600 cents and the code
-assumed downward. Fixed (matcher **v7**); that phrase went from best cost 1.03 to 0.03.
-
-### 🟥 S4 — tune the heuristic on labels (still no learning)
-
-- Coordinate/grid search over the ~6 costs (ornament cost, gap cost, dwell prior, cents
-  tolerance, octave-fold, normalisation) maximising **per-phrase average precision** on Pool V.
-- **Folds grouped by video**, train split only. A phrase found in 3 chunks of one recording is
-  one observation, not three.
-- Report the tuned-vs-default delta, and the loss when `notes-yes-feel-no` is counted as
-  positive vs negative — that quantifies how much of the problem the note path solves.
-
-### 🟥 S5 — light sequential learning
-
-Only what the labels can support (hundreds of positives, so tens of parameters):
-
-- **Per-phrase HMM fit**: replace hand-set dwell/ornament costs with ones estimated from
-  confirmed positives (dwell distribution per swar, which ornaments actually occur where).
-  This is the direct attack on challenge 3 — the phrase's *rendering*, learned.
-- **Shared ornament channel**: `motif-classifier/methods/m5_channel.py` already Baum-Welch-fits
-  a 12×12 `P(observed | intended)` emission matrix — a model of tracker+ornament behaviour,
-  pooled over raags, so it cannot leak raag identity. Port it to frame level and reuse.
-- **Reranker**: logistic regression over cheap features (alignment cost, dwell-profile match,
-  nyas landing, direction, duration) on the candidates. ~10 weights.
-- Grow Pool V by active learning: label the new model's *uncertain* band, not its confident one.
-
-### 🟥 S6 — deep methods
-
-Not until S4/S5 plateau **and** Pool R shows the ceiling is recall, not precision. What would
-justify it: a contour encoder trained with the confirmed positives as a metric-learning signal
-(the `melody-first/` survey lists the candidates). Written down so we can say no to it on purpose.
+The single biggest lesson: **tuning the existing heuristic beat every new feature I invented**
+(0.67 vs 0.55). See S4 / S4b.
 
 ---
 
-## Evaluation protocol
+## Data and representation
 
-Fixed now, so nothing gets chosen after the fact.
-
-- **Unit**: a candidate interval. A hit needs `IoU ≥ 0.5` with a labelled positive — phrase
-  boundaries are genuinely fuzzy, so exact endpoints are not the claim.
-- **Headline metric**: per-phrase **average precision**, macro-averaged within specificity tier.
-  Precision@1 and @5 reported alongside (that is what a user of this actually feels).
-- **Recall** only from Pool R. Stated as an estimate with its n, never as "recall".
-- **Always alongside**: the S2 null (same phrase, scale-twin raags) and the shuffled-phrase
-  baseline. A precision number without them means nothing.
-- Train split only, video-grouped, throughout. The test split is not touched by this project
-  until there is something finished to measure once.
-
----
-
-## Decisions from review (2026-09-20)
-
-1. **Annotation budget.** Pool V at ~600 judgments is maybe 2–3 h. Pool R is ~2 h more. Is that
-   the right size, or should I aim smaller for a first loop (say 150 judgments over 5 phrases)?
-   <br>--> Smaller first loop please.
-2. **Which raags first?** I'd pick 5 with distinctive long phrases and clean audio — Bageshree,
-   Malkauns, Bhoopali, Darbari, Lalit — rather than sampling all 50 thinly. Objection?
-   <br>--> Sounds good -- select raags that have more distinctive phrases. I suggest: Bageshree, Shree, Puriya Dhanashri, Malhar, ... although open to more/others, not just 5.
-3. **`notes-yes-feel-no`**: is that the right third category, or do you want to split it
-   (wrong tempo / wrong ornament / wrong emphasis)? Your call — you're the annotator.
-   <br>--> Hmm this one is tricky. For now, I'll refrain from penalizing this -- if the note combo exists in the given raag, in these professional musician recordings, it probably fits the feel bill.
-4. **Phrase tiering**: confirm we drop the 33 two-swar entries and the 65 that occur in ≥10
-   raags, i.e. work the ~90 unique ones. Or are some 2-swar entries real pakads to you
-   (`Bageshree: ,n ,D` reads like one) that I shouldn't discard?
-   <br>--> Yes, please discard these. You may also place weightage on more idiosyncratic phrases, more complex phrases (e.g. "G m P" is commonly found but "G D P" is more special though the length is the same)
-5. Clips are 20 s chunks of longer videos. `../raag-identifier/hindustani-raag-fullaudios/`
-   exists — worth using full recordings later, or stay on the pinned dataset? (Staying, unless
-   you say otherwise; the pin is in CLAUDE.md.)
-   <br>--> For exploration and on an as-needed basis, we can use the full audios. Prefer the pinned for all
-   reproducible workflows. If that's not enough, though, open to switching to full audios too.
-6. **Choosing phrases for annotation** I'd like to select which ones to annotate here. My own
-   musical (incomplete) training v/s the source of mukhyangas in the DB may be have divergences; I'll
-   stick to phrases I'm confident about belonging to a raag + knowing how they feel. Also note that the
-   database phrases are often a suggestion and not an exhaustive holy grail or an airtight raag signature.
-   Our goal is to do our best at identifying where they lie, if they do.
-
----
-
-## Reuse map
-
-| from | what | note |
+| fact | value | consequence |
 |---|---|---|
-| `../raag-identifier/utils/config.py` | dataset/cache paths, pinned revisions | as-is |
-| `../raag-identifier/utils/dataset.py` | `load_clips`, tonics | as-is |
-| `../raag-identifier/utils/raagdb.py` | `Raag`, `parse_phrase`, `collapse`, `ngram_document_frequency` | as-is; phrase tiering built on the last |
-| `../raag-identifier/utils/extract.py` | `_essentia` tracker | call it; **new cache, f0 only** |
-| `../raag-identifier/melody-extraction/note_segmentation.py` | — | **deliberately not used**, see above |
-| `../raag-identifier/motif-classifier/methods/m5_channel.py` | Baum-Welch ornament emission matrix | port in S5 |
-| `../raag-identifier/motif-classifier/scale_twins.py` | scale-twin raag pairs | not used: `run_s2.py` derives twins and "legal" raags from `utils.raagdb` scales directly |
+| dataset v1.1 train | 1810 clips x 20 s ~ 10 h, 50 raags | the pinned, reproducible corpus |
+| full recordings | 45 train-split videos of the 6 annotation raags, **20.3 h** | real context; read-only; test-split videos excluded throughout |
+| **tonic is annotated** (`tonics.csv`) | best of 12 rotations was k=0 on 12/12 probed clips; frame-level in-scale 0.73-0.92 | the lever that dominated `motif-classifier` is *given* here, never re-estimated. The video id in each full-audio filename is the one `tonics.csv` annotates, so full recordings inherit it |
+| mukhyanga phrases | 229 over 50 raags; 33 are 2-swar; 65 occur in >=10 raags | tiering is not optional (`phrases.py` keeps 159) |
+| Melodia | ~60x real time; 10-cent quantised | 20 h tracked in ~12 min on 6 workers, in 5-minute blocks |
 
-Nothing outside `../raag-identifier/` is imported.
+**The note segmentation had to be abandoned.** `melody-extraction/note_segmentation.py` was tuned
+for the classifier (`min_note_dur=0.2`); its short-segment merge averages pitch *across* note
+boundaries, so meend/kan transits land between swars:
+
+| segmentation | in-scale (duration-weighted) |
+|---|---|
+| raw frames | 0.77-0.89 |
+| default `min_dur=0.2` | 0.65-0.82 <- *worse than frames* |
+| `min_dur=0.0` | 0.73-0.92 |
+
+Verbatim `m D n D` occurs **0 times** in the collapsed note strings of 5 Bageshree clips. Symbol
+matching is dead; everything works on the **frame-level tonic-relative cents contour**, where a
+phrase is a path to align, not a string to find.
+
+---
+
+## The matcher
+
+Subsequence Viterbi over a left-to-right chain (`matcher.py`): note *k* is `min_dwell_s` of chained
+sub-states with a self-loop on the last (-> arbitrary dilation); between notes an ornament state
+(-> kan swars, meend); free start and end. Octave-folded, with the phrase's own saptak marks used
+for a register check. Candidates are re-scored with duration-invariant terms -- worst note's pitch
+misfit + ornament-excursion fraction + gap fraction + wrong-step and register penalties -- so a slow
+alap and a fast taan compete on equal terms. ~18 ms per 20 s clip; 27 min of audio in ~1 s.
+
+**Every change below came from looking at a plot or a label, not from a metric moving.**
+
+| # | change | found by |
+|---|---|---|
+| v2 | a span is scored by its **worst** note, not the mean | a Lalit "match" missing 2 of 7 notes scored like a real one |
+| v3 | glides/kan within `kan_cents` of the neighbouring notes are **transit, not ornament** | fast Malkauns runs spent half their frames gliding and were charged for it |
+| v4 | the **DP's** ornament emission uses the same band | the DP preferred cramming a note into 4 off-pitch frames over paying for a long glide, so real renderings never reached the candidate pool |
+| v5 | **held notes** in an ornament slot are charged; **wrong steps** (direction/octave) cost +1 | Malkauns `n S (held g) m` matched Bageshree `,n S m`; a meend *down* to m matched `S`->m *up* |
+| v6 | held-run detection credits the slope window | Melodia's 10-cent steps made a 170 ms held P look like motion |
+| v7 | **tritones** accept either direction | `r -> P` is exactly 600c, where "shortest step" is ambiguous; ascending `r P` was being penalised |
+| -- | candidate pool **scales with track length** (`CANDIDATES_PER_MIN`) | 20 regions is fine for a 20 s clip, hopeless for 30 min: Darbari `n m P `S` looked absent (3.4) until fixed, then scored 0.12 |
+| -- | **register check** from the phrase's saptak marks | a `,n S m` an octave up scored 0.00 |
+| S4b | five costs **tuned on the annotations** | see below |
+
+---
+
+## What was measured
+
+### ✅ S1 -- the heuristic, eyeballed (`run_s1.py`, `results/s1/`)
+
+Top candidates are, by eye, the phrase -- including andolit Darbari `m P d P d n P` and a 4-second
+`G M d N d M m`. Median-band candidates are visibly forced. Two findings outlived the stage:
+**the cost scale is not comparable across phrases** (genuine andolit Darbari 0.26-0.59; a flat
+`S ,N r` 0.00), and **long phrases rarely appear whole** in 20 s chunks.
+
+### ✅ S2 -- the label-free gate failed, and was the wrong gate (`run_s2.py`, `results/s2/v6/`)
+
+Scoring each phrase against raags where it is merely *playable*: median AUC **0.55**, 8/159 phrases
+passed the pre-registered gate. But those other raags' best matches are, by eye, **genuine
+renderings** (`m D n D` in Alhaiya Bilawal and Jaijaivanti; `M d P` in Multani, Shree, Todi). Short
+mukhyanga cells are shared melodic material, and the DB's document frequency counts only where a
+phrase is *listed*, not where it is sung. So that AUC measures **exclusivity in performance, not
+accuracy**, and no label-free null can separate the two. Scale-level separation does work (own 1.94
+< playable 2.54 < unplayable 2.95). The run earned its keep by exposing three matcher bugs.
+
+### ✅ S3 -- annotation, 168 labels (`annotate_app.py`, `annotations/`)
+
+Settled by review: **(a)** judging a raag's character from a phrase is *not* the task -- Alhaiya
+Bilawal having `m D n D` is irrelevant; **(b)** the raag label buys us a **searching ground** where
+the phrase is likely. So: own raag only, and one question per candidate --
+
+| verdict | meaning |
+|---|---|
+| **yes** | an *ornamented* path that still traces the phrase -- Neeraja would notate it as that phrase |
+| **no** | an approximate presence she cannot identify as it: too ornamented (`m D n SRnS n D`), or a different phrase (`P D n D`) |
+
+Phrases live in **`neeraja_mukhyangas.json`** -- hand-picked, sometimes shortened or modified,
+overlapping the tanarang DB but not bound by it ("the DB phrases are a suggestion, not an airtight
+signature"). 12 phrases, 6 raags: 7 verbatim + 5 Neeraja's own.
+
+The pool: the matcher's best candidates from full recordings, <=3 per recording, spread over tempo
+terciles so slow alap renderings are offered alongside fast ones (**no duration cap** -- that was an
+arbitrary rule of mine that would have excluded exactly the slow renderings we want). Context is cut
+at the surrounding silences -- the musical "sentence", 1.5-5 s either side.
+
+The app: pitch track of the sentence, candidate shaded with its aligned path and swar labels, a
+**playhead** locked to the audio, `z` zoom, `p` play just the candidate, `y`/`n`/`u`, and a free-text
+note per judgment. Two bugs fixed mid-use: audio served without HTTP byte ranges (so the browser
+could not seek at all), and one `timeupdate` listener leaked per press.
+
+An earlier pool of 20 s clips (`annotations/labels_pool1.jsonl`, 24 labels) was scrapped -- snippets
+of 1-2 s with no context. Not wasted: `,n S m` getting 12 no's out of 12 is what exposed the
+octave-blindness and the fast-transit bias.
+
+### ✅ S4 -- features built from the comments: negative (`features.py`, `s4.py`)
+
+The comments sort cleanly, so I built one feature per reason: **salience** (Melodia confidence,
+re-extracted over all 20 h) for "the S is coming from the drone" / "P from tanpura not voice"
+(~14 of 59 no's); **tempo_ratio** against the local median note length for "too fast to be
+meaningful, given the context"; **held_extra** for "this is n S g m".
+
+| model | per-phrase AUC | P@3 |
+|---|---|---|
+| cost, as shipped then | 0.503 | 0.58 |
+| logistic regression, unseen recording | 0.529 | 0.67 |
+| logistic regression, unseen phrase | 0.548 | 0.64 |
+
+- **Salience answers the wrong question.** Not degenerate (0-0.09, median 0.019 voiced) -- it
+  measures how *strong* a pitch is, and a tanpura is strong and periodic. `salience_rel` = 1.04 on
+  drone-flagged candidates, 1.04 on accepted ones.
+- **`hpss+drone` separation is too destructive to verify with.** Per-candidate windows, re-tracked:
+  disputed notes do vanish (the tanpura P in `r P r G r S`), but so do genuine ones -- notes lost or
+  off by >60c went 5 -> 19 on flagged candidates and **1 -> 11 on accepted ones**. The version worth
+  trying is a separator that knows Indian instruments (BS-RoFormer on Saraga; see
+  `source-separation/plan.md`), not HPSS.
+- **In-span features cannot settle the "different phrase" cases.** `held_extra` fires on 1 of the 5.
+  Re-reading them, `,n S m` is called `n S g m` because of *what follows* the match, and "the m here
+  is actually a kan in n S (m) g" was still marked yes on technicality. That judgment lives in the
+  surrounding movement, which nothing confined to the span can see.
+
+### ✅ S4b -- tuning the existing heuristic: positive (`tune.py`)
+
+Coordinate ascent over the re-scoring knobs on the fixed labelled spans, objective = per-phrase AUC.
+
+| | per-phrase AUC | P@1 | P@3 |
+|---|---|---|---|
+| as shipped | 0.500 | 0.58 | 0.58 |
+| **tuned, leave-one-phrase-out** | **0.669** | **0.75** | **0.86** |
+| tuned on all 12 (optimistic) | 0.719 | | |
+| adopted defaults (register kept) | 0.682 | 0.75 | 0.78 |
+
+What each change is worth alone: `note_trim` 0.5 -> **1.0** (0.646), `register_penalty` 0.5 -> 0
+(0.603), `free_cents` 30 -> **15** (0.563), `held_slope` 400 -> **800** (0.518), `note_cap` 3 -> **2**.
+
+The interesting one is `note_trim`. Scoring a note on its **best half** of frames -- my andolan
+tolerance -- let a note that is merely *passed through* count as sung. The ear wants the note
+actually dwelt on. `register_penalty` -> 0 is **not** adopted: the pool it tuned on was built with
+the register check on, so tuning never saw the octave-wrong candidates it removes.
+
+Per-phrase yes-rates: `M P d M G r` 0.86 · `,n S g m P`, `,n S g R S`, `m D n D` 0.79 · `,n S m`,
+`,n D ,N S`, `m P d n P` 0.71 · `g m R S`, `M G M r G` 0.64 · `r P r G r S` 0.57 · `,N r G M P` 0.50
+· `n m P `S` 0.07. The last is **kept**: Neeraja recognises the phrase generally, it just isn't in
+these recordings, and the negatives are themselves signal.
+
+---
+
+---
+
+## The task, stated so it can be scored
+
+**Input** a pitch track (or audio plus its tonic in Hz) · a **samooha**: 2-8 swars, optional saptak
+marks, e.g. `,n S m`. **Output** ranked time intervals, each with a cost and a calibrated
+probability. **Out of scope, deliberately**: rhythm, raag identification, and whether the samooha is
+characteristic of anything.
+
+| | |
+|---|---|
+| unit of evaluation | an interval; a hit needs IoU >= 0.5 with a human-marked occurrence (boundaries are genuinely fuzzy) |
+| primary metric | **precision@1 and @3** -- what a user of the tool feels |
+| ranking metric | **per-phrase AUC** -- does a yes outrank a no *within* one samooha |
+| threshold metric | precision/recall at one **global** threshold, for "find all occurrences" |
+| recall | only measurable against notated chunks (S5b); everything to date is precision-only |
+| held-out discipline | leave-one-phrase-out (an unseen samooha) and grouped by recording |
+
+**Where it stands against that.** P@1 0.75 · P@3 0.86 (leave-one-phrase-out) · per-phrase AUC 0.669
+· at the best global threshold, F1 0.82 (precision 0.71, "recall" 0.96 -- over proposed spans only,
+so it is an upper bound, not recall). **Next targets**: P@3 >= 0.90, and once notation exists,
+recall >= 0.80 at precision >= 0.80.
+
+**Testbed**: the 12 samoohas in `neeraja_mukhyangas.json` plus whatever the notated chunks yield.
+Statistical queries (the long-term goal) stay out of the evaluation until there is a corpus to score
+them on -- the phrase task is the proxy that can be scored today.
+
+## The tool (`pakad.py`)
+
+The formulation is meant to be handed to a bigger system, so it has one small surface:
+
+```python
+from pakad import find
+find("raga.mp3", ",n S m", tonic_hz=155.06, top_k=5, min_probability=0.6)
+# -> [<,n S m 464.18-464.44s p=0.67>, ...]
+```
+
+`poetry run python pakad.py raga.mp3 --samooha ",n S m" --tonic 155.06 --top 5 [--json]` does the
+same from a shell. It takes audio, a `Contour`, or a raw `(f0, hop)` pair, so a caller that already
+has a pitch track never re-tracks. **The tonic is required and never guessed** -- it is the one
+input that changes every answer.
+
+`probability` comes from `calibrate.py`: Platt scaling of the cost on the 168 judgments, validated
+leave-one-phrase-out (Brier **0.208** against a 0.228 base rate). It is honest but coarse -- 
+reliability by band is 0.00 / 0.62 / 0.47 / 0.69 / 0.80 -- so treat it as "roughly how sure", not a
+probability to do arithmetic with. It will sharpen when the corpus grows.
+
+## What's next
+
+The goal above changes the target: the core capability is **reading a contour as a swar sequence**,
+well enough that *aggregates* over it are right. Phrase-finding is one query against that reading.
+
+### ✅ S5a -- likelihood ratio: negative (`decode.py`, `s5a.py`)
+
+The score is **absolute** -- it says how well a span fits a phrase, not whether the phrase is the
+best account of that span. A stretch sitting quietly on two swars fits half the database at ~0.
+So: score a span by `phrase-constrained decode - free decode` of the same span, under identical
+emissions, ornament rules and dwell. Both decodes now exist in `decode.py` and cover the span end
+to end.
+
+| score | per-phrase AUC | P@1 | P@3 | pooled AUC (one global threshold) |
+|---|---|---|---|---|
+| tuned cost | **0.682** | 0.75 | 0.78 | **0.692** |
+| ratio, free = any of 12 swars | 0.644 | 0.58 | 0.69 | 0.664 |
+| ratio, free = the raag's scale | 0.647 | 0.58 | 0.69 | -- |
+| ratio, free = scale, per note | 0.654 | 0.58 | 0.67 | -- |
+| cost + ratio | 0.689-0.702 | 0.75 | 0.75-0.81 | 0.702 |
+
+It does make the score slightly more comparable across phrases (spread of the per-phrase median
+of accepted candidates: 0.73 vs 0.96) but not enough to matter: at the best global threshold both
+reach F1 0.82. **Not adopted as the score.**
+
+**The caveat that keeps the idea alive.** Every labelled span was *chosen by the matcher* as one of
+its best fits, so the constrained and free decodes almost agree there by construction. What the
+ratio is actually for -- deciding, over a whole recording, which stretches are the phrase and which
+are nothing -- is untested, because we have no labels for spans the matcher never proposed. That is
+exactly the gap the notation corpus fills. `decode.py` stays: the free decode is also what the
+notation view aligns with, and it is the skeleton of the learned model in S7.
+
+### 🔄 S5b -- the notation corpus: tool ready, notating next
+
+Notate 15-30 s chunks **as heard**: swar sequence, octave marks, no rhythm. Why this beats more
+y/n labels: a y/n is **one bit**, a notated 20 s chunk is 30-60 notes; it gives **recall**, which
+candidate-verification structurally cannot; it is ground truth for the reading itself; and phrase
+positives and negatives fall out of it for *any* samooha, so "more phrases / more raags" stops
+being a separate annotation job.
+
+**Chunks** (`chunks.py`): 24 stretches, 2 recordings per raag, one slow and one dense from each --
+0.10-0.55 held notes/s for the alap chunks, 1.25-2.35 for the taans (density measured with the same
+`_held` the scorer uses, so "slow" and "dense" mean what the model sees). ~7 minutes of audio.
+
+**The view** (`/notate`), after the 2026-09-23 review:
+
+| | |
+|---|---|
+| **sub-ranges, not whole chunks** | drag across the plot to select a stretch; a taan gets split into 4-5 of them "for convenience + clarity + correction where your alignment is wrong". Stretches are listed under the plot; click one to reopen it for editing (swars *and* edges), `esc` to leave it, `×` to drop it |
+| **coverage counts, but notes land on notes** | free ends inside the selection (silence, drone), scored `cost + NOTATE_COVER_WEIGHT x (1 - coverage) + NOTATE_HELD_WEIGHT x (1 - on-held)`; the span-covering candidate runs with **absorbing rim states**, so an unaccounted-for blip at an edge costs like ornament instead of dragging a note out to it. Coverage is always shown. On the worked example, `g g g m m` places all three *g*s on held pitch (300/315/308 c) over 90 % of the selection |
+| **one swar is a legal notation** | useful exactly when the alignment fails and you want to pin a single note down |
+| **a swar keypad** | `,P` to `` `P ``, laid out like a keyboard with every natural a step apart and komal/teevra between their neighbours; saptaks shown by a band behind madhya, not by gaps. Clicking appends. Raag notes can be **marked by hand** for a visual ring -- set by the notator, never inferred |
+| dropped | the "has non-voice pitch" flag -- drone and stray pitch are always there, so the flag carried nothing |
+
+Alignment reuses the matcher itself (`matcher.match` over the selection), so the notator sees
+exactly what the model would propose, and correcting it is the supervision.
+
+Interaction settled on review: colour says state (aligning blue, added green, ornament purple --
+a category, not a fault); `⇧space` / `⇧K` drive playback mid-word so it never fights typing; a
+selection plays **once** and stops at its end, and its edges can be dragged to extend it;
+`add stretch` sits beside `align` so the pending action is visible; no flags.
+
+**Still open, to settle by using it**: per-note correction (deferred -- sub-ranges may make it
+unnecessary), and whether 20 s / 15 s chunks are the right size. Further ideas for the tool live in
+**`notator.md`**, which is its own parking lot now that it is worth more than this errand.
+
+### 🟥 S6 -- the query layer, evaluated at the level of the statistic
+
+Build what the goal actually asks for: per-swar ascent/descent context, dwell and nyas landing,
+n-gram counts, foreign-swar rate, "is this ang present" as a phrase-count query.
+
+Evaluate the **statistic, not the transcription**: compute each query from (a) the human notation and
+(b) the automatic reading of the same chunk, and report agreement per query type. This is where "8
+out of 10 is useful" gets measured. Aggregates survive unbiased per-note noise; what poisons them is
+*bias* -- if the tracker systematically drops mandra notes, or counts ornaments as notes, "how often
+does ga appear in ascent" is wrong in a fixed direction. Measuring that bias is the point, and it
+decides which questions are answerable today and which are not.
+
+### 🟥 S7 -- the learnable version
+
+Keep the structure, learn the parameters. The current model is already an HMM with hand-set costs;
+the notated corpus turns each of those into something estimable:
+
+- **emissions** P(cents | swar) -- per-swar intonation, including andolan, estimated rather than
+  assumed (`motif-classifier`'s M5 channel matrix is the same idea one level up);
+- **durations** -- a semi-Markov duration model per swar replaces `min_dwell_s`;
+- **an ornament/transit state** with learned occupancy replaces `kan_cents` and `orn_cost`;
+- decoding then yields a swar sequence *with a likelihood*, so S5a's ratio becomes principled rather
+  than a hand-built cost.
+
+Only past that, and only if the notated corpus says the error is in the *reading* rather than the
+scoring, does a neural sequence labeller (temporal conv or BiLSTM-CRF over contour features) earn
+its place. 168 y/n labels can train nothing; 30-40 notated chunks can train a small CRF; a contour
+encoder needs much more than we will have.
+
+### Annotation, in priority order
+
+1. **Notated chunks** (S5b) -- the pivot. Everything else is downstream of it.
+2. More phrases/raags only *through* notation -- they come free from notated chunks.
+3. More y/n judgments only to settle a specific disagreement, not as a default.
+
+---
+
+## Files
+
+| file | what |
+|---|---|
+| `config.py` | every constant, including which ones were tuned and on what |
+| `contour.py` | f0 cache for the pinned clips; `contour()` -> tonic-relative cents at ~56 fps |
+| `fullaudio.py` | the full recordings: index by video id, inherit the annotated tonic, f0 + salience cache |
+| `phrases.py` / `mukhyangas.py` | the DB catalogue with tiering / Neeraja's hand-picked phrases |
+| `matcher.py` | the model: `match()` and `score_path()` |
+| `pool.py` | annotation pools from full audio, with sentence-length context |
+| `annotate_app.py` + `.html` | the local annotation app (playhead, zoom, comments) |
+| `s3.py` | the earlier terminal annotation loop (pool v1) |
+| `features.py` / `s4.py` | features from the comments, and their evaluation |
+| `decode.py` | phrase-constrained and free decodes of a span; `align()` for notation |
+| `calibrate.py` | cost -> probability (Platt, leave-one-phrase-out) |
+| `pakad.py` | **the tool**: `find(audio, samooha, tonic_hz)`, plus a CLI |
+| `chunks.py` / `notate_app.html` | notation chunks and the notation view (see `notator.md`) |
+| `s5a.py` | the likelihood-ratio evaluation |
+| `tune.py` | coordinate ascent over the costs on the labels |
+| `run_s1.py` / `run_s2.py` / `plot.py` | the eyeball run, the null-control run, plotting |
+
+Reused from `../raag-identifier/`: `utils.config`, `utils.dataset`, `utils.raagdb`,
+`utils.extract._essentia` (settings; `fullaudio._melodia` re-implements it to keep salience),
+`source-separation` (tested, not adopted). **Not** used: `melody-extraction/note_segmentation.py`,
+deliberately. Nothing outside `../raag-identifier/` is imported.
 
 ---
 
 ## Log
 
-- **2026-09-20** — Read the problem. Probed the data (throwaway scripts, not checked in):
-  confirmed annotated tonics put notes on the right swar grid (12/12 clips, k=0);
-  found that the shared note segmentation's short-segment merge *lowers* duration-weighted
-  in-scale (0.67 vs 0.90) and that no verbatim `m D n D` survives in 5 Bageshree clips.
-  Both push the whole project onto the frame-level contour rather than a symbol string.
-  Plan written; reviewed (answers inline above).
-- **2026-09-20** — S0 ✅ (f0 cache, phrase catalogue: 159/229 kept). S1 ✅: matcher + plots over
-  8 focus raags (Bageshree, Shree, PuriyaDhanashri, Malhar, Malkauns, DarbariKanada, Lalit,
-  Bhoopali). Four scoring revisions, all driven by plots (table in S1). Plots restyled per
-  review. **Next: S2** — per-phrase null (scale-twins, unrelated raags, shuffled phrase).
-- **2026-09-20** — S2 ✅ ran (v6): 8/159 pass the pre-set gate. Diagnosis: the "legal raag" null
-  is full of genuine occurrences of short shared cells, so the gate measured exclusivity, not
-  accuracy. Three matcher bugs found along the way (held notes as transit, wrong-direction/octave
-  steps, pool tied to top_k), all fixed; S1 regenerated. **Next: S3**, source-blind, on
-  phrases you pick.
-- **2026-09-22** — S3 set up and **running**: `neeraja_mukhyangas.json` (12 phrases, 6 raags),
-  `mukhyangas.py`, `s3.py` (build / play / record / report). Own-raag-only pools, blind, cost-band
-  stratified. Tritone wrong-step bug found and fixed (matcher v7).
+- **2026-09-20** -- Probed the data: annotated tonics land notes on the right swar grid (12/12);
+  the shared note segmenter's merge *lowers* duration-weighted in-scale (0.67 vs 0.90); no verbatim
+  `m D n D` survives in 5 Bageshree clips. All three push the project onto the frame-level contour.
+  S0 (f0 cache, 159/229 phrases kept) and S1 (matcher + plots over 8 raags) done; four scoring
+  revisions, all driven by plots.
+- **2026-09-20** -- S2 ran: 8/159 phrases pass the pre-set gate. Diagnosis: the "playable raag" null
+  is full of genuine occurrences, so the gate measured exclusivity, not accuracy. Three matcher bugs
+  found and fixed along the way.
+- **2026-09-22** -- S3: `neeraja_mukhyangas.json`, terminal loop, pool v1 (24 labels) scrapped after
+  review; pool v2 built from 20.3 h of full recordings with a visual annotation app. Bugs found:
+  octave-blind matching, tempo-skewed candidates, candidate pool far too small for long recordings,
+  tritone steps penalised, audio served without byte ranges.
+- **2026-09-23** -- S5a likelihood ratio: **negative** (0.644-0.702 vs 0.682 for the tuned cost),
+  with the caveat that the labelled spans are the matcher's own picks, so the comparative question
+  it was built for is untested until recall data exists. Task restated so it can be scored
+  (P@1/P@3, per-phrase AUC, one global threshold; recall pending notation). Tool shipped:
+  `pakad.py` + calibrated probability. Notation chunks and the `/notate` view built, then reworked
+  on review: sub-range selection, free-ended alignment with coverage reported, and a `,P`-to-`` `P ``
+  swar keypad. `notator.md` opened for where the notation tool goes next.
+- **2026-09-22** -- **168 labels done.** S4: every feature invented from the comments lands at
+  0.53-0.55 per-phrase AUC; salience cannot tell drone from voice, and HPSS separation destroys
+  genuine notes as fast as spurious ones (both measured). S4b: **tuning the five existing costs
+  reaches 0.669 / P@3 0.86**, adopted. Goal clarified -- statistical queries over a pitch track, with
+  phrase-finding as the proof-of-concept -- and the roadmap rewritten around a notation corpus.

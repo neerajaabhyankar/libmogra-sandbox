@@ -68,8 +68,11 @@ class Contour:
 def contour(clip_id, downsample=C.DOWNSAMPLE):
     """Tonic-relative cents, downsampled by a NaN-aware median (unvoiced if most frames are)."""
     z = _cache()
-    f0, hop = z[f"{clip_id}|f0"], float(z[f"{clip_id}|hop"])
-    tonic = clips()[clip_id].tonic_hz
+    return contour_from_f0(z[f"{clip_id}|f0"], float(z[f"{clip_id}|hop"]),
+                           clips()[clip_id].tonic_hz, clip_id, downsample)
+
+
+def contour_from_f0(f0, hop, tonic, ident, downsample=C.DOWNSAMPLE):
     with np.errstate(divide="ignore", invalid="ignore"):
         cents = np.where(f0 > 0, 1200 * np.log2(f0 / tonic), np.nan)
     n = len(cents) // downsample * downsample
@@ -80,7 +83,7 @@ def contour(clip_id, downsample=C.DOWNSAMPLE):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
             med = np.nanmedian(blocks, axis=1)
-    return Contour(clip_id, np.where(voiced, med, np.nan), hop * downsample)
+    return Contour(ident, np.where(voiced, med, np.nan), hop * downsample)
 
 
 def cached_ids():

@@ -1,0 +1,463 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>notate</title>
+<style>
+  :root {
+    --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --grid: #e6e5e0;
+    --context: #b9b7af; --note: #2a78d6; --orn: #a77ddb; --ok: #1baf7a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface); color: var(--ink);
+         font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  header { padding: 12px 20px 9px; border-bottom: 1px solid var(--grid);
+           display: flex; align-items: baseline; gap: 14px; }
+  h1 { margin: 0; font-size: 15px; }
+  .sub { color: var(--ink2); font-size: 12.5px; }
+  a { color: var(--note); }
+  main { display: grid; grid-template-columns: 200px 1fr; min-height: calc(100vh - 52px); }
+  nav { border-right: 1px solid var(--grid); padding: 8px 0; overflow-y: auto;
+        max-height: calc(100vh - 52px); }
+  nav button { display: block; width: 100%; text-align: left; border: 0; background: none;
+               padding: 6px 13px; font: inherit; color: var(--ink2); cursor: pointer; }
+  nav button.on { background: #eef4fc; color: var(--ink); box-shadow: inset 3px 0 0 var(--note); }
+  nav .t { font-weight: 600; color: var(--ink); font-size: 13px; }
+  nav .d { font-size: 11.5px; }
+  nav .done { color: var(--ok); }
+  section { padding: 12px 20px 26px; }
+  #plot { width: 100%; height: 280px; display: block; cursor: crosshair; touch-action: none; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 9px; }
+  .btn { border: 1px solid var(--grid); background: #fff; border-radius: 7px; padding: 6px 12px;
+         font: inherit; cursor: pointer; }
+  .btn.p { border-color: var(--note); color: #1b5fae; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .meta { color: var(--ink2); font-size: 12.5px; }
+  kbd { font: 11px ui-monospace, monospace; background: #f1f0ec; border-radius: 4px; padding: 1px 5px; }
+  input.text { flex: 1; min-width: 260px; padding: 7px 10px; font: 14px ui-monospace, monospace;
+               border: 1px solid var(--grid); border-radius: 7px; background: #fff; }
+  input.text:focus { outline: 2px solid var(--note); outline-offset: -1px; }
+  /* the swar keypad: naturals on the line, komal + teevra raised, like a keyboard */
+  #padwrap { overflow-x: auto; margin-top: 10px; }
+  #pad { position: relative; height: 86px; user-select: none; }
+  #pad .k { position: absolute; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--grid);
+            background: #fff; font: 12px -apple-system, sans-serif; color: var(--ink); cursor: pointer;
+            display: flex; align-items: center; justify-content: center; padding: 0; }
+  #pad .k.sa { border-color: var(--note); color: #1b5fae; font-weight: 700; }
+  #pad .k:hover { border-color: var(--note); }
+  #pad .k.expect { box-shadow: 0 0 0 3px #fcfcfb, 0 0 0 4.5px var(--note); }
+  #pad .oct { position: absolute; top: 70px; font-size: 11px; color: #b0aea6; white-space: nowrap; }
+  #pad .band { position: absolute; top: -2px; height: 70px; background: #f1f0ec; border-radius: 10px; }
+  #pad.marking .k { cursor: cell; }
+  table { border-collapse: collapse; margin-top: 12px; font-size: 13px; width: 100%; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--ink2); font-weight: 500; font-size: 12px; }
+  tr.sel td { background: #eef4fc; }
+  td.sw { font-family: ui-monospace, monospace; }
+  .x { border: 0; background: none; color: var(--ink2); cursor: pointer; font-size: 15px; }
+</style>
+
+<header>
+  <h1 id="title">notate</h1>
+  <div class="sub" id="subtitle">loading…</div>
+  <div class="sub" style="margin-left:auto"><a href="/">← phrase judging</a></div>
+</header>
+<main>
+  <nav id="nav"></nav>
+  <section>
+    <canvas id="plot"></canvas>
+    <div class="row">
+      <button class="btn p" id="play">play <kbd>⇧space</kbd></button>
+      <button class="btn" id="playsel" disabled>play selection <kbd>⇧K</kbd></button>
+      <button class="btn" id="loop">loop off <kbd>l</kbd></button>
+      <button class="btn" id="rate">0.75× <kbd>[</kbd></button>
+      <button class="btn" id="mark">mark raag notes</button>
+      <span class="meta" id="selinfo">drag across the plot to select a stretch · click to seek</span>
+    </div>
+
+    <div id="padwrap"><div id="pad"></div></div>
+
+    <div class="row">
+      <input class="text" id="swars" spellcheck="false" placeholder="swars for the selected stretch — click the circles, or type">
+      <button class="btn" id="undo">⌫</button>
+      <button class="btn p" id="align" disabled>align <kbd>↵</kbd></button>
+      <button class="btn p" id="add" disabled>add stretch <kbd>⇧↵</kbd></button>
+      <span class="meta" id="fit"></span>
+    </div>
+    <div class="row">
+      <button class="btn" id="save">save chunk <kbd>⌘S</kbd></button>
+      <span class="meta" id="saved"></span>
+      <input class="text" id="note" placeholder="note about this chunk (optional)" style="flex:1">
+    </div>
+
+    <table id="segs"><thead><tr><th style="width:120px">from–to</th><th>swars</th>
+      <th style="width:70px">fit</th><th style="width:70px">flags</th><th style="width:30px"></th></tr></thead>
+      <tbody></tbody></table>
+  </section>
+</main>
+<audio id="au"></audio>
+
+<script>
+const $ = s => document.querySelector(s);
+let list = [], cur = null, data = null, segs = [], selIdx = -1;
+let sel = null, preview = null, raf = null, looping = false, dragging = null;
+const au = $("#au");
+
+// ---------- swar keypad: ,P up to `P
+const NAMES = ["S","r","R","g","G","m","M","P","d","D","n","N"];
+const NATURAL = new Set([0, 2, 4, 5, 7, 9, 11]);
+function padTokens() {
+  // laid out like a keyboard: every natural gets the same step, komal/teevra sit between their
+  // neighbours. Saptaks are shown by the band behind madhya, not by gaps, so G-m and N-`S match.
+  const NAT = { 0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6 };
+  const ALT = { 1: 0.5, 3: 1.5, 6: 3.5, 8: 4.5, 10: 5.5 };
+  const out = [];
+  for (let v = -5; v <= 19; v++) {                       // ,P .. `P
+    const sw = ((v % 12) + 12) % 12, oct = Math.floor(v / 12);
+    out.push({ token: (oct > 0 ? "`" : oct < 0 ? "," : "") + NAMES[sw], sw,
+               x: (oct + 1) * 7 + (sw in NAT ? NAT[sw] : ALT[sw]),
+               natural: sw in NAT, sa: sw === 0, oct });
+  }
+  return out;
+}
+function drawPad() {
+  const pad = $("#pad"); pad.innerHTML = "";
+  const toks = padTokens(), W = 40;
+  const band = document.createElement("div");           // madhya saptak, behind the circles
+  const first = 7 * W, last = 13 * W + 30, edge = 9;    // S's left edge .. N's right edge
+  band.className = "band";
+  band.style.left = (first - edge) + "px";
+  band.style.width = (last - first + 2 * edge) + "px";
+  pad.appendChild(band);
+  toks.forEach(t => {
+    const b = document.createElement("button");
+    b.className = "k" + (t.sa ? " sa" : "") + (expected.has(t.sw) ? " expect" : "");
+    b.textContent = t.token;
+    b.style.left = (t.x * W) + "px";
+    b.style.top = t.natural ? "36px" : "2px";
+    b.title = marking ? "click to mark as a raag note" : t.token;
+    b.onclick = () => marking ? toggleExpected(t.sw) : appendToken(t.token);
+    pad.appendChild(b);
+  });
+  [["mandra", 0], ["madhya", 7], ["taar", 14]].forEach(([name, x]) => {
+    const l = document.createElement("div");
+    l.className = "oct"; l.style.left = (x * W) + "px"; l.textContent = name;
+    pad.appendChild(l);
+  });
+  pad.style.width = (Math.max(...toks.map(t => t.x)) * W + 38) + "px";
+  pad.className = marking ? "marking" : "";
+}
+
+// ---------- raag notes the notator expects: purely a visual aid, never inferred for them
+let expected = new Set(), marking = false;
+function expectKey() { return "expect:" + (data ? data.raag : ""); }
+function loadExpected() {
+  try { expected = new Set(JSON.parse(localStorage.getItem(expectKey()) || "[]")); }
+  catch (e) { expected = new Set(); }
+}
+function toggleExpected(sw) {
+  expected.has(sw) ? expected.delete(sw) : expected.add(sw);
+  try { localStorage.setItem(expectKey(), JSON.stringify([...expected])); } catch (e) {}
+  drawPad(); draw();
+}
+function appendToken(tok) {
+  const box = $("#swars");
+  box.value = (box.value.trim() + " " + tok).trim() + " ";
+  box.focus(); buttons();
+  if (sel) align();
+}
+
+// ---------- chunks
+async function boot() { list = await (await fetch("/api/chunks")).json(); drawNav(); await open(list[0].id); }
+
+function drawNav() {
+  $("#nav").innerHTML = "";
+  list.forEach(c => {
+    const b = document.createElement("button");
+    b.className = cur && c.id === cur.id ? "on" : "";
+    b.innerHTML = `<div class="t">${c.raag} <span class="meta">${c.kind}</span></div>
+      <div class="d">${c.notes_per_s} notes/s ${c.segments ? `<span class="done">· ${c.segments} stretch${c.segments > 1 ? "es" : ""}</span>` : ""}</div>`;
+    b.onclick = () => open(c.id);
+    $("#nav").appendChild(b);
+  });
+}
+
+async function open(id) {
+  data = await (await fetch("/api/chunk/" + id)).json();
+  cur = list.find(c => c.id === id);
+  segs = (data.segments || []).slice();
+  sel = null; preview = null; selIdx = -1;
+  $("#swars").value = ""; $("#note").value = data.note || ""; $("#fit").textContent = "";
+  $("#saved").textContent = "";
+  $("#title").textContent = `${data.raag} · ${data.kind}`;
+  $("#subtitle").textContent = `${data.video} · ${fmt(data.t0)}–${fmt(data.t1)} · Sa = ${data.tonic_hz.toFixed(1)} Hz`;
+  au.src = `/chunkaudio/${id}.wav`; au.currentTime = 0; stopAt = null;
+  loadExpected(); drawPad();
+  drawNav(); drawSegs(); buttons(); draw(); tick();
+}
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const dur = () => data.cents.length * data.hop;
+
+// ---------- drawing
+function geom() {
+  const c = $("#plot"), dpr = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== w * dpr) { c.width = w * dpr; c.height = h * dpr; }
+  const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { g, w, h, pad: { l: 34, r: 12, t: 14, b: 20 } };
+}
+function draw() {
+  if (!data) return;
+  const { g, w, h, pad } = geom();
+  const vals = data.cents.filter(v => v !== null);
+  const lo = Math.min(...vals) - 120, hi = Math.max(...vals) + 120;
+  const X = i => pad.l + (i / (data.cents.length - 1)) * (w - pad.l - pad.r);
+  const Y = c => pad.t + (1 - (c - lo) / (hi - lo)) * (h - pad.t - pad.b);
+  g.clearRect(0, 0, w, h);
+
+  g.font = "11px -apple-system, sans-serif"; g.textBaseline = "middle";
+  for (let c = Math.floor(lo / 100) * 100; c <= hi; c += 100) {
+    const sw = ((Math.round(c / 100) % 12) + 12) % 12, inScale = data.scale.includes(sw);
+    const oct = Math.floor(Math.round(c / 100) / 12);
+    const mark = expected.has(sw);
+    g.strokeStyle = mark ? "#c9d9ef" : inScale ? "#dedcd6" : "#f2f1ed";
+    g.lineWidth = mark ? 2 : 1;
+    g.beginPath(); g.moveTo(pad.l, Y(c) + .5); g.lineTo(w - pad.r, Y(c) + .5); g.stroke();
+    if (inScale || mark) { g.fillStyle = mark ? "#1b5fae" : "#8a8880"; g.textAlign = "right";
+      g.fillText((oct > 0 ? "`" : oct < 0 ? "," : "") + data.swar_names[sw], pad.l - 6, Y(c)); }
+  }
+  // saved stretches, then the live selection
+  segs.forEach((s, i) => {
+    g.fillStyle = i === selIdx ? "rgba(42,120,214,.13)" : "rgba(27,175,122,.10)";
+    g.fillRect(X(s.t0 / data.hop), pad.t, X(s.t1 / data.hop) - X(s.t0 / data.hop), h - pad.t - pad.b);
+  });
+  if (sel) {
+    const x0 = X(sel[0] / data.hop), x1 = X(sel[1] / data.hop);
+    g.fillStyle = "rgba(42,120,214,.10)";
+    g.fillRect(x0, pad.t, x1 - x0, h - pad.t - pad.b);
+    g.strokeStyle = "#2a78d6"; g.lineWidth = 1;
+    [x0, x1].forEach(x => { g.beginPath(); g.moveTo(x, pad.t); g.lineTo(x, h - pad.b); g.stroke(); });
+    g.fillStyle = "#2a78d6";                            // grips: drag either edge to extend
+    [x0, x1].forEach(x => {
+      g.beginPath(); g.roundRect(x - 3, (pad.t + h - pad.b) / 2 - 11, 6, 22, 3); g.fill();
+    });
+  }
+  const line = (test, color, width) => {
+    g.strokeStyle = color; g.lineWidth = width; g.lineJoin = "round"; g.lineCap = "round";
+    g.beginPath(); let pen = false, prev = null;
+    data.cents.forEach((c, i) => {
+      if (c === null || !test(i)) { pen = false; prev = null; return; }
+      if (prev !== null && Math.abs(c - prev) > 600) pen = false;     // octave jump: lift the pen
+      pen ? g.lineTo(X(i), Y(c)) : g.moveTo(X(i), Y(c)); pen = true; prev = c;
+    });
+    g.stroke();
+  };
+  const paint = (i0, i1, kinds, noteColor) => {
+    const at = i => (i >= i0 && i < i1) ? kinds[i - i0] : -2;
+    line(i => at(i) === -1, "#a77ddb", 2.0);          // ornament / transit: a colour, not a fault
+    line(i => at(i) >= 0, noteColor, 2.6);
+  };
+  line(() => true, "#c9c7c0", 1.4);
+  segs.forEach(s => { if (s.kinds) paint(s.i0, s.i1, s.kinds, "#1baf7a"); });
+  if (preview) paint(preview.i0, preview.i1, preview.kinds, "#2a78d6");
+
+  g.textAlign = "center"; g.font = "600 12px -apple-system, sans-serif"; g.lineWidth = 3;
+  const label = (tokens, i0, i1, kinds) => tokens.forEach((nm, k) => {
+    const at = []; for (let i = i0; i < i1; i++) if (kinds[i - i0] === k) at.push(i);
+    if (!at.length) return;
+    const mid = at[Math.floor(at.length / 2)];
+    const top = Math.min(...at.map(i => data.cents[i] === null ? 1e9 : Y(data.cents[i])));
+    g.strokeStyle = "#fcfcfb"; g.strokeText(nm, X(mid), top - 9);
+    g.fillStyle = "#0b0b0b"; g.fillText(nm, X(mid), top - 9);
+  });
+  segs.forEach(s => { if (s.kinds) label(s.swars.split(" "), s.i0, s.i1, s.kinds); });
+  if (preview) label(preview.tokens, preview.i0, preview.i1, preview.kinds);
+
+  window._px = { X, hop: data.hop, pad, h, w, n: data.cents.length };
+}
+function tick() {
+  cancelAnimationFrame(raf);
+  const step = () => {
+    draw();
+    const { X, hop, pad, h } = window._px, { g } = geom();
+    const i = au.currentTime / hop;
+    g.strokeStyle = "#0b0b0b"; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(X(i), pad.t - 5); g.lineTo(X(i), h - pad.b); g.stroke();
+    g.fillStyle = "#0b0b0b"; g.beginPath(); g.arc(X(i), pad.t - 7, 3.5, 0, 7); g.fill();
+    if (looping && sel && au.currentTime >= sel[1]) { stopAt = null; au.currentTime = sel[0]; au.play(); }
+    else if (looping && !sel && au.currentTime >= au.duration - 0.05) { au.currentTime = 0; au.play(); }
+    raf = requestAnimationFrame(step);
+  };
+  step();
+}
+
+// ---------- selection
+const timeAt = e => {
+  const { pad, w, n, hop } = window._px;
+  const r = $("#plot").getBoundingClientRect();
+  const x = e.clientX - r.left - pad.l, span = w - pad.l - pad.r;
+  return Math.max(0, Math.min(n * hop, (x / span) * n * hop));
+};
+const EDGE_PX = 7;
+function edgeAt(e) {                                    // which selection edge is under the cursor
+  if (!sel) return null;
+  const { X, hop } = window._px;
+  const r = $("#plot").getBoundingClientRect(), x = e.clientX - r.left;
+  if (Math.abs(x - X(sel[0] / hop)) <= EDGE_PX) return 0;
+  if (Math.abs(x - X(sel[1] / hop)) <= EDGE_PX) return 1;
+  return null;
+}
+$("#plot").addEventListener("pointerdown", e => {
+  const edge = edgeAt(e);
+  dragging = edge !== null ? { edge } : { from: timeAt(e) };
+  $("#plot").setPointerCapture(e.pointerId);
+});
+$("#plot").addEventListener("pointermove", e => {
+  if (!dragging) { $("#plot").style.cursor = edgeAt(e) !== null ? "ew-resize" : "crosshair"; return; }
+  const t = timeAt(e);
+  if (dragging.edge !== undefined) {
+    const other = sel[1 - dragging.edge];
+    sel = [Math.min(t, other), Math.max(t, other)];
+    dragging.edge = t < other ? 0 : 1;
+    dragging.moved = true;
+  } else if (Math.abs(t - dragging.from) > 0.05) {
+    sel = [Math.min(dragging.from, t), Math.max(dragging.from, t)];
+    selIdx = -1; dragging.moved = true;
+  }
+  if (dragging.moved) { buttons(); draw(); }
+});
+$("#plot").addEventListener("pointerup", e => {
+  const was = dragging;
+  dragging = null;
+  if (was && was.edge === undefined && !was.moved) {     // a plain click seeks
+    au.currentTime = timeAt(e); stopAt = null; sel = null; preview = null; buttons(); draw();
+    return;
+  }
+  draw();
+  if (!sel) return;
+  if ($("#swars").value.trim()) align(); else $("#swars").focus();
+  playSel();
+});
+
+function buttons() {
+  const has = !!sel, text = $("#swars").value.trim().split(/\s+/).filter(Boolean).length >= 1;
+  $("#align").disabled = !(has && text);
+  $("#add").disabled = !(has && text);
+  $("#playsel").disabled = !has;
+  $("#add").textContent = selIdx >= 0 ? "update stretch " : "add stretch ";
+  $("#add").appendChild(Object.assign(document.createElement("kbd"), { textContent: "⇧↵" }));
+  $("#selinfo").innerHTML = selIdx >= 0
+    ? `editing stretch ${selIdx + 1} — edit the swars or drag its edges, then <b>update</b>; `
+      + `<kbd>esc</kbd> to leave it alone`
+    : sel
+      ? `selected ${sel[0].toFixed(1)}–${sel[1].toFixed(1)} s (${(sel[1] - sel[0]).toFixed(1)} s)`
+      : "drag across the plot to select a stretch · click one below to edit it · click to seek";
+}
+$("#swars").addEventListener("input", buttons);
+
+// ---------- align / stretches
+async function align() {
+  if (!sel) return;
+  const swars = $("#swars").value.trim();
+  const r = await (await fetch("/api/align", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chunk_id: cur.id, swars, t0: sel[0], t1: sel[1] }) })).json();
+  if (r.error) { $("#fit").textContent = r.error; preview = null; draw(); return; }
+  preview = r;
+  $("#fit").innerHTML = `fit ${r.fit} · ${r.t0.toFixed(1)}–${r.t1.toFixed(1)} s · covers `
+    + `<b>${Math.round(r.coverage * 100)}%</b> of what you selected`
+    + (r.coverage < 0.5 ? " — add swars, or select a tighter stretch" : "");
+  draw();
+}
+async function addSeg() {
+  const typed = $("#swars").value.trim().split(/\s+/).filter(Boolean).join(" ");
+  if (!preview || preview.tokens.join(" ") !== typed) {      // align first, or re-align if edited
+    await align();
+    if (!preview) return;
+  }
+  const s = { t0: preview.t0, t1: preview.t1, swars: preview.tokens.join(" "), fit: preview.fit,
+              flags: [], i0: preview.i0, i1: preview.i1, kinds: preview.kinds };
+  if (selIdx >= 0) segs[selIdx] = s; else segs.push(s);
+  segs.sort((a, b) => a.t0 - b.t0);
+  $("#saved").textContent = selIdx >= 0 ? "updated — unsaved" : "added — unsaved";
+  sel = null; preview = null; selIdx = -1;
+  $("#swars").value = ""; $("#fit").textContent = "";
+  drawSegs(); buttons(); draw();
+}
+function drawSegs() {
+  const tb = $("#segs tbody"); tb.innerHTML = "";
+  segs.forEach((s, i) => {
+    const tr = document.createElement("tr");
+    if (i === selIdx) tr.className = "sel";
+    tr.innerHTML = `<td>${s.t0.toFixed(1)}–${s.t1.toFixed(1)} s</td><td class="sw">${s.swars}</td>
+      <td>${s.fit ?? ""}</td><td class="meta">${(s.flags || []).join(", ")}</td>`;
+    const x = document.createElement("td");
+    const b = document.createElement("button"); b.className = "x"; b.textContent = "×";
+    b.onclick = ev => {
+      ev.stopPropagation(); segs.splice(i, 1);
+      if (selIdx === i) { selIdx = -1; sel = null; preview = null; $("#swars").value = ""; }
+      else if (selIdx > i) selIdx -= 1;
+      $("#saved").textContent = "removed — unsaved";
+      drawSegs(); buttons(); draw();
+    };
+    x.appendChild(b); tr.appendChild(x);
+    tr.onclick = () => {                                   // click a row to edit that stretch
+      selIdx = i; sel = [s.t0, s.t1]; preview = null;
+      $("#swars").value = s.swars + " ";
+      drawSegs(); buttons(); draw(); playSel();
+      align();                                             // show it as a live preview to edit
+    };
+    tb.appendChild(tr);
+  });
+  $("#segs").style.display = segs.length ? "table" : "none";
+  buttons();
+}
+let stopAt = null;
+au.addEventListener("timeupdate", () => {
+  if (stopAt !== null && au.currentTime >= stopAt) { au.pause(); stopAt = null; }
+});
+function playSel() {                                   // once, through to the end of the selection
+  if (!sel) return;
+  stopAt = sel[1];
+  au.currentTime = sel[0];
+  au.play().catch(() => {});
+}
+function playAll() { stopAt = null; au.paused ? au.play() : au.pause(); }
+async function save() {
+  await fetch("/api/notation", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chunk_id: cur.id, note: $("#note").value,
+      segments: segs.map(({ t0, t1, swars, fit, flags }) => ({ t0, t1, swars, fit, flags })) }) });
+  cur.segments = segs.length; drawNav();
+  $("#saved").textContent = "saved"; setTimeout(() => ($("#saved").textContent = ""), 1800);
+}
+
+$("#play").onclick = playAll;
+$("#mark").onclick = () => { marking = !marking;
+  $("#mark").textContent = marking ? "done marking" : "mark raag notes"; drawPad(); };
+$("#playsel").onclick = playSel;
+$("#loop").onclick = () => { looping = !looping; $("#loop").textContent = `loop ${looping ? "on" : "off"}`; };
+$("#rate").onclick = () => { au.playbackRate = au.playbackRate === 1 ? 0.75 : au.playbackRate === 0.75 ? 0.5 : 1;
+                             $("#rate").textContent = `${au.playbackRate}×`; };
+$("#align").onclick = align;
+$("#add").onclick = addSeg;
+$("#save").onclick = save;
+$("#undo").onclick = () => { const b = $("#swars");
+  b.value = b.value.trim().split(/\s+/).slice(0, -1).join(" ");
+  b.value = b.value ? b.value + " " : "";
+  buttons(); if (sel && b.value.trim()) align(); else { preview = null; $("#fit").textContent = ""; draw(); } };
+addEventListener("resize", draw);
+addEventListener("keydown", e => {
+  const typing = e.target.tagName === "INPUT";
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); return save(); }
+  if (e.key === "Enter") { e.preventDefault(); return e.shiftKey ? addSeg() : align(); }
+  // these two also work mid-word, so playback never fights the swars being typed
+  if (e.shiftKey && e.code === "Space") { e.preventDefault(); return playAll(); }
+  if (e.shiftKey && e.code === "KeyK") { e.preventDefault(); return playSel(); }
+  if (typing) return;
+  if (e.key === " ") { e.preventDefault(); playAll(); }
+  else if (e.key === "p") playSel();
+  else if (e.key === "l") $("#loop").click();
+  else if (e.key === "[") $("#rate").click();
+  else if (e.key === "Escape") {
+    sel = null; preview = null; selIdx = -1; $("#swars").value = "";
+    $("#fit").textContent = ""; buttons(); drawSegs(); draw();
+  }
+});
+drawPad(); boot();
+</script>

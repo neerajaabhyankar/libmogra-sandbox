@@ -30,6 +30,7 @@ class Candidate:
     path: np.ndarray     # (n_frames,) state kind per frame: note index k, or -1 ornament
     f0: int              # first frame index
     f1: int              # last frame index (inclusive)
+    n_held: int = 0      # held notes in the interval (filled in by callers that care)
 
 
 def _states(swars, n_dwell):
@@ -137,15 +138,21 @@ def _backtrack(bp, t_end, S):
     return t, np.array(states[::-1])
 
 
-def _rescore(cents, states, note, target, t0, p, hop):
-    seg = cents[t0:t0 + len(states)]
-    kinds = note[states]
+def _rescore(cents, states, note, target, t0, p, hop, octaves=None, swars=None):
+    return score_path(cents[t0:t0 + len(states)], note[states], swars, octaves, hop, p)
+
+
+def score_path(seg, kinds, swars, octaves, hop, p):
+    """The duration-invariant score of one aligned span. `kinds`: phrase-note index per frame,
+    -1 for ornament. Split out from the matcher so the annotations can re-score a fixed set of
+    spans under different costs without re-running the search."""
     voiced = ~np.isnan(seg)
+    target = np.where(kinds >= 0, 100.0 * np.asarray(swars)[np.clip(kinds, 0, None)], np.nan)
     per_note = []
     for k in range(kinds.max() + 1):
         m = (kinds == k) & voiced
         if m.any():
-            d = np.abs((seg[m] - target[states[m]] + 600.0) % 1200.0 - 600.0)
+            d = np.abs((seg[m] - target[m] + 600.0) % 1200.0 - 600.0)
             fc = np.sort(np.minimum(np.maximum(0.0, d - p["free_cents"]) / p["scale_cents"], p["note_cap"]))
             per_note.append(np.mean(fc[:max(1, int(np.ceil(len(fc) * p["note_trim"])))]))
         else:
@@ -154,11 +161,28 @@ def _rescore(cents, states, note, target, t0, p, hop):
     held = _held(seg, hop, p) & (kinds == -1)
     orn = float(np.mean(_excursion(seg, kinds, p["kan_cents"]) | held))
     gap = float(np.mean(~voiced))
-    leaps = _wrong_steps(seg, kinds, target, states)
-    return pitch, orn, gap, leaps, pitch + p["orn_weight"] * orn + gap + p["leap_penalty"] * leaps
+    leaps = _wrong_steps_from_swars(seg, kinds, swars)
+    reg = _register_error(seg, kinds, swars, octaves) if octaves is not None else 0.0
+    return (pitch, orn, gap, leaps,
+            pitch + p["orn_weight"] * orn + gap + p["leap_penalty"] * leaps
+            + p["register_penalty"] * reg)
 
 
-def _wrong_steps(seg, kinds, target, states):
+def _register_error(seg, kinds, swars, octaves):
+    """Octaves between where the phrase is notated and where it was sung (0 when it agrees).
+
+    ',n S m' means the mandra ni, not the one above Sa; octave-folded matching cannot see the
+    difference, so it is checked here against the saptak marks the phrase was written with.
+    """
+    offs = []
+    for k in range(kinds.max() + 1):
+        v = seg[kinds == k]
+        if not np.isnan(v).all():
+            offs.append(np.nanmedian(v) - (100.0 * swars[k] + 1200.0 * octaves[k]))
+    return abs(round(float(np.median(offs)) / 1200.0)) if offs else 0.0
+
+
+def _wrong_steps_from_swars(seg, kinds, swars):
     """Steps between consecutive notes that go the wrong way or jump an octave.
     Intended step = the shortest one between the two swars (octave folding hides direction)."""
     n = 0
@@ -166,7 +190,7 @@ def _wrong_steps(seg, kinds, target, states):
         a, b = seg[kinds == k], seg[kinds == k + 1]
         if np.isnan(a).all() or np.isnan(b).all():
             continue
-        ta, tb = target[states[kinds == k][0]], target[states[kinds == k + 1][0]]
+        ta, tb = 100.0 * swars[k], 100.0 * swars[k + 1]
         intended = (tb - ta + 600.0) % 1200.0 - 600.0
         actual = np.nanmedian(b) - np.nanmedian(a)
         err = abs(actual - intended)
@@ -208,8 +232,19 @@ def _extend(cents, t0, t1, first, last, p, hop, max_s=1.0):
     return a, b
 
 
-def match(contour, swars, top_k=C.TOP_K, params=None):
-    """Top-k non-overlapping candidates for `swars` (0..11, collapsed) in `contour`."""
+def held_notes(cents, hop, params=None):
+    """How many distinct held notes are in this stretch of contour. A taan run has many;
+    a phrase rendering has about as many as the phrase has swars."""
+    h = _held(cents, hop, {**C.MATCH, **(params or {})})
+    return int(np.sum(h[1:] & ~h[:-1]) + (1 if len(h) and h[0] else 0))
+
+
+def match(contour, swars, top_k=C.TOP_K, params=None, octaves=None):
+    """Top-k non-overlapping candidates for `swars` (0..11, collapsed) in `contour`.
+
+    `octaves` (the saptak marks of the phrase as notated) turns on the register check: a
+    rendering an octave away from where the phrase is written is charged `register_penalty`.
+    """
     p = {**C.MATCH, **(params or {})}
     hop = contour.hop
     n_dwell = max(1, int(round(p["min_dwell_s"] / hop)))
@@ -218,14 +253,16 @@ def match(contour, swars, top_k=C.TOP_K, params=None):
     ends, bp = _viterbi(E, brk, _transitions(note, loop))
 
     out = []
+    n_pool = max(C.CANDIDATE_POOL, int(len(ends) * hop / 60.0 * C.CANDIDATES_PER_MIN))
     for t_end in np.argsort(ends):
-        if not np.isfinite(ends[t_end]) or len(out) >= C.CANDIDATE_POOL:
+        if not np.isfinite(ends[t_end]) or len(out) >= n_pool:
             break
         t_first, states = _backtrack(bp, int(t_end), len(note))
         t0 = int(t_end) - len(states) + 1
         if any(_iou((t0, t_end), (c.f0, c.f1)) > C.NMS_IOU for c in out):
             continue
-        pitch, orn, gap, leaps, cost = _rescore(contour.cents, states, note, target, t0, p, hop)
+        pitch, orn, gap, leaps, cost = _rescore(contour.cents, states, note, target, t0, p, hop,
+                                                octaves, swars)
         a, b = _extend(contour.cents, t0, int(t_end), swars[0], swars[-1], p, hop)
         path = np.concatenate([np.full(t0 - a, 0), note[states], np.full(b - int(t_end), len(swars) - 1)])
         out.append(Candidate(a * hop, (b + 1) * hop, cost, pitch, orn, gap, leaps, path, a, b))

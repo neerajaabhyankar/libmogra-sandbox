@@ -1,0 +1,286 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>pakad annotation</title>
+<style>
+  :root {
+    --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --grid: #e6e5e0;
+    --context: #b9b7af; --note: #2a78d6; --orn: #eb6834; --yes: #1baf7a; --no: #e34948;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface); color: var(--ink);
+         font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  header { padding: 14px 20px 10px; border-bottom: 1px solid var(--grid); }
+  h1 { margin: 0 0 2px; font-size: 15px; }
+  .sub { color: var(--ink2); font-size: 12.5px; }
+  main { display: grid; grid-template-columns: 230px 1fr; min-height: calc(100vh - 62px); }
+  nav { border-right: 1px solid var(--grid); padding: 10px 0; }
+  nav button { display: block; width: 100%; text-align: left; border: 0; background: none;
+               padding: 7px 16px; font: inherit; color: var(--ink2); cursor: pointer; }
+  nav button.on { background: #eef4fc; color: var(--ink); box-shadow: inset 3px 0 0 var(--note); }
+  nav .ph { font-weight: 600; color: var(--ink); }
+  nav .pr { font-size: 11.5px; }
+  section { padding: 16px 22px; }
+  #plot { width: 100%; height: 320px; display: block; }
+  .row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+  .btn { border: 1px solid var(--grid); background: #fff; border-radius: 7px; padding: 8px 14px;
+         font: inherit; cursor: pointer; }
+  .btn.y { border-color: var(--yes); color: #0d7a55; } .btn.n { border-color: var(--no); color: #b32f2e; }
+  .meta { color: var(--ink2); font-size: 12.5px; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px;
+          background: #f1f0ec; color: var(--ink2); }
+  .pill.y { background: #e4f6ef; color: #0d7a55; } .pill.n { background: #fdeceb; color: #b32f2e; }
+  kbd { font: 11px ui-monospace, monospace; background: #f1f0ec; border-radius: 4px; padding: 1px 5px; }
+  .dots { display: flex; gap: 4px; flex-wrap: wrap; }
+  .dot { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--grid);
+         background: #fff; font-size: 11px; color: var(--ink2); cursor: pointer; }
+  .dot.y { background: var(--yes); color: #fff; border-color: var(--yes); }
+  .dot.n { background: var(--no); color: #fff; border-color: var(--no); }
+  .dot.u { background: #f1f0ec; }
+  .dot.now { outline: 2px solid var(--note); outline-offset: 1px; }
+  #comment { flex: 1; min-width: 320px; padding: 8px 11px; font: inherit; color: var(--ink);
+             border: 1px solid var(--grid); border-radius: 7px; background: #fff; }
+  #comment:focus { outline: 2px solid var(--note); outline-offset: -1px; border-color: var(--note); }
+  .note { color: var(--ink2); font-size: 12.5px; font-style: italic; }
+</style>
+
+<header>
+  <h1 id="title">pakad annotation</h1>
+  <div class="sub" id="subtitle">loading…</div>
+</header>
+<main>
+  <nav id="nav"></nav>
+  <section>
+    <canvas id="plot"></canvas>
+    <div class="row">
+      <button class="btn y" data-v="yes">yes — this is the phrase <kbd>y</kbd></button>
+      <button class="btn n" data-v="no">no <kbd>n</kbd></button>
+      <button class="btn" data-v="unsure">unsure <kbd>u</kbd></button>
+      <button class="btn" id="replay">replay <kbd>r</kbd></button>
+      <button class="btn" id="replayCand">just the phrase <kbd>p</kbd></button>
+      <button class="btn" id="zoom">zoom <kbd>z</kbd></button>
+      <span class="meta"><kbd>space</kbd> play/pause · <kbd>←</kbd> <kbd>→</kbd> move · <kbd>c</kbd> note</span>
+    </div>
+    <div class="row">
+      <input id="comment" placeholder="note (optional) — what made it a yes or a no?  (c to focus)">
+    </div>
+    <div class="row"><div class="dots" id="dots"></div></div>
+    <div class="row meta" id="meta"></div>
+  </section>
+</main>
+<audio id="au"></audio>
+
+<script>
+const $ = s => document.querySelector(s);
+let phrases = [], cur = null, idx = 0, data = null, raf = null, zoomed = false;
+const au = $("#au");
+
+async function boot() {
+  phrases = await (await fetch("/api/phrases")).json();
+  drawNav();
+  await open(phrases[0].slug);
+}
+
+function drawNav() {
+  $("#nav").innerHTML = "";
+  phrases.forEach(p => {
+    const b = document.createElement("button");
+    b.className = cur && p.slug === cur.slug ? "on" : "";
+    b.innerHTML = `<div class="ph">${p.phrase}</div>
+                   <div class="pr">${p.raag} · ${p.done}/${p.n} judged</div>`;
+    b.onclick = () => open(p.slug);
+    $("#nav").appendChild(b);
+  });
+}
+
+async function open(slug) {
+  data = await (await fetch("/api/pool/" + slug)).json();
+  cur = phrases.find(p => p.slug === slug);
+  const firstUnjudged = data.items.findIndex((_, i) => !verdictOf(i));
+  idx = firstUnjudged === -1 ? 0 : firstUnjudged;
+  drawNav();
+  show();
+}
+
+function show() {
+  const it = data.items[idx];
+  $("#title").textContent = `${data.phrase}   (${data.raag})`;
+  $("#subtitle").innerHTML = `candidate ${idx + 1} of ${data.items.length} · `
+    + `${data.source}${data.note ? " — " + data.note : ""} · `
+    + `<span class="pill ${(verdictOf(idx) || "")[0] || ""}">${verdictOf(idx) || "not judged"}</span>`
+    + (commentOf(idx) ? ` · <span class="note">“${commentOf(idx)}”</span>` : "");
+  $("#comment").value = commentOf(idx) || "";
+  $("#meta").textContent = `recording ${it.video} · ${fmt(it.t0)}–${fmt(it.t1)} `
+    + `(${it.dur}s) · window ${fmt(it.win_t0)}–${fmt(it.win_t1)}`;
+  drawDots();
+  zoomed = false;
+  au.src = `/audio/${cur.slug}_${String(idx).padStart(2, "0")}.wav`;
+  playAll();
+  draw();
+  tick();
+}
+
+const verdictOf = i => (data.verdicts[i] || {}).verdict;
+const commentOf = i => (data.verdicts[i] || {}).comment;
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+function drawDots() {
+  $("#dots").innerHTML = "";
+  data.items.forEach((_, i) => {
+    const d = document.createElement("button");
+    const v = verdictOf(i);
+    d.className = "dot " + (v ? v[0] : "") + (i === idx ? " now" : "");
+    d.title = commentOf(i) || "";
+    d.textContent = i + 1;
+    d.onclick = () => { idx = i; show(); };
+    $("#dots").appendChild(d);
+  });
+}
+
+function geom() {
+  const c = $("#plot"), dpr = devicePixelRatio || 1;
+  const w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== w * dpr) { c.width = w * dpr; c.height = h * dpr; }
+  const g = c.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { g, w, h, pad: { l: 34, r: 12, t: 12, b: 22 } };
+}
+
+function span(it) {
+  const a = it.path.findIndex(p => p !== -2);
+  const b = it.path.length - 1 - [...it.path].reverse().findIndex(p => p !== -2);
+  if (!zoomed) return [0, it.cents.length - 1, a, b];
+  const pad = Math.round(1.0 / it.hop);
+  return [Math.max(0, a - pad), Math.min(it.cents.length - 1, b + pad), a, b];
+}
+
+function scales(it, lo_i, hi_i) {
+  const vals = it.cents.slice(lo_i, hi_i + 1).filter(v => v !== null);
+  let lo = Math.min(...vals) - 120, hi = Math.max(...vals) + 120;
+  if (hi - lo < 700) { const m = (hi + lo) / 2; lo = m - 350; hi = m + 350; }
+  return { lo, hi, n: it.cents.length };
+}
+
+function draw() {
+  const it = data.items[idx], { g, w, h, pad } = geom();
+  const [i0, i1, a, b] = span(it), s = scales(it, i0, i1);
+  const X = i => pad.l + ((i - i0) / (i1 - i0)) * (w - pad.l - pad.r);
+  const Y = c => pad.t + (1 - (c - s.lo) / (s.hi - s.lo)) * (h - pad.t - pad.b);
+  g.clearRect(0, 0, w, h);
+
+  // swar grid: every semitone in range, the raag's own swars darker + labelled
+  g.font = "11px -apple-system, sans-serif"; g.textBaseline = "middle";
+  for (let c = Math.floor(s.lo / 100) * 100; c <= s.hi; c += 100) {
+    const sw = ((Math.round(c / 100) % 12) + 12) % 12, inScale = data.scale.includes(sw);
+    const oct = Math.floor(Math.round(c / 100) / 12);
+    g.strokeStyle = inScale ? "#dedcd6" : "#f2f1ed"; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(pad.l, Y(c) + .5); g.lineTo(w - pad.r, Y(c) + .5); g.stroke();
+    if (inScale) {
+      g.fillStyle = "#8a8880"; g.textAlign = "right";
+      g.fillText((oct > 0 ? "`" : oct < 0 ? "," : "") + data.swar_names[sw], pad.l - 6, Y(c));
+    }
+  }
+  // candidate span
+  g.fillStyle = "rgba(42,120,214,.07)";
+  g.fillRect(X(a), pad.t, X(b) - X(a), h - pad.t - pad.b);
+
+  // contour: context in grey, candidate path in blue, ornament in orange
+  const seg = (test, color, width) => {
+    g.strokeStyle = color; g.lineWidth = width; g.lineJoin = "round"; g.lineCap = "round";
+    g.beginPath(); let pen = false;
+    let prev = null;
+    it.cents.forEach((c, i) => {
+      if (c === null || i < i0 || i > i1 || !test(it.path[i])) { pen = false; prev = null; return; }
+      if (prev !== null && Math.abs(c - prev) > 600) pen = false;   // octave jump: lift the pen
+      pen ? g.lineTo(X(i), Y(c)) : g.moveTo(X(i), Y(c));
+      pen = true; prev = c;
+    });
+    g.stroke();
+  };
+  seg(p => p === -2, "#b9b7af", 1.4);
+  seg(p => p === -1, "#eb6834", 2);
+  seg(p => p >= 0, "#2a78d6", 2.6);
+
+  // which swar of the phrase, over each matched note
+  const names = data.phrase.split(" ");
+  g.textAlign = "center"; g.fillStyle = "#0b0b0b"; g.font = "600 12px -apple-system, sans-serif";
+  g.strokeStyle = "#fcfcfb"; g.lineWidth = 3; g.lineJoin = "round";
+  names.forEach((nm, k) => {
+    const at = it.path.map((p, i) => p === k ? i : -1).filter(i => i >= i0 && i <= i1);
+    if (!at.length) return;
+    const mid = at[Math.floor(at.length / 2)];
+    const top = Math.min(...at.map(i => it.cents[i] === null ? 1e9 : Y(it.cents[i])));
+    g.strokeText(nm, X(mid), top - 9);
+    g.fillText(nm, X(mid), top - 9);
+  });
+  window._px = { X, i0, i1, hop: it.hop, pad, h };
+}
+
+function tick() {
+  cancelAnimationFrame(raf);
+  const step = () => {
+    draw();
+    const { X, i0, i1, hop, pad, h } = window._px;
+    const i = au.currentTime / hop;
+    if (i < i0 || i > i1) { raf = requestAnimationFrame(step); return; }
+    const { g } = geom();
+    g.strokeStyle = "#0b0b0b"; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(X(i), pad.t - 4); g.lineTo(X(i), h - pad.b); g.stroke();
+    g.fillStyle = "#0b0b0b"; g.beginPath(); g.arc(X(i), pad.t - 6, 3.5, 0, 7); g.fill();
+    raf = requestAnimationFrame(step);
+  };
+  step();
+}
+
+async function label(v) {
+  const comment = $("#comment").value.trim();
+  await fetch("/api/label", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ slug: cur.slug, index: idx, verdict: v, comment }) });
+  if (!(idx in data.verdicts)) cur.done += 1;
+  data.verdicts[idx] = { verdict: v, comment };
+  drawNav(); drawDots();
+  if (idx < data.items.length - 1) { idx += 1; show(); }
+  else { $("#subtitle").textContent = "all candidates judged for this phrase — pick another on the left"; }
+}
+
+let stopAt = null;                       // one handler, not one per press
+au.addEventListener("timeupdate", () => {
+  if (stopAt !== null && au.currentTime >= stopAt) { au.pause(); stopAt = null; }
+});
+
+function seekPlay(from, until) {
+  stopAt = until;
+  const go = () => { au.currentTime = from; au.play().catch(() => {}); };
+  if (au.readyState >= 1) go();          // seeking before metadata arrives is ignored
+  else au.addEventListener("loadedmetadata", go, { once: true });
+}
+
+function playCandidate() {
+  const it = data.items[idx];
+  seekPlay(Math.max(0, it.t0 - it.win_t0 - 0.15), it.t1 - it.win_t0 + 0.25);
+}
+
+function playAll() { seekPlay(0, null); }
+
+document.querySelectorAll("[data-v]").forEach(b => b.onclick = () => label(b.dataset.v));
+$("#replay").onclick = playAll;
+$("#replayCand").onclick = playCandidate;
+$("#zoom").onclick = () => { zoomed = !zoomed; draw(); };
+addEventListener("resize", draw);
+addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") {            // typing a note: let the keys through
+    if (e.key === "Escape") e.target.blur();
+    return;
+  }
+  if (e.key === "c") { e.preventDefault(); $("#comment").focus(); }
+  else if (e.key === "y") label("yes");
+  else if (e.key === "n") label("no");
+  else if (e.key === "u") label("unsure");
+  else if (e.key === "r") playAll();
+  else if (e.key === "p") playCandidate();
+  else if (e.key === "z") { zoomed = !zoomed; draw(); }
+  else if (e.key === " ") { e.preventDefault(); au.paused ? au.play() : au.pause(); }
+  else if (e.key === "ArrowRight" && idx < data.items.length - 1) { idx += 1; show(); }
+  else if (e.key === "ArrowLeft" && idx > 0) { idx -= 1; show(); }
+});
+boot();
+</script>
