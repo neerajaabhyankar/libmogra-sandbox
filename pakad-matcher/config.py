@@ -37,6 +37,14 @@ FOCUS_RAAGS = ["Bageshree", "Shree", "PuriyaDhanashri", "Malhar",
 ANNOTATION_RAAGS = ["Bageshree", "DarbariKanada", "Malhar", "PuriyaDhanashri", "Shree",
                     "Bheempalasi"]
 
+# Round 2 (2026-09-24): four raags added for the *test* set only. They are deliberately outside
+# ANNOTATION_RAAGS, so no notated (training) chunk can share a recording with them.
+TEST_ONLY_RAAGS = ["Des", "TilakKamod", "Multani", "Todi", "KaushikDhwani"]
+
+# Round 3 (2026-09-24): fresh raags for *notation* (training). Chosen away from the test raags,
+# and including two audav raags, where the dynamics of a five-swar scale may differ.
+NOTATION_RAAGS_R3 = ["Yaman", "Bhairav", "Malkauns", "Bhoopali", "Jog", "Kalawati"]
+
 # ---- matcher (S1). Costs are per frame at the downsampled rate.
 # Values marked (tuned) were fitted to the 168 annotations by coordinate ascent on per-phrase
 # AUC (tune.py, 2026-09-22); everything else is hand-set. See plan.md S4b.
@@ -134,10 +142,20 @@ CHUNK_TAAN_S = 15.0           # ... a dense one 15 s: about as much as anyone ca
 CHUNKS_PER_RECORDING = 2
 CHUNK_RECORDINGS_PER_RAAG = 2
 CHUNK_MIN_VOICED = 0.7        # skip stretches that are mostly silence
+# The matcher's costs are tuned for *phrase matching* -- strict intonation, because there a near
+# miss is usually not the phrase. Notation is a different question: a gesture that leans on a swar
+# is that swar, even 40 cents shy of it. These overrides apply to the notation aligner only.
+NOTATE_MATCH = dict(free_cents=35.0, scale_cents=70.0, note_trim=0.4, min_dwell_s=0.05)
+
+# Reading a contour with no phrase to guide it. `onset_cost` is what it costs to declare a new
+# note: without it, splitting is free and every glide becomes a run of notes. Fitted on the
+# notation corpus (s6.py --sweep), which is the first parameter this project learned from data.
+READ_MATCH = dict(NOTATE_MATCH, onset_cost=2.0)   # fitted: s6.py --sweep, 2026-09-24
 NOTATE_COVER_WEIGHT = 0.4     # a selection asserts "the sequence is here", so covering it counts
                               # against fitting it; 0 = take the tightest fit, large = cover at any cost
-NOTATE_HELD_WEIGHT = 0.6      # ... but the notes have to land on the notes: reward alignments whose
-                              # note frames sit on held pitch rather than on the way to it
+NOTATE_HELD_WEIGHT = 0.2      # ... but the notes should land on the notes: reward alignments whose
+                              # note frames sit on held pitch rather than on the way to it. Small,
+                              # because a quick dip that only touches a swar is still that swar
 NOTATE_SLACK = 0.5            # when aligning a typed sequence in a selected stretch, prefer the
                               # *fullest* alignment among those costing within this of the best:
                               # free ends are for silence and drone at the edges, not an excuse

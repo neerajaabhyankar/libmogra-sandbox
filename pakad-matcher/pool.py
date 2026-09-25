@@ -91,13 +91,24 @@ def build_phrase(p, videos):
     return items
 
 
-def build(only=None):
+def build(only=None, force=False):
+    """Build pools for phrases that do not have one yet.
+
+    An existing pool is **never** rebuilt without `force`: the judgments in
+    `annotations/labels.jsonl` are keyed by (phrase, index into this pool), so regenerating one
+    silently re-points every label it carries. Those judgments are the frozen test set.
+    """
     (C.S3_DIR / "pool").mkdir(parents=True, exist_ok=True)
     (C.S3_DIR / "audio").mkdir(parents=True, exist_ok=True)
     for p in mukhyangas.load():
         if only and p.id != only:
             continue
+        if (C.S3_DIR / "pool" / f"{p.slug}.json").exists() and not force:
+            print(f"{p.id:20s} pool exists, leaving it alone (judgments are keyed to it)")
+            continue
         videos = [v for v in fullaudio.cached_videos(tuple([p.raag]))]
+        if not videos:
+            print(f"{p.id:20s} no pitch-tracked recordings for {p.raag} yet"); continue
         items = build_phrase(p, videos)
         scale = sorted(raagdb.dataset_raags([p.raag])[p.raag].scale)
         (C.S3_DIR / "pool" / f"{p.slug}.json").write_text(json.dumps(dict(
@@ -123,4 +134,6 @@ def _snippet(item, path):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--phrase", default=None)
-    build(ap.parse_args().phrase)
+    ap.add_argument("--force", action="store_true", help="rebuild an existing pool (re-points its labels!)")
+    a = ap.parse_args()
+    build(a.phrase, a.force)

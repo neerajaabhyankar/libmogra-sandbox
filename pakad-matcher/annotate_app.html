@@ -9,7 +9,8 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--surface); color: var(--ink);
          font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-  header { padding: 14px 20px 10px; border-bottom: 1px solid var(--grid); }
+  header { padding: 14px 20px 10px; border-bottom: 1px solid var(--grid); position: relative; }
+  a { color: var(--note); }
   h1 { margin: 0 0 2px; font-size: 15px; }
   .sub { color: var(--ink2); font-size: 12.5px; }
   main { display: grid; grid-template-columns: 230px 1fr; min-height: calc(100vh - 62px); }
@@ -46,6 +47,7 @@
 <header>
   <h1 id="title">pakad annotation</h1>
   <div class="sub" id="subtitle">loading…</div>
+  <div class="sub" style="position:absolute;right:20px;top:14px"><a href="/notate">notate chunks →</a></div>
 </header>
 <main>
   <nav id="nav"></nav>

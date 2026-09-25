@@ -1,0 +1,486 @@
+[
+ {
+  "video": "8ldBWSCfR0Q",
+  "raag": "Bageshree",
+  "kind": "alap",
+  "t0": 134.12,
+  "t1": 154.12,
+  "notes_per_s": 0.25,
+  "id": "Bageshree_alap_00",
+  "tonic_hz": 145.5612030029297
+ },
+ {
+  "video": "uPLSOevIK-4",
+  "raag": "Bageshree",
+  "kind": "alap",
+  "t0": 913.81,
+  "t1": 933.81,
+  "notes_per_s": 0.2,
+  "id": "Bageshree_alap_02",
+  "tonic_hz": 220.0334930419922
+ },
+ {
+  "video": "8ldBWSCfR0Q",
+  "raag": "Bageshree",
+  "kind": "taan",
+  "t0": 1408.05,
+  "t1": 1423.05,
+  "notes_per_s": 1.95,
+  "id": "Bageshree_taan_01",
+  "tonic_hz": 145.5612030029297
+ },
+ {
+  "video": "uPLSOevIK-4",
+  "raag": "Bageshree",
+  "kind": "taan",
+  "t0": 1772.05,
+  "t1": 1787.05,
+  "notes_per_s": 1.95,
+  "id": "Bageshree_taan_03",
+  "tonic_hz": 220.0334930419922
+ },
+ {
+  "video": "cPqhyjlmlrI",
+  "raag": "Bhairav",
+  "kind": "alap",
+  "t0": 139.2,
+  "t1": 159.2,
+  "notes_per_s": 0.1,
+  "id": "Bhairav_alap_29",
+  "tonic_hz": 143.3542022705078
+ },
+ {
+  "video": "NMHoLg5PxRM",
+  "raag": "Bhairav",
+  "kind": "alap",
+  "t0": 139.18,
+  "t1": 159.18,
+  "notes_per_s": 0.1,
+  "id": "Bhairav_alap_31",
+  "tonic_hz": 136.3916015625
+ },
+ {
+  "video": "cPqhyjlmlrI",
+  "raag": "Bhairav",
+  "kind": "taan",
+  "t0": 1493.64,
+  "t1": 1508.64,
+  "notes_per_s": 2.0,
+  "id": "Bhairav_taan_30",
+  "tonic_hz": 143.3542022705078
+ },
+ {
+  "video": "NMHoLg5PxRM",
+  "raag": "Bhairav",
+  "kind": "taan",
+  "t0": 1955.11,
+  "t1": 1970.11,
+  "notes_per_s": 1.9,
+  "id": "Bhairav_taan_32",
+  "tonic_hz": 136.3916015625
+ },
+ {
+  "video": "0Sgxa6Zm8xs",
+  "raag": "Bheempalasi",
+  "kind": "alap",
+  "t0": 11.96,
+  "t1": 31.96,
+  "notes_per_s": 0.4,
+  "id": "Bheempalasi_alap_20",
+  "tonic_hz": 182.42660522460938
+ },
+ {
+  "video": "4V9tuRuTlZs",
+  "raag": "Bheempalasi",
+  "kind": "alap",
+  "t0": 362.44,
+  "t1": 382.44,
+  "notes_per_s": 0.1,
+  "id": "Bheempalasi_alap_22",
+  "tonic_hz": 116.61869812011719
+ },
+ {
+  "video": "0Sgxa6Zm8xs",
+  "raag": "Bheempalasi",
+  "kind": "taan",
+  "t0": 416.43,
+  "t1": 431.43,
+  "notes_per_s": 1.75,
+  "id": "Bheempalasi_taan_21",
+  "tonic_hz": 182.42660522460938
+ },
+ {
+  "video": "4V9tuRuTlZs",
+  "raag": "Bheempalasi",
+  "kind": "taan",
+  "t0": 3185.58,
+  "t1": 3200.58,
+  "notes_per_s": 2.35,
+  "id": "Bheempalasi_taan_23",
+  "tonic_hz": 116.61869812011719
+ },
+ {
+  "video": "StR7c5yTZkw",
+  "raag": "Bhoopali",
+  "kind": "alap",
+  "t0": 110.65,
+  "t1": 130.65,
+  "notes_per_s": 0.15,
+  "id": "Bhoopali_alap_37",
+  "tonic_hz": 233.27139282226562
+ },
+ {
+  "video": "bRuEg0dmbgI",
+  "raag": "Bhoopali",
+  "kind": "alap",
+  "t0": 151.08,
+  "t1": 171.08,
+  "notes_per_s": 0.8,
+  "id": "Bhoopali_alap_39",
+  "tonic_hz": 182.7864990234375
+ },
+ {
+  "video": "StR7c5yTZkw",
+  "raag": "Bhoopali",
+  "kind": "taan",
+  "t0": 1833.39,
+  "t1": 1848.39,
+  "notes_per_s": 2.7,
+  "id": "Bhoopali_taan_38",
+  "tonic_hz": 233.27139282226562
+ },
+ {
+  "video": "bRuEg0dmbgI",
+  "raag": "Bhoopali",
+  "kind": "taan",
+  "t0": 453.17,
+  "t1": 468.17,
+  "notes_per_s": 1.95,
+  "id": "Bhoopali_taan_40",
+  "tonic_hz": 182.7864990234375
+ },
+ {
+  "video": "UJrKhIEQVM0",
+  "raag": "DarbariKanada",
+  "kind": "alap",
+  "t0": 513.88,
+  "t1": 533.88,
+  "notes_per_s": 0.3,
+  "id": "DarbariKanada_alap_04",
+  "tonic_hz": 166.5281982421875
+ },
+ {
+  "video": "IKNN8CIF_as",
+  "raag": "DarbariKanada",
+  "kind": "alap",
+  "t0": 10.01,
+  "t1": 30.01,
+  "notes_per_s": 0.1,
+  "id": "DarbariKanada_alap_06",
+  "tonic_hz": 138.8657989501953
+ },
+ {
+  "video": "UJrKhIEQVM0",
+  "raag": "DarbariKanada",
+  "kind": "taan",
+  "t0": 868.25,
+  "t1": 883.25,
+  "notes_per_s": 2.0,
+  "id": "DarbariKanada_taan_05",
+  "tonic_hz": 166.5281982421875
+ },
+ {
+  "video": "IKNN8CIF_as",
+  "raag": "DarbariKanada",
+  "kind": "taan",
+  "t0": 299.63,
+  "t1": 314.63,
+  "notes_per_s": 1.25,
+  "id": "DarbariKanada_taan_07",
+  "tonic_hz": 138.8657989501953
+ },
+ {
+  "video": "-4Kx_UwbUwg",
+  "raag": "Jog",
+  "kind": "alap",
+  "t0": 387.29,
+  "t1": 407.29,
+  "notes_per_s": 0.25,
+  "id": "Jog_alap_41",
+  "tonic_hz": 156.1260986328125
+ },
+ {
+  "video": "l9v1LaIZfys",
+  "raag": "Jog",
+  "kind": "alap",
+  "t0": 202.01,
+  "t1": 222.01,
+  "notes_per_s": 0.6,
+  "id": "Jog_alap_48",
+  "tonic_hz": 139.33839416503906,
+  "replaces": "Jog_alap_43"
+ },
+ {
+  "video": "-4Kx_UwbUwg",
+  "raag": "Jog",
+  "kind": "taan",
+  "t0": 914.58,
+  "t1": 929.58,
+  "notes_per_s": 2.1,
+  "id": "Jog_taan_42",
+  "tonic_hz": 156.1260986328125
+ },
+ {
+  "video": "w-HjuopkVnc",
+  "raag": "Jog",
+  "kind": "taan",
+  "t0": 1851.4,
+  "t1": 1866.4,
+  "notes_per_s": 2.55,
+  "id": "Jog_taan_44",
+  "tonic_hz": 164.970703125
+ },
+ {
+  "video": "QAto04kp90M",
+  "raag": "Kalawati",
+  "kind": "alap",
+  "t0": 382.38,
+  "t1": 402.38,
+  "notes_per_s": 0.75,
+  "id": "Kalawati_alap_45",
+  "tonic_hz": 109.79730224609375
+ },
+ {
+  "video": "i8W-2qwV2Bw",
+  "raag": "Kalawati",
+  "kind": "alap",
+  "t0": 10.01,
+  "t1": 30.01,
+  "notes_per_s": 0.5,
+  "id": "Kalawati_alap_47",
+  "tonic_hz": 147.1949005126953
+ },
+ {
+  "video": "QAto04kp90M",
+  "raag": "Kalawati",
+  "kind": "taan",
+  "t0": 510.38,
+  "t1": 525.38,
+  "notes_per_s": 2.55,
+  "id": "Kalawati_taan_46",
+  "tonic_hz": 109.79730224609375
+ },
+ {
+  "video": "i8W-2qwV2Bw",
+  "raag": "Kalawati",
+  "kind": "taan",
+  "t0": 756.69,
+  "t1": 771.69,
+  "notes_per_s": 2.35,
+  "id": "Kalawati_taan_48",
+  "tonic_hz": 147.1949005126953
+ },
+ {
+  "video": "joxB9QNW918",
+  "raag": "Malhar",
+  "kind": "alap",
+  "t0": 361.88,
+  "t1": 381.88,
+  "notes_per_s": 0.25,
+  "id": "Malhar_alap_08",
+  "tonic_hz": 116.6498031616211
+ },
+ {
+  "video": "N9X75HWT79g",
+  "raag": "Malhar",
+  "kind": "alap",
+  "t0": 863.7,
+  "t1": 883.7,
+  "notes_per_s": 0.25,
+  "id": "Malhar_alap_10",
+  "tonic_hz": 146.7667999267578
+ },
+ {
+  "video": "N9X75HWT79g",
+  "raag": "Malhar",
+  "kind": "taan",
+  "t0": 506.08,
+  "t1": 521.08,
+  "notes_per_s": 2.25,
+  "id": "Malhar_taan_11",
+  "tonic_hz": 146.7667999267578
+ },
+ {
+  "video": "mUI_eTmZpEI",
+  "raag": "Malhar",
+  "kind": "taan",
+  "t0": 1987.27,
+  "t1": 2002.27,
+  "notes_per_s": 2.05,
+  "id": "Malhar_taan_24",
+  "tonic_hz": 155.8262939453125,
+  "replaces": "Malhar_taan_09"
+ },
+ {
+  "video": "VPnftPyRQDo",
+  "raag": "Malkauns",
+  "kind": "alap",
+  "t0": 82.2,
+  "t1": 102.2,
+  "notes_per_s": 0.05,
+  "id": "Malkauns_alap_33",
+  "tonic_hz": 116.95339965820312
+ },
+ {
+  "video": "u10S3f-p3Wk",
+  "raag": "Malkauns",
+  "kind": "alap",
+  "t0": 371.06,
+  "t1": 391.06,
+  "notes_per_s": 0.8,
+  "id": "Malkauns_alap_35",
+  "tonic_hz": 137.48939514160156
+ },
+ {
+  "video": "VPnftPyRQDo",
+  "raag": "Malkauns",
+  "kind": "taan",
+  "t0": 2808.21,
+  "t1": 2823.21,
+  "notes_per_s": 3.05,
+  "id": "Malkauns_taan_34",
+  "tonic_hz": 116.95339965820312
+ },
+ {
+  "video": "u10S3f-p3Wk",
+  "raag": "Malkauns",
+  "kind": "taan",
+  "t0": 192.27,
+  "t1": 207.27,
+  "notes_per_s": 2.2,
+  "id": "Malkauns_taan_36",
+  "tonic_hz": 137.48939514160156
+ },
+ {
+  "video": "9X3vjQXx7xw",
+  "raag": "PuriyaDhanashri",
+  "kind": "alap",
+  "t0": 309.19,
+  "t1": 329.19,
+  "notes_per_s": 0.55,
+  "id": "PuriyaDhanashri_alap_14",
+  "tonic_hz": 116.41609954833984
+ },
+ {
+  "video": "0VB7jujlb5o",
+  "raag": "PuriyaDhanashri",
+  "kind": "alap",
+  "t0": 25.71,
+  "t1": 45.71,
+  "notes_per_s": 0.15,
+  "id": "PuriyaDhanashri_alap_24",
+  "tonic_hz": 135.5814971923828,
+  "replaces": "PuriyaDhanashri_alap_12"
+ },
+ {
+  "video": "bxI-gMlmf-E",
+  "raag": "PuriyaDhanashri",
+  "kind": "taan",
+  "t0": 265.94,
+  "t1": 280.94,
+  "notes_per_s": 1.65,
+  "id": "PuriyaDhanashri_taan_13",
+  "tonic_hz": 145.14500427246094
+ },
+ {
+  "video": "9X3vjQXx7xw",
+  "raag": "PuriyaDhanashri",
+  "kind": "taan",
+  "t0": 140.32,
+  "t1": 155.32,
+  "notes_per_s": 2.0,
+  "id": "PuriyaDhanashri_taan_15",
+  "tonic_hz": 116.41609954833984
+ },
+ {
+  "video": "pj--WoH0bow",
+  "raag": "Shree",
+  "kind": "alap",
+  "t0": 93.72,
+  "t1": 113.72,
+  "notes_per_s": 0.1,
+  "id": "Shree_alap_16",
+  "tonic_hz": 183.3603057861328
+ },
+ {
+  "video": "YyJuFUz-kro",
+  "raag": "Shree",
+  "kind": "alap",
+  "t0": 19.48,
+  "t1": 39.48,
+  "notes_per_s": 0.1,
+  "id": "Shree_alap_18",
+  "tonic_hz": 158.845703125
+ },
+ {
+  "video": "YyJuFUz-kro",
+  "raag": "Shree",
+  "kind": "taan",
+  "t0": 769.01,
+  "t1": 784.01,
+  "notes_per_s": 2.1,
+  "id": "Shree_taan_19",
+  "tonic_hz": 158.845703125
+ },
+ {
+  "video": "Ub1m8mVxvT0",
+  "raag": "Shree",
+  "kind": "taan",
+  "t0": 1528.6,
+  "t1": 1543.6,
+  "notes_per_s": 1.9,
+  "id": "Shree_taan_24",
+  "tonic_hz": 164.12860107421875,
+  "replaces": "Shree_taan_17"
+ },
+ {
+  "video": "25f1u2nOALg",
+  "raag": "Yaman",
+  "kind": "alap",
+  "t0": 324.21,
+  "t1": 344.21,
+  "notes_per_s": 0.05,
+  "id": "Yaman_alap_25",
+  "tonic_hz": 150.70309448242188
+ },
+ {
+  "video": "ggfebQ-5-UE",
+  "raag": "Yaman",
+  "kind": "alap",
+  "t0": 415.04,
+  "t1": 435.04,
+  "notes_per_s": 0.3,
+  "id": "Yaman_alap_27",
+  "tonic_hz": 145.9866943359375
+ },
+ {
+  "video": "25f1u2nOALg",
+  "raag": "Yaman",
+  "kind": "taan",
+  "t0": 3260.82,
+  "t1": 3275.82,
+  "notes_per_s": 2.2,
+  "id": "Yaman_taan_26",
+  "tonic_hz": 150.70309448242188
+ },
+ {
+  "video": "ggfebQ-5-UE",
+  "raag": "Yaman",
+  "kind": "taan",
+  "t0": 83.91,
+  "t1": 98.91,
+  "notes_per_s": 2.6,
+  "id": "Yaman_taan_28",
+  "tonic_hz": 145.9866943359375
+ }
+]

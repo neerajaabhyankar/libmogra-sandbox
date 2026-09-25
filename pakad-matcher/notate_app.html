@@ -58,7 +58,7 @@
 <header>
   <h1 id="title">notate</h1>
   <div class="sub" id="subtitle">loading…</div>
-  <div class="sub" style="margin-left:auto"><a href="/">← phrase judging</a></div>
+  <div class="sub" style="margin-left:auto"><a href="/phrases">← judge phrases</a></div>
 </header>
 <main>
   <nav id="nav"></nav>
@@ -79,6 +79,7 @@
       <input class="text" id="swars" spellcheck="false" placeholder="swars for the selected stretch — click the circles, or type">
       <button class="btn" id="undo">⌫</button>
       <button class="btn p" id="align" disabled>align <kbd>↵</kbd></button>
+      <button class="btn" id="even" disabled title="ignore the pitch track: space the swars evenly across the selection">space evenly</button>
       <button class="btn p" id="add" disabled>add stretch <kbd>⇧↵</kbd></button>
       <span class="meta" id="fit"></span>
     </div>
@@ -89,7 +90,7 @@
     </div>
 
     <table id="segs"><thead><tr><th style="width:120px">from–to</th><th>swars</th>
-      <th style="width:70px">fit</th><th style="width:70px">flags</th><th style="width:30px"></th></tr></thead>
+      <th style="width:70px">fit</th><th style="width:110px">how</th><th style="width:30px"></th></tr></thead>
       <tbody></tbody></table>
   </section>
 </main>
@@ -225,7 +226,8 @@ function draw() {
   }
   // saved stretches, then the live selection
   segs.forEach((s, i) => {
-    g.fillStyle = i === selIdx ? "rgba(42,120,214,.13)" : "rgba(27,175,122,.10)";
+    if (i === selIdx) return;                     // being edited: the preview stands in for it
+    g.fillStyle = "rgba(27,175,122,.10)";
     g.fillRect(X(s.t0 / data.hop), pad.t, X(s.t1 / data.hop) - X(s.t0 / data.hop), h - pad.t - pad.b);
   });
   if (sel) {
@@ -255,7 +257,7 @@ function draw() {
     line(i => at(i) >= 0, noteColor, 2.6);
   };
   line(() => true, "#c9c7c0", 1.4);
-  segs.forEach(s => { if (s.kinds) paint(s.i0, s.i1, s.kinds, "#1baf7a"); });
+  segs.forEach((s, i) => { if (s.kinds && i !== selIdx) paint(s.i0, s.i1, s.kinds, "#1baf7a"); });
   if (preview) paint(preview.i0, preview.i1, preview.kinds, "#2a78d6");
 
   g.textAlign = "center"; g.font = "600 12px -apple-system, sans-serif"; g.lineWidth = 3;
@@ -267,7 +269,7 @@ function draw() {
     g.strokeStyle = "#fcfcfb"; g.strokeText(nm, X(mid), top - 9);
     g.fillStyle = "#0b0b0b"; g.fillText(nm, X(mid), top - 9);
   });
-  segs.forEach(s => { if (s.kinds) label(s.swars.split(" "), s.i0, s.i1, s.kinds); });
+  segs.forEach((s, i) => { if (s.kinds && i !== selIdx) label(s.swars.split(" "), s.i0, s.i1, s.kinds); });
   if (preview) label(preview.tokens, preview.i0, preview.i1, preview.kinds);
 
   window._px = { X, hop: data.hop, pad, h, w, n: data.cents.length };
@@ -295,14 +297,14 @@ const timeAt = e => {
   const x = e.clientX - r.left - pad.l, span = w - pad.l - pad.r;
   return Math.max(0, Math.min(n * hop, (x / span) * n * hop));
 };
-const EDGE_PX = 7;
-function edgeAt(e) {                                    // which selection edge is under the cursor
+const EDGE_PX = 9;
+function edgeAt(e) {                                    // the nearer edge under the cursor, if any
   if (!sel) return null;
   const { X, hop } = window._px;
   const r = $("#plot").getBoundingClientRect(), x = e.clientX - r.left;
-  if (Math.abs(x - X(sel[0] / hop)) <= EDGE_PX) return 0;
-  if (Math.abs(x - X(sel[1] / hop)) <= EDGE_PX) return 1;
-  return null;
+  const d = [Math.abs(x - X(sel[0] / hop)), Math.abs(x - X(sel[1] / hop))];
+  const near = d[0] <= d[1] ? 0 : 1;
+  return d[near] <= EDGE_PX ? near : null;              // a short stretch is still grabbable
 }
 $("#plot").addEventListener("pointerdown", e => {
   const edge = edgeAt(e);
@@ -318,8 +320,9 @@ $("#plot").addEventListener("pointermove", e => {
     dragging.edge = t < other ? 0 : 1;
     dragging.moved = true;
   } else if (Math.abs(t - dragging.from) > 0.05) {
+    // while editing a stretch this re-draws *its* extent; esc or another row leaves it
     sel = [Math.min(dragging.from, t), Math.max(dragging.from, t)];
-    selIdx = -1; dragging.moved = true;
+    dragging.moved = true;
   }
   if (dragging.moved) { buttons(); draw(); }
 });
@@ -327,7 +330,9 @@ $("#plot").addEventListener("pointerup", e => {
   const was = dragging;
   dragging = null;
   if (was && was.edge === undefined && !was.moved) {     // a plain click seeks
-    au.currentTime = timeAt(e); stopAt = null; sel = null; preview = null; buttons(); draw();
+    au.currentTime = timeAt(e); stopAt = null;
+    sel = null; preview = null; selIdx = -1; $("#fit").textContent = "";
+    buttons(); drawSegs(); draw();
     return;
   }
   draw();
@@ -339,6 +344,7 @@ $("#plot").addEventListener("pointerup", e => {
 function buttons() {
   const has = !!sel, text = $("#swars").value.trim().split(/\s+/).filter(Boolean).length >= 1;
   $("#align").disabled = !(has && text);
+  $("#even").disabled = !(has && text);
   $("#add").disabled = !(has && text);
   $("#playsel").disabled = !has;
   $("#add").textContent = selIdx >= 0 ? "update stretch " : "add stretch ";
@@ -365,13 +371,28 @@ async function align() {
     + (r.coverage < 0.5 ? " — add swars, or select a tighter stretch" : "");
   draw();
 }
+function spaceEvenly() {                                // when the tracker did not hear what you did
+  if (!sel) return;
+  const toks = $("#swars").value.trim().split(/\s+/).filter(Boolean);
+  if (!toks.length) return;
+  const hop = data.hop, i0 = Math.round(sel[0] / hop), i1 = Math.round(sel[1] / hop);
+  const kinds = new Array(i1 - i0).fill(-1);
+  for (let i = 0; i < i1 - i0; i++) kinds[i] = Math.min(toks.length - 1, Math.floor(i * toks.length / (i1 - i0)));
+  preview = { kinds, i0, i1, tokens: toks, fit: null, coverage: 1, even: true,
+              t0: sel[0], t1: sel[1] };
+  $("#fit").innerHTML = `<b>evenly spaced</b> — not aligned to the pitch track`;
+  draw();
+}
+
 async function addSeg() {
   const typed = $("#swars").value.trim().split(/\s+/).filter(Boolean).join(" ");
   if (!preview || preview.tokens.join(" ") !== typed) {      // align first, or re-align if edited
-    await align();
+    preview && preview.even ? spaceEvenly() : await align();
     if (!preview) return;
   }
   const s = { t0: preview.t0, t1: preview.t1, swars: preview.tokens.join(" "), fit: preview.fit,
+              sel0: sel[0], sel1: sel[1],          // what was drawn, so editing reopens the same
+              method: preview.even ? "even" : "align",
               flags: [], i0: preview.i0, i1: preview.i1, kinds: preview.kinds };
   if (selIdx >= 0) segs[selIdx] = s; else segs.push(s);
   segs.sort((a, b) => a.t0 - b.t0);
@@ -386,7 +407,7 @@ function drawSegs() {
     const tr = document.createElement("tr");
     if (i === selIdx) tr.className = "sel";
     tr.innerHTML = `<td>${s.t0.toFixed(1)}–${s.t1.toFixed(1)} s</td><td class="sw">${s.swars}</td>
-      <td>${s.fit ?? ""}</td><td class="meta">${(s.flags || []).join(", ")}</td>`;
+      <td>${s.fit ?? "—"}</td><td class="meta">${s.method === "even" ? "spaced by hand" : ""}</td>`;
     const x = document.createElement("td");
     const b = document.createElement("button"); b.className = "x"; b.textContent = "×";
     b.onclick = ev => {
@@ -398,10 +419,10 @@ function drawSegs() {
     };
     x.appendChild(b); tr.appendChild(x);
     tr.onclick = () => {                                   // click a row to edit that stretch
-      selIdx = i; sel = [s.t0, s.t1]; preview = null;
+      selIdx = i; sel = [s.sel0 ?? s.t0, s.sel1 ?? s.t1]; preview = null;
       $("#swars").value = s.swars + " ";
       drawSegs(); buttons(); draw(); playSel();
-      align();                                             // show it as a live preview to edit
+      s.method === "even" ? spaceEvenly() : align();       // show it as a live preview to edit
     };
     tb.appendChild(tr);
   });
@@ -422,7 +443,8 @@ function playAll() { stopAt = null; au.paused ? au.play() : au.pause(); }
 async function save() {
   await fetch("/api/notation", { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chunk_id: cur.id, note: $("#note").value,
-      segments: segs.map(({ t0, t1, swars, fit, flags }) => ({ t0, t1, swars, fit, flags })) }) });
+      segments: segs.map(({ t0, t1, swars, fit, flags, sel0, sel1, method }) =>
+        ({ t0, t1, swars, fit, flags, sel0, sel1, method: method || "align" })) }) });
   cur.segments = segs.length; drawNav();
   $("#saved").textContent = "saved"; setTimeout(() => ($("#saved").textContent = ""), 1800);
 }
@@ -435,6 +457,7 @@ $("#loop").onclick = () => { looping = !looping; $("#loop").textContent = `loop 
 $("#rate").onclick = () => { au.playbackRate = au.playbackRate === 1 ? 0.75 : au.playbackRate === 0.75 ? 0.5 : 1;
                              $("#rate").textContent = `${au.playbackRate}×`; };
 $("#align").onclick = align;
+$("#even").onclick = spaceEvenly;
 $("#add").onclick = addSeg;
 $("#save").onclick = save;
 $("#undo").onclick = () => { const b = $("#swars");

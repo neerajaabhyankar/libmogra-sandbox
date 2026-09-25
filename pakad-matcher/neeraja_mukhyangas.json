@@ -1,33 +1,198 @@
 {
-  "_about": "Phrases Neeraja can clearly pick out by ear, and will annotate. Overlaps the tanarang/libmogra DB but is not bound by it: entries may be modified, shortened, or new. This file, not the DB, is the source of truth for annotation.",
-  "_format": {
-    "id": "<Raag>#<n> mirrors a libmogra mukhyanga index; <Raag>#N<n> is Neeraja's own",
-    "phrase": "space-separated swars; ',' prefix = mandra saptak, '`' prefix = taar saptak",
-    "source": "tanarang = verbatim from libmogra's RaagDB; neeraja = chosen/modified by hand",
-    "annotate": "include in the S3 annotation rounds"
+ "_about": "Phrases Neeraja can clearly pick out by ear, and will annotate. Overlaps the tanarang/libmogra DB but is not bound by it: entries may be modified, shortened, or new. This file, not the DB, is the source of truth for annotation.",
+ "_format": {
+  "id": "<Raag>#<n> mirrors a libmogra mukhyanga index; <Raag>#N<n> is Neeraja's own",
+  "phrase": "space-separated swars; ',' prefix = mandra saptak, '`' prefix = taar saptak",
+  "source": "tanarang = verbatim from libmogra's RaagDB; neeraja = chosen/modified by hand",
+  "annotate": "include in the S3 annotation rounds",
+  "round": "1 = the first six raags (annotated); 2 = added 2026-09-24, four fresh raags",
+  "raag": "the dataset's folder name; KaushikDhwani is Bhinna Shadja / Kaushik Dhwani"
+ },
+ "phrases": [
+  {
+   "id": "Bageshree#0",
+   "raag": "Bageshree",
+   "phrase": ",n S m",
+   "source": "tanarang",
+   "annotate": true,
+   "round": 1
   },
-  "phrases": [
-    {"id": "Bageshree#0", "raag": "Bageshree", "phrase": ",n S m", "source": "tanarang", "annotate": true},
-    {"id": "Bageshree#4", "raag": "Bageshree", "phrase": "m D n D", "source": "tanarang", "annotate": true},
-
-    {"id": "DarbariKanada#2", "raag": "DarbariKanada", "phrase": "n m P `S", "source": "tanarang", "annotate": true},
-    {"id": "DarbariKanada#N1", "raag": "DarbariKanada", "phrase": "m P d n P", "source": "neeraja",
-     "note": "shorter than the DB's 'm P d P d n P'", "annotate": true},
-
-    {"id": "Malhar#2", "raag": "Malhar", "phrase": "g m R S", "source": "tanarang",
-     "note": "DB writes 'g g m R S'; the repeat is collapsed", "annotate": true},
-    {"id": "Malhar#3", "raag": "Malhar", "phrase": ",n D ,N S", "source": "tanarang",
-     "note": "DB writes ',n D ,N ,N S'; the repeat is collapsed", "annotate": true},
-
-    {"id": "PuriyaDhanashri#0", "raag": "PuriyaDhanashri", "phrase": ",N r G M P", "source": "tanarang", "annotate": true},
-    {"id": "PuriyaDhanashri#N1", "raag": "PuriyaDhanashri", "phrase": "M G M r G", "source": "neeraja",
-     "note": "the DB's 'P M G M r G' without the leading P", "annotate": true},
-
-    {"id": "Shree#N1", "raag": "Shree", "phrase": "M P d M G r", "source": "neeraja",
-     "note": "the DB's 'M P d M G r G r S' truncated", "annotate": true},
-    {"id": "Shree#N2", "raag": "Shree", "phrase": "r P r G r S", "source": "neeraja", "annotate": true},
-
-    {"id": "Bheempalasi#0", "raag": "Bheempalasi", "phrase": ",n S g m P", "source": "tanarang", "annotate": true},
-    {"id": "Bheempalasi#N1", "raag": "Bheempalasi", "phrase": ",n S g R S", "source": "neeraja", "annotate": true}
-  ]
+  {
+   "id": "Bageshree#4",
+   "raag": "Bageshree",
+   "phrase": "m D n D",
+   "source": "tanarang",
+   "annotate": true,
+   "round": 1
+  },
+  {
+   "id": "DarbariKanada#2",
+   "raag": "DarbariKanada",
+   "phrase": "n m P `S",
+   "source": "tanarang",
+   "annotate": true,
+   "round": 1
+  },
+  {
+   "id": "DarbariKanada#N1",
+   "raag": "DarbariKanada",
+   "phrase": "m P d n P",
+   "source": "neeraja",
+   "note": "shorter than the DB's 'm P d P d n P'",
+   "annotate": true,
+   "round": 1
+  },
+  {
+   "id": "Malhar#2",
+   "raag": "Malhar",
+   "phrase": "g m R S",
+   "source": "tanarang",
+   "note": "DB writes 'g g m R S'; the repeat is collapsed",
+   "annotate": true,
+   "round": 1
+  },
+  {
+   "id": "Malhar#3",
+   "raag": "Malhar",
+   "phrase": ",n D ,N S",
+   "source": "tanarang",
+   "note": "DB writes ',n D ,N ,N S'; the repeat is collapsed",
+   "annotate": true,
+   "round": 1
+  },
+  {
+   "id": "PuriyaDhanashri#0",
+   "raag": "PuriyaDhanashri",
+   "phrase": ",N r G M P",
+   "source": "tanarang",
+   "annotate": true,
+   "round": 1
+  },
+  {
+   "id": "PuriyaDhanashri#N1",
+   "raag": "PuriyaDhanashri",
+   "phrase": "M G M r G",
+   "source": "neeraja",
+   "note": "the DB's 'P M G M r G' without the leading P",
+   "annotate": true,
+   "round": 1
+  },
+  {
+   "id": "Shree#N1",
+   "raag": "Shree",
+   "phrase": "M P d M G r",
+   "source": "neeraja",
+   "note": "the DB's 'M P d M G r G r S' truncated",
+   "annotate": true,
+   "round": 1
+  },
+  {
+   "id": "Shree#N2",
+   "raag": "Shree",
+   "phrase": "r P r G r S",
+   "source": "neeraja",
+   "annotate": true,
+   "round": 1
+  },
+  {
+   "id": "Bheempalasi#0",
+   "raag": "Bheempalasi",
+   "phrase": ",n S g m P",
+   "source": "tanarang",
+   "annotate": true,
+   "round": 1
+  },
+  {
+   "id": "Bheempalasi#N1",
+   "raag": "Bheempalasi",
+   "phrase": ",n S g R S",
+   "source": "neeraja",
+   "annotate": true,
+   "round": 1
+  },
+  {
+   "id": "Des#3",
+   "raag": "Des",
+   "phrase": "R m P N",
+   "source": "tanarang",
+   "annotate": true,
+   "round": 2
+  },
+  {
+   "id": "Des#4",
+   "raag": "Des",
+   "phrase": "`S `R n D P",
+   "source": "tanarang",
+   "annotate": true,
+   "round": 2,
+   "note": "taar S and taar R, then down"
+  },
+  {
+   "id": "TilakKamod#5",
+   "raag": "TilakKamod",
+   "phrase": "`S P D m G",
+   "source": "tanarang",
+   "annotate": true,
+   "round": 2
+  },
+  {
+   "id": "TilakKamod#N1",
+   "raag": "TilakKamod",
+   "phrase": "S R G S",
+   "source": "neeraja",
+   "annotate": true,
+   "round": 2,
+   "note": "the DB's 'S R G S ,N' without the tail"
+  },
+  {
+   "id": "Multani#3",
+   "raag": "Multani",
+   "phrase": "M g M g r S",
+   "source": "tanarang",
+   "annotate": true,
+   "round": 2
+  },
+  {
+   "id": "Multani#N1",
+   "raag": "Multani",
+   "phrase": ",N S g r S",
+   "source": "neeraja",
+   "annotate": true,
+   "round": 2
+  },
+  {
+   "id": "Todi#N1",
+   "raag": "Todi",
+   "phrase": "r g r S",
+   "source": "neeraja",
+   "annotate": true,
+   "round": 2
+  },
+  {
+   "id": "Todi#N2",
+   "raag": "Todi",
+   "phrase": "g M d N",
+   "source": "neeraja",
+   "annotate": true,
+   "round": 2
+  },
+  {
+   "id": "KaushikDhwani#2",
+   "raag": "KaushikDhwani",
+   "phrase": "N `S D",
+   "source": "tanarang",
+   "annotate": true,
+   "round": 2,
+   "note": "Bhinna Shadja; an audav raag"
+  },
+  {
+   "id": "KaushikDhwani#3",
+   "raag": "KaushikDhwani",
+   "phrase": "D m G S",
+   "source": "tanarang",
+   "annotate": true,
+   "round": 2,
+   "note": "Bhinna Shadja; an audav raag"
+  }
+ ]
 }

@@ -111,7 +111,27 @@ def phrase_cost(cents, swars, hop, p, path=False, free_edges=False):
     return cost, per_frame
 
 
-def free_cost(cents, hop, p, allowed=None):
+def free_read(cents, hop, params=None, allowed=None):
+    """What the machine hears here, with no phrase to guide it: a sequence of swars.
+
+    The same model the matcher uses, decoded without a phrase -- this is "the automatic reading"
+    that the notated corpus is there to score.
+    """
+    p = {**C.MATCH, **(params or {})}
+    _cost, states, swar_of = free_cost(cents, hop, p, allowed, path=True)
+    seq, spans = [], []
+    for t, st in enumerate(states):
+        s = swar_of[st]
+        if s is None:
+            continue
+        if seq and spans[-1][1] == t - 1 and seq[-1] == s:
+            spans[-1][1] = t
+        else:
+            seq.append(s); spans.append([t, t])
+    return seq, [(a * hop, (b + 1) * hop) for a, b in spans]
+
+
+def free_cost(cents, hop, p, allowed=None, path=False):
     """Best cost of any swar sequence at all, under the same rules.
 
     `allowed` restricts the free model to a set of swars (e.g. the raag's scale) -- a harder
@@ -131,6 +151,7 @@ def free_cost(cents, hop, p, allowed=None):
     first = {s: i * n for i, s in enumerate(swar_set)}
     orn_at = {ab: len(swar_set) * n + i for i, ab in enumerate(pairs)}
 
+    onset = p.get("onset_cost", 0.0)     # what it costs to call something a new note at all
     A = np.full((S, S), INF)
     for i, s in enumerate(swar_set):
         for j in range(n - 1):
@@ -140,14 +161,23 @@ def free_cost(cents, hop, p, allowed=None):
         o = orn_at[(a, b)]
         A[o, o] = 0.0
         A[last[a], o] = 0.0
-        A[o, first[b]] = 0.0
-        A[last[a], first[b]] = 0.0                          # straight to the next swar
+        A[o, first[b]] = onset
+        A[last[a], first[b]] = onset                        # straight to the next swar
     starts = np.zeros(S, bool)
     ends = np.zeros(S, bool)
     for s in swar_set:
         starts[first[s]] = True
         ends[last[s]] = True
-    return _run(E, A, starts, ends)
+    if not path:
+        return _run(E, A, starts, ends)
+    cost, states = _run(E, A, starts, ends, path=True)
+    swar_of = {}                                      # state -> swar, or None for an ornament
+    for i, s in enumerate(swar_set):
+        for j in range(n):
+            swar_of[i * n + j] = s
+    for ab, i in orn_at.items():
+        swar_of[i] = None
+    return cost, states, swar_of
 
 
 def align(cents, swars, hop, params=None, free_edges=True):
@@ -158,7 +188,34 @@ def align(cents, swars, hop, params=None, free_edges=True):
     """
     p = {**C.MATCH, **(params or {})}
     cost, kinds = phrase_cost(cents, swars, hop, p, path=True, free_edges=free_edges)
-    return kinds, cost / max(1, len(cents))
+    return _rebalance(kinds, swars), cost / max(1, len(cents))
+
+
+def _rebalance(kinds, swars):
+    """Split evenly where the decode had no reason to prefer one boundary over another.
+
+    Two notes on the same swar with nothing between them -- `R R` over a stretch that simply
+    sits on R -- cost exactly the same however the boundary falls, so Viterbi picks arbitrarily
+    and usually hands almost everything to the first, leaving the second a few frames at the
+    rim. An even split is the honest reading of a tie, and it is what the notator sees.
+    """
+    kinds = np.asarray(kinds).copy()
+    k = 0
+    while k < len(swars) - 1:
+        run = [k]
+        while (run[-1] + 1 < len(swars) and swars[run[-1] + 1] == swars[k]):
+            a, b = run[-1], run[-1] + 1
+            fa, fb = np.flatnonzero(kinds == a), np.flatnonzero(kinds == b)
+            if not len(fa) or not len(fb) or fb[0] != fa[-1] + 1:
+                break                               # something lies between them: a real boundary
+            run.append(b)
+        if len(run) > 1:
+            frames = np.flatnonzero(np.isin(kinds, run))
+            edges = np.linspace(0, len(frames), len(run) + 1).round().astype(int)
+            for i, note in enumerate(run):
+                kinds[frames[edges[i]:edges[i + 1]]] = note
+        k = run[-1] + 1
+    return kinds
 
 
 def ratio(cents, swars, hop, params=None, allowed=None, per="frame"):

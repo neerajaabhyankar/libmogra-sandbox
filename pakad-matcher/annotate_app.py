@@ -1,6 +1,8 @@
 """Local annotation app: hear a candidate in context, watch the playhead, answer y/n.
 
-    poetry run python annotate_app.py          # then open http://localhost:8765
+    poetry run python annotate_app.py
+        http://localhost:8765/phrases   judge candidates for a samooha  (test/validation data)
+        http://localhost:8765/notate    write down what you hear        (training data)
 
 Left is the pitch track of the surrounding musical sentence; the shaded span is the candidate
 the matcher proposes, with its aligned path drawn on top. Keys: y / n / u, r replay,
@@ -49,14 +51,15 @@ def decode_full(cents, swars, octaves, hop):
     import decode
     import matcher
     try:
-        kinds, _per_frame = decode.align(cents, swars, hop, free_edges=True)
+        kinds, _per_frame = decode.align(cents, swars, hop, params=C.NOTATE_MATCH, free_edges=True)
     except Exception:
         return None
     inside = np.flatnonzero(kinds != -2)                  # the rim is absorbed, not notated
     if not len(inside):
         return None
     f0, f1 = int(inside[0]), int(inside[-1])
-    cost = matcher.score_path(cents[f0:f1 + 1], kinds[f0:f1 + 1], swars, octaves, hop, {**C.MATCH})[-1]
+    cost = matcher.score_path(cents[f0:f1 + 1], kinds[f0:f1 + 1], swars, octaves, hop,
+                              {**C.MATCH, **C.NOTATE_MATCH})[-1]
     return float(cost), f0, f1, kinds[f0:f1 + 1]
 
 
@@ -99,7 +102,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         path = urlparse(self.path).path
-        if path == "/":
+        if path in ("/phrases", "/"):
             return self._send(PAGE(), "text/html; charset=utf-8")
         if path == "/notate":
             return self._send(NOTATE_PAGE(), "text/html; charset=utf-8")
@@ -112,7 +115,6 @@ class Handler(SimpleHTTPRequestHandler):
             cid = path.rsplit("/", 1)[1]
             ch = next(c for c in chunks() if c["id"] == cid)
             cents, hop = chunk_contour(ch)
-            from utils import raagdb
             scale = sorted(raagdb.dataset_raags([ch["raag"]])[ch["raag"]].scale)
             prev = notations().get(cid, {})
             return self._send(json.dumps(dict(
@@ -179,7 +181,6 @@ class Handler(SimpleHTTPRequestHandler):
             cents, hop = chunk_contour(ch)
             import matcher
             from contour import Contour
-            from utils import raagdb
             tokens = body["swars"].split()
             swars, octaves = raagdb.parse_phrase(tokens)
             if len(swars) != len(tokens) or len(swars) < 1:
@@ -190,17 +191,21 @@ class Handler(SimpleHTTPRequestHandler):
             i1 = min(len(cents), int(round(body.get("t1", len(cents) * hop) / hop)))
             if i1 - i0 < 4:
                 return self._send(json.dumps(dict(error="that range is too short")))
-            cands = matcher.match(Contour(ch["id"], cents[i0:i1], hop), tuple(swars),
-                                  top_k=8, octaves=tuple(octaves))
-            if not cands:
-                return self._send(json.dumps(dict(error="no alignment found in that range")))
-            # a selection is an assertion that the sequence is *here*, so weigh covering it
-            # against fitting it, rather than taking the tightest fit that happens to be cheapest
+            # Notation is not search: the notator has asserted that this sequence is in this
+            # selection, so the reading spans it, with the rim absorbed. The matcher's tight
+            # candidates are a fallback only -- offered as options they win on cost by crowding
+            # every swar into one sweep that happens to pass through all of them.
+            p = {**C.MATCH, **C.NOTATE_MATCH}
             voiced = ~np.isnan(cents[i0:i1])
             n_voiced = max(1, int(voiced.sum()))
-            held = matcher._held(cents[i0:i1], hop, C.MATCH)
+            held = matcher._held(cents[i0:i1], hop, p)
             full = decode_full(cents[i0:i1], tuple(swars), tuple(octaves), hop)
-
+            cands = []
+            if full is None:
+                cands = matcher.match(Contour(ch["id"], cents[i0:i1], hop), tuple(swars),
+                                      top_k=8, octaves=tuple(octaves), params=C.NOTATE_MATCH)
+                if not cands:
+                    return self._send(json.dumps(dict(error="no alignment found in that range")))
             def penalty(f0, f1, cost, cpath):
                 cov = voiced[f0:f1 + 1].sum() / n_voiced
                 on_note = cpath[: f1 + 1 - f0] >= 0
@@ -262,5 +267,6 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print(f"phrases: http://localhost:{C.APP_PORT}    notation: http://localhost:{C.APP_PORT}/notate")
+    print(f"  judging phrases:  http://localhost:{C.APP_PORT}/phrases")
+    print(f"  notating chunks:  http://localhost:{C.APP_PORT}/notate")
     ThreadingHTTPServer(("127.0.0.1", C.APP_PORT), Handler).serve_forever()

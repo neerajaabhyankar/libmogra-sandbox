@@ -37,13 +37,16 @@ not systematically biased.
 | | |
 |---|---|
 | Finding candidates | works -- ~2 in 3 of what it surfaces is accepted by ear, before ranking |
-| Ranking them | **precision@1 0.75, @3 0.86** after tuning (was 0.58 / 0.58), leave-one-phrase-out |
-| Ranking, as AUC | per-phrase **0.67** tuned (was 0.50 = chance) |
-| Ground truth | 168 y/n judgments, 12 phrases, 6 raags, 42 recordings, 44 comments |
+| Ranking them | precision@1 0.75, @3 0.86 after tuning -- but **tuned on what is now the test set**, so read it as an upper bound, not a result (see *Data discipline*) |
+| Ranking, untuned | **precision@1 0.58, @3 0.58** -- the honest baseline, since those costs never saw a judgment |
+| Reading a contour unaided | **misread rate 0.63** against the notation; it over-segments (see S6) |
+| Test set, frozen | 168 y/n judgments, 12 samoohas, 6 raags (109 on recordings the training data does not touch) |
+| Training data | notation corpus: 24 chunks, 111 stretches, **1023 swars**, 340 s |
 | Corpus | 20.3 h of full recordings, pitch-tracked, tonic-annotated, train-split only |
 
-The single biggest lesson: **tuning the existing heuristic beat every new feature I invented**
-(0.67 vs 0.55). See S4 / S4b.
+Two lessons carry: **tuning the existing heuristic beat every new feature I invented** (S4 / S4b),
+and **that tuning used the judgments that are now the test set**, so it has to be redone from the
+notation corpus before it counts (S7).
 
 ---
 
@@ -176,6 +179,11 @@ meaningful, given the context"; **held_extra** for "this is n S g m".
 
 Coordinate ascent over the re-scoring knobs on the fixed labelled spans, objective = per-phrase AUC.
 
+> **Superseded as a headline by the 2026-09-24 data discipline.** These judgments are now the test
+> set, so a number fitted on them cannot be reported as performance. The section stays because
+> *what* tuning changed is still the finding -- especially `note_trim` -- and because the size of
+> the gain says how much a fitted model should be expected to buy.
+
 | | per-phrase AUC | P@1 | P@3 |
 |---|---|---|---|
 | as shipped | 0.500 | 0.58 | 0.58 |
@@ -245,6 +253,44 @@ leave-one-phrase-out (Brier **0.208** against a 0.228 base rate). It is honest b
 reliability by band is 0.00 / 0.62 / 0.47 / 0.69 / 0.80 -- so treat it as "roughly how sure", not a
 probability to do arithmetic with. It will sharpen when the corpus grows.
 
+---
+
+## Data discipline
+
+**See [`DATA.md`](DATA.md)** for the glossary (judgment, notation, chunk, stretch, candidate, pool,
+misread rate, ...) and the full rules, and run **`poetry run python audit.py`** for the live state:
+it computes the splits from the files and fails if a rule is broken.
+
+The short version, because it changes how every earlier number reads:
+
+| | |
+|---|---|
+| **training** | **notations** -- what a musician heard in a stretch, written as swars. 24 chunks, 111 stretches, **1023 swars** |
+| **test** | **judgments** -- one y/n per candidate span, on recordings the notation never touches: **109** over 12 samoohas |
+| **validation** | judgments on notated recordings but at *different moments*, 5 s margin: **58**. Neeraja's suggestion, and it rescues a third of the judgments from being wasted |
+| **set aside** | 1 judgment that overlaps a notated stretch |
+| **awaiting judgment** | **9 samoohas, 122 candidates** over Des, Tilak Kamod, Multani, Todi, Bhinna Shadja |
+| **awaiting notation** | **24 chunks, 420 s** over Yaman, Bhairav, Malkauns, Bhoopali, Jog, Kalawati -- fresh raags, two of them audav |
+
+**Today's headline phrase numbers were tuned on what is now the test set.** S4b fitted five costs by
+coordinate ascent on those judgments and `calibrate.py` fitted the probability on them, so
+P@1 0.75 / P@3 0.86 / per-samooha AUC 0.669 are optimistic by an unknown amount and do not survive
+the discipline. The baseline to beat is the **untuned** matcher's P@1 0.58 / P@3 0.58, whose costs
+never saw a judgment. Under the new rules every parameter comes from notation, validation tunes,
+and the test is scored once.
+
+**What the notation corpus can already estimate** (882 notated notes with an alignment):
+
+| quantity | corpus says | what it sets |
+|---|---|---|
+| intonation, \|median pitch - equal-tempered target\| | median **23 c**, 75th 43 c, 90th 96 c | `free_cents`, `scale_cents` -- the phrase matcher's tuned 15 c is *tighter than the median note*, a sign it was fitted to separate candidates rather than to describe singing |
+| note duration | median **0.09 s**, 10th pct 0.05 s | `min_dwell_s`, and a duration model |
+| transit/ornament share of a stretch | median **0.15** | `orn_cost`, `kan_cents` |
+| per-swar deviation from equal temperament | S -1, P +2, R +5, G +5, M +3 · **d +25, g +18, N +17, D +15, n +12** | per-swar emissions -- and this is the shruti question itself, answered from Neeraja's own ear |
+
+The komal swars sitting sharp of equal temperament, while S and P sit on it with the tightest
+spread (IQR 20-41 c against 33-58 c), is the first musical result this corpus has produced.
+
 ## What's next
 
 The goal above changes the target: the core capability is **reading a contour as a swar sequence**,
@@ -277,7 +323,7 @@ are nothing -- is untested, because we have no labels for spans the matcher neve
 exactly the gap the notation corpus fills. `decode.py` stays: the free decode is also what the
 notation view aligns with, and it is the skeleton of the learned model in S7.
 
-### 🔄 S5b -- the notation corpus: tool ready, notating next
+### ✅ S5b -- the notation corpus: 24 chunks notated
 
 Notate 15-30 s chunks **as heard**: swar sequence, octave marks, no rhythm. Why this beats more
 y/n labels: a y/n is **one bit**, a notated 20 s chunk is 30-60 notes; it gives **recall**, which
@@ -294,6 +340,10 @@ being a separate annotation job.
 | | |
 |---|---|
 | **sub-ranges, not whole chunks** | drag across the plot to select a stretch; a taan gets split into 4-5 of them "for convenience + clarity + correction where your alignment is wrong". Stretches are listed under the plot; click one to reopen it for editing (swars *and* edges), `esc` to leave it, `×` to drop it |
+| **read, don't search** | notation spans the selection (rim absorbed); the matcher's tight candidates are a fallback only, since as options they crowd every swar into one sweep that passes through all of them |
+| **ties split evenly** | `R R` over a stretch that just sits on R costs the same however the boundary falls, so Viterbi gave one note everything and the other a few frames. Same-swar runs with nothing between are split evenly; boundaries the contour actually marks, and genuinely unequal durations, are left alone |
+| **notation's own costs** | the matcher's tuned `free_cents=15, note_trim=1.0` demand near-perfect intonation on every frame -- right for phrase matching, wrong here, where a dip that leans on a swar *is* that swar. `NOTATE_MATCH` relaxes to `free_cents=35, scale_cents=70, note_trim=0.4, min_dwell=0.05`, on-held reward down to 0.2 |
+| **`space evenly`** | when the tracker did not follow the instrument at all, type what you hear and space it evenly; stored as `method: "even"`, shown as *spaced by hand*. Evidence of **what was sung, not when** -- never to be used for scoring timing |
 | **coverage counts, but notes land on notes** | free ends inside the selection (silence, drone), scored `cost + NOTATE_COVER_WEIGHT x (1 - coverage) + NOTATE_HELD_WEIGHT x (1 - on-held)`; the span-covering candidate runs with **absorbing rim states**, so an unaccounted-for blip at an edge costs like ornament instead of dragging a note out to it. Coverage is always shown. On the worked example, `g g g m m` places all three *g*s on held pitch (300/315/308 c) over 90 % of the selection |
 | **one swar is a legal notation** | useful exactly when the alignment fails and you want to pin a single note down |
 | **a swar keypad** | `,P` to `` `P ``, laid out like a keyboard with every natural a step apart and komal/teevra between their neighbours; saptaks shown by a band behind madhya, not by gaps. Clicking appends. Raag notes can be **marked by hand** for a visual ring -- set by the notator, never inferred |
@@ -307,44 +357,112 @@ a category, not a fault); `⇧space` / `⇧K` drive playback mid-word so it neve
 selection plays **once** and stops at its end, and its edges can be dragged to extend it;
 `add stretch` sits beside `align` so the pending action is visible; no flags.
 
-**Still open, to settle by using it**: per-note correction (deferred -- sub-ranges may make it
-unnecessary), and whether 20 s / 15 s chunks are the right size. Further ideas for the tool live in
+**The corpus**: 24 chunks notated, **102 stretches, 845 swars, 304 s** of notated audio (of 420 s
+offered); 93 stretches aligned to the track, 9 spaced by hand. Three chunks came back empty and
+were replaced from other recordings (`chunks.py --replace`), awaiting notation.
+
+**Still open**: per-note correction (deferred -- sub-ranges may make it unnecessary), and whether
+20 s / 15 s chunks are the right size. Further ideas for the tool live in
 **`notator.md`**, which is its own parking lot now that it is worth more than this errand.
 
-### 🟥 S6 -- the query layer, evaluated at the level of the statistic
+### ✅ S6 -- scoring the reading against the notation: over-segmentation is the wall (`s6.py`)
 
-Build what the goal actually asks for: per-swar ascent/descent context, dwell and nyas landing,
-n-gram counts, foreign-swar rate, "is this ang present" as a phrase-count query.
+`decode.free_read` decodes a stretch with **no phrase to guide it** -- the automatic reading --
+and the corpus scores it. The metric is the **misread rate**:
+`(substitutions + deletions + insertions) / notated swars` -- the same shape as word error rate in
+speech. 0 is perfect; 1 means as many mistakes as there are notes. Insertions and deletions are
+always reported separately, because they fail in opposite directions and an aggregate hides which.
 
-Evaluate the **statistic, not the transcription**: compute each query from (a) the human notation and
-(b) the automatic reading of the same chunk, and report agreement per query type. This is where "8
-out of 10 is useful" gets measured. Aggregates survive unbiased per-note noise; what poisons them is
-*bias* -- if the tracker systematically drops mandra notes, or counts ornaments as notes, "how often
-does ga appear in ascent" is wrong in a fixed direction. Measuring that bias is the point, and it
-decides which questions are answerable today and which are not.
+**The first run said the model was not close.**
 
-### 🟥 S7 -- the learnable version
+| | notated | read | sub | del | ins | misread rate |
+|---|---|---|---|---|---|---|
+| everything | 845 | **1780** | 248 | 31 | **966** | 1.47 |
+| alap | 146 | 586 | 23 | 0 | 440 | 3.17 |
+| taan | 699 | 1194 | 225 | 31 | 526 | 1.12 |
 
-Keep the structure, learn the parameters. The current model is already an HMM with hand-set costs;
-the notated corpus turns each of those into something estimable:
+The machine hears nearly everything Neeraja does (31 deletions) and then **more than twice as much
+again**. It reads every pitch region a glide passes through; she writes the notes that were
+*intended*. Alap is four times over-read, because a slow meend wanders through many swars that
+nobody notates.
 
-- **emissions** P(cents | swar) -- per-swar intonation, including andolan, estimated rather than
-  assumed (`motif-classifier`'s M5 channel matrix is the same idea one level up);
-- **durations** -- a semi-Markov duration model per swar replaces `min_dwell_s`;
-- **an ornament/transit state** with learned occupancy replaces `kan_cents` and `orn_cost`;
-- decoding then yields a swar sequence *with a likelihood*, so S5a's ratio becomes principled rather
-  than a hand-built cost.
+**The missing lever**: declaring a new note cost nothing. Adding `onset_cost` to the free decode
+and fitting it on the corpus (`s6.py --sweep`) -- the first parameter this project learned from
+data rather than hand-set -- gives:
 
-Only past that, and only if the notated corpus says the error is in the *reading* rather than the
-scoring, does a neural sequence labeller (temporal conv or BiLSTM-CRF over contour features) earn
-its place. 168 y/n labels can train nothing; 30-40 notated chunks can train a small CRF; a contour
-encoder needs much more than we will have.
+| | notated | read | sub | del | ins | misread rate |
+|---|---|---|---|---|---|---|
+| everything | 845 | 586 | 146 | 322 | 63 | **0.63** |
+| alap | 146 | 172 | 38 | 15 | 41 | 0.64 |
+| taan | 699 | 414 | 108 | 307 | 22 | 0.63 |
+
+**One knob only trades one error for the other.** misread rate is flat at 0.63-0.64 across a wide range of
+(`onset_cost`, `min_dwell`); pushing insertions from 966 to 63 costs 291 deletions. That flatness
+is the finding: the note-segmentation *model*, not its parameters, is the limit. Fitting the onset
+per tempo helps a little and confirms the tempo dependence -- alap wants 3.0 (misread rate 0.53), taan wants
+1.5 (misread rate 0.60) -- which points at making it a function of local note density rather than a constant.
+
+**Which statistical questions are answerable today**, measured the way S6 was supposed to be:
+
+| question | notation vs reading | verdict |
+|---|---|---|
+| which swars are used in this chunk | recall **0.95**, precision **0.72** (6 missed, 46 spurious over 21 chunks) | usable with care; the spurious ones are transit swars |
+| how *often* each swar is used | swar-histogram total variation, median **0.24** per chunk; 11/21 chunks under 0.25 | not yet -- the over-read is not unbiased |
+| is this swar approached from below or above | P .49/.51, n .44/.44, G .50/.48, g .26/.34 agree; m .35/.58, r .35/.61 do not | per swar, and only for the ones that are dwelt on |
+
+The 8-in-10 tolerance is the right frame and it is **not met yet** for counting questions. The
+bias is systematic, not noise: transit notes inflate exactly the swars that sit between other
+swars, which is why `m` and `r` are the two that disagree most.
+
+### 🟨 S7 -- fit the reader on the notation corpus, then score the frozen test once
+
+Everything hand-set becomes estimated, from training data only:
+
+1. **Emissions** `P(cents | swar)`: per-swar centre and spread, straight from the 882 notated notes
+   (the table above). Replaces `free_cents` / `scale_cents` and gives andolan-heavy swars their own
+   width rather than one global tolerance.
+2. **Durations**: a per-swar duration distribution replaces `min_dwell_s`, and gives the decode a
+   reason to prefer a plausible note length over a 3-frame sliver.
+3. **Onset cost as a function of tempo**: fitted per tempo it already wants 3.0 for alap and 1.5 for
+   taan; local note density is measurable without labels, so this becomes a function, not a constant.
+4. **Ornament/transit occupancy** from the measured 0.15 share, replacing `orn_cost` and `kan_cents`.
+
+**Evaluated in two places, neither of which is the frozen test:**
+- **reading quality**, cross-validated *within* the notation corpus, leaving out whole recordings --
+  misread rate, insertions and deletions separately, alap and taan separately;
+- **statistic agreement** (the S6 table), same folds.
+
+Only when that is settled does the phrase test get scored, once: P@1 / P@3 / per-phrase AUC on the
+109 disjoint judgments, against the untuned baseline of 0.58 / 0.58.
+
+**Bootstrapping, once the reader is fitted**: run it over the unnotated train recordings, keep only
+stretches it reads confidently, and refit on notation + those pseudo-notations. The check that it is
+not just amplifying its own bias is the same held-out misread rate -- if pseudo-labels help, it
+improves; if it is feeding on itself, it will not.
+
+A neural sequence labeller stays out until this is done. 1023 swars can fit per-swar emissions and a
+duration model honestly; it cannot train an encoder.
+
+### What I need from Neeraja
+
+1. **Confirm the split** — judgments = frozen test, notations = train; headline scored on the 109
+   judgments whose recordings the notation corpus does not touch.
+2. ~~More samoohas for the test set~~ **done 2026-09-24**: 8 added over Des, Tilak Kamod, Multani
+   and Todi; 8.5 h of those raags pitch-tracked; **108 candidates built and waiting** in the app.
+3. **More notated chunks for training**, from **fresh raags** -- Yaman, Bhairav, Malkauns, Bhoopali
+   plus the audav pair Jog and Kalawati (`config.NOTATION_RAAGS_R3`). The six original raags have
+   almost no unjudged recordings left, and new raags widen the per-swar coverage that the emission
+   fits need.
+4. Nothing else. S7 fits on what exists; more data makes the fits sturdier, it does not unblock them.
 
 ### Annotation, in priority order
 
-1. **Notated chunks** (S5b) -- the pivot. Everything else is downstream of it.
-2. More phrases/raags only *through* notation -- they come free from notated chunks.
-3. More y/n judgments only to settle a specific disagreement, not as a default.
+1. **More phrase judgments, on reserved test recordings** -- the test set is 12 samoohas and 168
+   calls, and it is now the only thing standing between us and a self-graded model. Neeraja has
+   offered more phrases and raags; each new samooha is ~14 candidates.
+2. **More notated chunks** (train), from recordings *not* reserved for test.
+3. Judgments on recordings the notation corpus uses are worth less -- they can only be a secondary
+   number.
 
 ---
 
@@ -367,6 +485,8 @@ encoder needs much more than we will have.
 | `chunks.py` / `notate_app.html` | notation chunks and the notation view (see `notator.md`) |
 | `s5a.py` | the likelihood-ratio evaluation |
 | `tune.py` | coordinate ascent over the costs on the labels |
+| `audit.py` | **the data discipline, executable**: computes the splits, checks the rules |
+| `DATA.md` | the glossary and the rules in prose |
 | `run_s1.py` / `run_s2.py` / `plot.py` | the eyeball run, the null-control run, plotting |
 
 Reused from `../raag-identifier/`: `utils.config`, `utils.dataset`, `utils.raagdb`,
@@ -390,6 +510,20 @@ deliberately. Nothing outside `../raag-identifier/` is imported.
   review; pool v2 built from 20.3 h of full recordings with a visual annotation app. Bugs found:
   octave-blind matching, tempo-skewed candidates, candidate pool far too small for long recordings,
   tritone steps penalised, audio served without byte ranges.
+- **2026-09-24** -- Data discipline set: the phrase judgments become the **frozen test set**, the
+  notation corpus is the **training data**. That retires S4b's tuned numbers as headlines (they were
+  fitted on those judgments) and makes the untuned 0.58 / 0.58 the baseline to beat. 35 % of the
+  judgments share a recording with the notation corpus, so the headline test shrinks to the 109
+  disjoint ones. Probed what the corpus can estimate: intonation spread (median 23 c), note duration
+  (median 0.09 s), transit share (0.15), and **per-swar deviation from equal temperament** -- komal
+  d +25 c, g +18 c against S -1 c, P +2 c, which is the shruti question answered from the notation.
+  Three replacement chunks notated; corpus now 1023 swars.
+- **2026-09-24** -- **notation corpus done**: 24 chunks, 102 stretches, 845 swars, 304 s. S6 run:
+  the free reading over-segments badly (1780 notes read against 845 notated, 1.47). Added an
+  `onset_cost` to the decode and fitted it on the corpus -- the project's first learned parameter --
+  reaching misread rate 0.63, but the knob only trades insertions for deletions, so the segmentation model
+  is the limit. Aggregates: "which swars" recall 0.95 / precision 0.72, histogram TV 0.24 median,
+  ascent-descent agrees for dwelt-on swars only. Three empty chunks replaced from other recordings.
 - **2026-09-23** -- S5a likelihood ratio: **negative** (0.644-0.702 vs 0.682 for the tuned cost),
   with the caveat that the labelled spans are the matcher's own picks, so the comparative question
   it was built for is untested until recall data exists. Task restated so it can be scored
