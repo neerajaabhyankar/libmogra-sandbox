@@ -1,4 +1,11 @@
 cache/
-results/s1/audio/
-annotations/audio/
 __pycache__/
+
+# regenerable audio: pool.py / chunks.py cut these from the full recordings
+annotations/audio/
+annotations/chunks/
+results/s1/audio/
+
+# regenerable figures and dumps; the annotation records above are what matter
+results/s1/plots/
+results/s2/*/scores.csv
