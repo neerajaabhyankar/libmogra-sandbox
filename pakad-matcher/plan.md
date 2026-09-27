@@ -36,17 +36,14 @@ not systematically biased.
 
 | | |
 |---|---|
-| Finding candidates | works -- ~2 in 3 of what it surfaces is accepted by ear, before ranking |
-| Ranking them | precision@1 0.75, @3 0.86 after tuning -- but **tuned on what is now the test set**, so read it as an upper bound, not a result (see *Data discipline*) |
-| Ranking, untuned | **precision@1 0.58, @3 0.58** -- the honest baseline, since those costs never saw a judgment |
-| Reading a contour unaided | **misread rate 0.63** against the notation; it over-segments (see S6) |
-| Test set, frozen | 168 y/n judgments, 12 samoohas, 6 raags (109 on recordings the training data does not touch) |
-| Training data | notation corpus: 24 chunks, 111 stretches, **1023 swars**, 340 s |
-| Corpus | 20.3 h of full recordings, pitch-tracked, tonic-annotated, train-split only |
+| Training data | notation: **2284 swars**, 228 stretches, 12 raags, 28 recordings |
+| Test set | **243 judged spans, 22 samoohas**, 11 raags -- frozen, scored once (S7) |
+| Validation set | 58 judged spans, 12 samoohas |
+| Ranking on the test | per-samooha AUC **0.716**, P@1 **0.91**, P@3 **0.85** with the method chosen on validation (read-then-match), against a baseline of 0.676 / 0.86 / 0.76. **Not a significant gain**: interval [-0.075, +0.159] over 22 samoohas |
+| What the test does separate | the reader helps on raags covered by notation (+0.115) and hurts elsewhere (-0.049); tuned matcher costs transfer to unseen raags (0.838 vs 0.779) |
+| Reading a contour unaided | misread rate **0.582**, recordings held out; still under-reads |
 
-Two lessons carry: **tuning the existing heuristic beat every new feature I invented** (S4 / S4b),
-and **that tuning used the judgments that are now the test set**, so it has to be redone from the
-notation corpus before it counts (S7).
+Terms are defined in [`DATA.md`](DATA.md). Live data state: `poetry run python audit.py`.
 
 ---
 
@@ -288,8 +285,9 @@ and the test is scored once.
 | transit/ornament share of a stretch | median **0.15** | `orn_cost`, `kan_cents` |
 | per-swar deviation from equal temperament | S -1, P +2, R +5, G +5, M +3 · **d +25, g +18, N +17, D +15, n +12** | per-swar emissions -- and this is the shruti question itself, answered from Neeraja's own ear |
 
-The komal swars sitting sharp of equal temperament, while S and P sit on it with the tightest
-spread (IQR 20-41 c against 33-58 c), is the first musical result this corpus has produced.
+*Correction, 2026-09-25:* that table came from the first six raags. Refitted on all twelve
+notated raags the komal offsets shrink to a few cents (d +5, g +3) -- so the sharp komal swars were
+a property of those raags, not of singing in general. See S7a.
 
 ## What's next
 
@@ -414,46 +412,159 @@ The 8-in-10 tolerance is the right frame and it is **not met yet** for counting 
 bias is systematic, not noise: transit notes inflate exactly the swars that sit between other
 swars, which is why `m` and `r` are the two that disagree most.
 
-### 🟨 S7 -- fit the reader on the notation corpus, then score the frozen test once
+### ✅ S7 -- fitted on notation, chosen on validation, tested once (`fit_reader.py`, `s7.py`)
 
-Everything hand-set becomes estimated, from training data only:
+**Data used.** Training: 228 notated stretches, 2284 swars, 28 recordings, 12 raags. Validation:
+58 judgments, 12 samoohas. Test: 243 judgments, 22 samoohas. Splits from `audit.py`.
 
-1. **Emissions** `P(cents | swar)`: per-swar centre and spread, straight from the 882 notated notes
-   (the table above). Replaces `free_cents` / `scale_cents` and gives andolan-heavy swars their own
-   width rather than one global tolerance.
-2. **Durations**: a per-swar duration distribution replaces `min_dwell_s`, and gives the decode a
-   reason to prefer a plausible note length over a 3-frame sliver.
-3. **Onset cost as a function of tempo**: fitted per tempo it already wants 3.0 for alap and 1.5 for
-   taan; local note density is measurable without labels, so this becomes a function, not a constant.
-4. **Ornament/transit occupancy** from the measured 0.15 share, replacing `orn_cost` and `kan_cents`.
+#### S7a -- the reader, cross-validated with whole recordings held out
 
-**Evaluated in two places, neither of which is the frozen test:**
-- **reading quality**, cross-validated *within* the notation corpus, leaving out whole recordings --
-  misread rate, insertions and deletions separately, alap and taan separately;
-- **statistic agreement** (the S6 table), same folds.
+"Reader" means the free decode: it writes out the swars it hears in a stretch, with no samooha
+to guide it. It is scored by misread rate against the notation.
 
-Only when that is settled does the phrase test get scored, once: P@1 / P@3 / per-phrase AUC on the
-109 disjoint judgments, against the untuned baseline of 0.58 / 0.58.
+| reader | read / notated | sub | del | ins | misread |
+|---|---|---|---|---|---|
+| as of S6 (one onset cost, equal temperament) | 1417 / 2284 | 317 | 986 | 119 | 0.623 |
+| + per-swar pitch centres | 1390 / 2284 | 331 | 1006 | 112 | 0.634 |
+| **+ onset cost by tempo** | 1642 / 2284 | 472 | 750 | 108 | **0.582** |
+| + both | 1636 / 2284 | 462 | 764 | 116 | 0.588 |
 
-**Bootstrapping, once the reader is fitted**: run it over the unnotated train recordings, keep only
-stretches it reads confidently, and refit on notation + those pseudo-notations. The check that it is
-not just amplifying its own bias is the same held-out misread rate -- if pseudo-labels help, it
-improves; if it is feeding on itself, it will not.
+- **Onset cost by tempo helps.** Slow stretches want 4.0, fast ones 1.5. Tempo is measured from
+  the contour (held notes per second), so no label is needed to apply it.
+- **Per-swar pitch centres do not help.** Fitted over all 12 raags they are small: komal d +5 c,
+  g +3 c, with the largest being M +17 c and N +16 c. The earlier probe over 6 raags said d +25 c,
+  g +18 c. So **"komal swars sit sharp" was a property of those six raags, not a general one** --
+  consistent with shruti being raag-specific. A per-raag centre would be the right model; a pooled
+  one averages it away.
+- The reader still **under-reads**: 1642 notes against 2284 notated, deletions the largest error.
 
-A neural sequence labeller stays out until this is done. 1023 swars can fit per-swar emissions and a
-duration model honestly; it cannot train an encoder.
+#### S7b -- ranking the judged spans
+
+Every method ranks the same fixed spans. Higher per-samooha AUC = better at putting "yes" above
+"no" within one samooha.
+
+| method | what it was fitted on |
+|---|---|
+| hand-set | nothing: costs from before S4b. **The baseline** |
+| S4b-tuned | the old 168 judgments. Contaminated on round-1 samoohas; **clean on round 2**, which did not exist then |
+| notation-set | hand-set, with tolerance and minimum note length taken from notation |
+| read-then-match | the reader transcribes the span; score = edit distance from the samooha to the closest stretch of the transcription. Notation only |
+| combined | notation-set + a weight on read-then-match. Weight chosen on validation |
+| val-tuned | hand-set costs re-tuned on the 58 validation judgments |
+
+**Selection rule:** highest per-samooha AUC on validation. Methods fitted on validation are compared
+by a leave-one-samooha-out estimate. *(My first two passes compared in-sample numbers -- a tuned
+method graded on the answers it was tuned to. Both caught and fixed before the test was touched.
+`results/s7_choice.json` had sha256 `2def2659a761602c...` before and after the test run.)*
+
+| validation, honest estimates | AUC | P@1 | P@3 |
+|---|---|---|---|
+| hand-set | 0.404 | 0.58 | 0.64 |
+| notation-set | 0.420 | 0.58 | 0.64 |
+| **read-then-match** | **0.683** | 0.75 | 0.72 |
+| combined, leave-one-samooha-out | 0.576 | 0.75 | 0.69 |
+| val-tuned, leave-one-samooha-out | 0.619 | 0.83 | 0.67 |
+
+**Chosen: read-then-match.** Then the test, once:
+
+| test (243 spans, 22 samoohas) | AUC | P@1 | P@3 |
+|---|---|---|---|
+| hand-set (baseline) | 0.676 | 0.86 | 0.76 |
+| **read-then-match (chosen)** | **0.716** | **0.91** | **0.85** |
+| S4b-tuned *(contaminated on round 1)* | 0.741 | 0.91 | 0.85 |
+| combined | 0.739 | 0.91 | 0.83 |
+| val-tuned | 0.752 | 0.91 | 0.85 |
+
+#### What the test actually says
+
+1. **The headline gain is not significant.** read-then-match beats hand-set by +0.041 AUC, 95 %
+   bootstrap interval over samoohas **[-0.075, +0.159]**. It is better on 11 samoohas and worse on 11.
+   22 samoohas cannot resolve a 0.04 difference.
+2. **It splits cleanly by whether the reader has seen the raag.**
+
+   | per-samooha AUC | round 1: raags that are in the notation | round 2: raags never notated |
+   |---|---|---|
+   | hand-set | 0.590 | 0.779 |
+   | read-then-match | **0.705** (+0.115) | 0.730 (-0.049) |
+   | S4b-tuned | 0.660 *(contaminated)* | **0.838** *(clean)* |
+   | val-tuned | 0.693 | 0.823 |
+
+   The reader helps on raags it has notation for and hurts on raags it has not. It transfers across
+   recordings, not across raags -- the same story as the pitch centres above.
+3. **Tuning the matcher's own costs does transfer to unseen raags.** S4b fitted on round-1
+   judgments; on the five round-2 raags, which it never saw, it scores 0.838 against the baseline's
+   0.779. val-tuned, fitted on validation (also round-1 raags), gets 0.823. This is the first clean
+   out-of-sample evidence that S4b's tuning was a real improvement and not an artefact.
+4. **The validation set chose badly, and the reason is structural.** It holds only round-1 raags --
+   the ones the reader was trained near -- so it flattered read-then-match. val-tuned was the
+   better choice on test (+0.036, interval [-0.042, +0.110]). A validation set has to look like the
+   test set; this one could not, because round-2 raags were kept free of notation by design.
+
+#### What this means for next steps
+
+- **The limiting resource is samoohas, not judgments.** Every method's uncertainty is set by 22
+  samoohas. More candidates per samooha tightens each AUC a little; more samoohas tightens the
+  comparison a lot.
+- **Validation must mirror the test's raag mix.** Hold out some round-2-style samoohas (raags with
+  no notation) as validation, or the choice will keep favouring whatever was trained near.
+- **Two models are worth carrying forward**, since the evidence does not separate them: the
+  matcher with tuned costs (transfers across raags), and the reader (strong where its raag is
+  covered). A per-raag reader -- centres and onset fitted per raag when notation exists, pooled when
+  it does not -- is the obvious way to get the second without losing the first.
+
+### ✅ S8 -- round-3 samoohas, and S7 rerun on them (2026-09-26)
+
+10 samoohas in 6 un-notated raags, chosen by Neeraja: Alhaiya Bilawal #0 #1, Chandrakauns
+`g m g S ,N`, Bhairavi #0, Kedar #2, Marwa #1–#4, Tilang #1. **Alhaiya Bilawal and Tilang (3
+samoohas) are validation (rule R6, `config.VALIDATION_RAAGS`), fixed before judging**; the other 7
+are test. 39 recordings pitch-tracked (~2 min), 136 candidates, all judged. Kedar#2 and Marwa#1 came
+back 14/14 yes, so they have no AUC (P@k only).
+
+S7 rerun unchanged in code: `--val` chose **read-then-match** again (hash e10ad2f754675daa, same
+before and after `--test`). Round-2 results kept as `results/s7_*_r2.json`.
+
+| test: 339 spans, 29 samoohas (27 with an AUC) | AUC | P@1 | P@3 |
+|---|---|---|---|
+| hand-set (baseline) | 0.631 | 0.86 | 0.74 |
+| **read-then-match (chosen)** | **0.698** | **0.90** | **0.84** |
+| S4b-tuned (reference, partly contaminated) | 0.706 | 0.86 | 0.80 |
+| combined | 0.720 | 0.86 | 0.83 |
+| val-tuned | 0.746 | 0.90 | 0.84 |
+
+| per-samooha AUC | n | baseline | S4b | read-then-match | combined | val-tuned |
+|---|---|---|---|---|---|---|
+| notated raags | 12 | 0.590 | 0.660* | 0.705 | 0.705 | 0.693 |
+| unseen, round 2 | 10 | 0.779 | 0.838 | 0.730 | 0.779 | 0.823 |
+| unseen, round 3 | 5 | 0.433 | 0.550 | 0.617 | 0.635 | 0.719 |
+
+\* contaminated: S4b was tuned on these samoohas' judgments.
+
+Paired differences over the 27 samoohas (bootstrap 95%):
+read-then-match − baseline **+0.067 [−0.035, +0.168]**, 16 better / 11 worse -- still not
+significant. val-tuned − baseline +0.115 [+0.014, +0.213], combined − baseline +0.089 [+0.003,
++0.171] -- the first intervals that exclude zero, but these are not the pre-registered choice.
+val-tuned − read-then-match +0.048 [−0.021, +0.113].
+
+- **Round 3 is hard**: the baseline is *below chance* (0.433), and every fitted method helps.
+  Bhairavi#0 defeats all of them (≤0.41).
+- **The pattern from S7 holds**: tuned costs transfer to unseen raags; the reader helps most where
+  notation exists. Validation again chose the reader; val-tuned would again have been better.
+- **Neeraja on the "no"s** (2026-09-26): most are notes passed in a meend, caught stray, or
+  *unintentional* ornaments -- the phrase is not perceived. "Yes"es with ornaments are
+  *intentional*. Checked whether the weakest note's length separates them: shortest note 0.575,
+  shortest held run 0.578, ornament fraction 0.453 per-samooha AUC on test (hand-set cost 0.631).
+  **Duration alone does not capture intent**; see memory `intent-not-duration`.
 
 ### What I need from Neeraja
 
-1. **Confirm the split** — judgments = frozen test, notations = train; headline scored on the 109
-   judgments whose recordings the notation corpus does not touch.
-2. ~~More samoohas for the test set~~ **done 2026-09-24**: 8 added over Des, Tilak Kamod, Multani
-   and Todi; 8.5 h of those raags pitch-tracked; **108 candidates built and waiting** in the app.
-3. **More notated chunks for training**, from **fresh raags** -- Yaman, Bhairav, Malkauns, Bhoopali
-   plus the audav pair Jog and Kalawati (`config.NOTATION_RAAGS_R3`). The six original raags have
-   almost no unjudged recordings left, and new raags widen the per-swar coverage that the emission
-   fits need.
-4. Nothing else. S7 fits on what exists; more data makes the fits sturdier, it does not unblock them.
+1. **More samoohas, especially in raags with no notation.** The test's uncertainty comes from having
+   22 samoohas; a 0.04 AUC difference is invisible at that size. Roughly doubling it would make
+   the comparisons in S7 decidable.
+2. **Some of those as a validation set.** Validation currently holds only raags that are in the
+   notation, so it cannot tell whether a method transfers to new raags -- which is exactly where
+   the methods differ. A few samoohas from un-notated raags, marked validation, fix that.
+3. **Not more candidates for the existing samoohas**, and not more notation in the same raags --
+   neither addresses what S7 found. (More notation in *new* raags would help the reader transfer.)
 
 ### Annotation, in priority order
 
@@ -486,6 +597,9 @@ duration model honestly; it cannot train an encoder.
 | `s5a.py` | the likelihood-ratio evaluation |
 | `tune.py` | coordinate ascent over the costs on the labels |
 | `audit.py` | **the data discipline, executable**: computes the splits, checks the rules |
+| `corpus.py` | notation stretches and judged spans as training / validation / test data |
+| `fit_reader.py` | fits the reader on notation (pitch centres, onset by tempo), cross-validated by recording |
+| `s7.py` | ranks judged spans with every method; `--val` chooses and freezes, `--test` scores once |
 | `DATA.md` | the glossary and the rules in prose |
 | `run_s1.py` / `run_s2.py` / `plot.py` | the eyeball run, the null-control run, plotting |
 
@@ -510,6 +624,15 @@ deliberately. Nothing outside `../raag-identifier/` is imported.
   review; pool v2 built from 20.3 h of full recordings with a visual annotation app. Bugs found:
   octave-blind matching, tempo-skewed candidates, candidate pool far too small for long recordings,
   tritone steps penalised, audio served without byte ranges.
+- **2026-09-25** -- Annotation done: 2284 notated swars over 12 raags; 304 judgments over 22
+  samoohas. **S7 run under the full discipline** -- fit on notation, choose on validation, test
+  once. Reader: onset-by-tempo improves held-out misread 0.623 -> 0.582; per-swar pitch centres do
+  not help, and pooled over 12 raags the "komal swars sit sharp" effect mostly vanishes (it was
+  raag-specific). Chosen method, read-then-match: test AUC 0.716 vs baseline 0.676, **not
+  significant** (interval [-0.075, +0.159]). It helps on raags covered by notation (+0.115) and hurts
+  on raags that are not (-0.049). S4b's tuned costs, clean on the five new raags, score 0.838 vs
+  0.779 -- tuning transfers. Validation chose badly because it held only notated raags. Two
+  selection-protocol mistakes of mine caught before the test was touched.
 - **2026-09-24** -- Data discipline set: the phrase judgments become the **frozen test set**, the
   notation corpus is the **training data**. That retires S4b's tuned numbers as headlines (they were
   fitted on those judgments) and makes the untuned 0.58 / 0.58 the baseline to beat. 35 % of the
@@ -536,3 +659,9 @@ deliberately. Nothing outside `../raag-identifier/` is imported.
   genuine notes as fast as spurious ones (both measured). S4b: **tuning the five existing costs
   reaches 0.669 / P@3 0.86**, adopted. Goal clarified -- statistical queries over a pitch track, with
   phrase-finding as the proof-of-concept -- and the roadmap rewritten around a notation corpus.
+- **2026-09-26** -- S8 set up: 10 round-3 samoohas added (4 requested raags are not in the
+  dataset and were dropped), `TEST_ONLY_RAAGS` renamed `UNNOTATED_RAAGS`, rule R6 added so
+  validation holds un-notated raags too. Audit all good.
+- **2026-09-26** -- S8 judged (136) and S7 rerun: read-then-match chosen again; test 0.698 vs
+  baseline 0.631, CI [−0.035, +0.168]. val-tuned and combined now clear the baseline (CIs exclude
+  0) but were not the choice. Round-3 baseline below chance.

@@ -37,9 +37,14 @@ FOCUS_RAAGS = ["Bageshree", "Shree", "PuriyaDhanashri", "Malhar",
 ANNOTATION_RAAGS = ["Bageshree", "DarbariKanada", "Malhar", "PuriyaDhanashri", "Shree",
                     "Bheempalasi"]
 
-# Round 2 (2026-09-24): four raags added for the *test* set only. They are deliberately outside
-# ANNOTATION_RAAGS, so no notated (training) chunk can share a recording with them.
-TEST_ONLY_RAAGS = ["Des", "TilakKamod", "Multani", "Todi", "KaushikDhwani"]
+# Raags that are never notated (R4), so the reader cannot have learned them. Their judgments
+# test transfer to unseen raags. Round 2 (2026-09-24): Des..KaushikDhwani; round 3 (2026-09-26):
+# the rest.
+UNNOTATED_RAAGS = ["Des", "TilakKamod", "Multani", "Todi", "KaushikDhwani",
+                   "AlhaiyaBilawal", "Chandrakauns", "Bhairavi", "Kedar", "Marwa", "Tilang"]
+# R6: judgments in these un-notated raags are VALIDATION, not test -- so validation also holds
+# raags the reader never saw (S7 chose badly without them). Fixed before any are judged.
+VALIDATION_RAAGS = ["AlhaiyaBilawal", "Tilang"]
 
 # Round 3 (2026-09-24): fresh raags for *notation* (training). Chosen away from the test raags,
 # and including two audav raags, where the dynamics of a five-swar scale may differ.

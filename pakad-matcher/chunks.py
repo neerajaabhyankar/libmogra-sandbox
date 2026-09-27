@@ -111,7 +111,7 @@ def build(raags=None):
 
     added = []
     for raag in (raags or C.ANNOTATION_RAAGS):
-        if raag in getattr(C, "TEST_ONLY_RAAGS", []):
+        if raag in getattr(C, "UNNOTATED_RAAGS", []):
             print(f"{raag}: test-only, not notated"); continue
         vids = [v for v in fullaudio.cached_videos(tuple([raag])) if v not in taken]
         if not vids:

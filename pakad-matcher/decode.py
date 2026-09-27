@@ -21,9 +21,15 @@ from matcher import _held, _in_band
 INF = np.inf
 
 
+def centres(p):
+    """Where each swar sits, in cents above Sa: equal temperament plus any fitted offsets."""
+    off = p.get("swar_offsets")
+    return 100.0 * np.arange(12) + (np.asarray(off, float) if off is not None else 0.0)
+
+
 def _note_emissions(cents, p):
     """T x 12 cost of calling each frame each swar (the matcher's per-frame note cost)."""
-    target = 100.0 * np.arange(12)
+    target = centres(p)
     d = np.abs((cents[:, None] - target[None, :] + 600.0) % 1200.0 - 600.0)
     E = np.minimum(np.maximum(0.0, d - p["free_cents"]) / p["scale_cents"], p["note_cap"])
     E[np.isnan(cents)] = p["gap_cost"]
@@ -32,7 +38,8 @@ def _note_emissions(cents, p):
 
 def _orn_emission(cents, a, b, moving, p):
     """Cost of calling each frame an ornament between swars a and b."""
-    e = np.where(_in_band(cents, 100.0 * a, 100.0 * b, p["kan_cents"]) & moving,
+    c = centres(p)
+    e = np.where(_in_band(cents, c[a], c[b], p["kan_cents"]) & moving,
                  p["transit_cost"], p["orn_cost"])
     return np.where(np.isnan(cents), p["gap_cost"], e)
 

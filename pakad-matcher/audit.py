@@ -12,7 +12,9 @@ The rules, in one place:
   R2  It is VALIDATION when the recording is notated but the two never overlap in time, with
       GUARD_S seconds of margin -- notation teaches the model about a moment, not a recording.
   R3  It is UNUSABLE when it overlaps a notated stretch. Nothing fits on these; nothing scores.
-  R4  Raags in TEST_ONLY_RAAGS carry no notation at all, so all their judgments are TEST.
+  R4  Raags in UNNOTATED_RAAGS carry no notation at all, so their judgments are TEST ...
+  R6  ... except in VALIDATION_RAAGS, whose judgments are VALIDATION: validation must also hold
+      raags the reader never saw, or it picks methods that only work on notated raags.
   R5  A pool is never rebuilt once it carries judgments: labels are keyed by *index into* the
       pool, so regenerating it silently re-points them. (`pool.py` refuses without --force.)
 """
@@ -71,11 +73,13 @@ def notated_spans():
 
 
 def splits(guard_s=GUARD_S):
-    """Every judgment labelled 'test', 'validation' or 'unusable'. The rules R1-R4 live here."""
+    """Every judgment labelled 'test', 'validation' or 'unusable'. The rules R1-R4, R6 live here."""
     spans = notated_spans()
     out = {"test": [], "validation": [], "unusable": []}
     for j in judgments():
-        if j["video"] not in spans:
+        if j["phrase_id"].split("#")[0] in C.VALIDATION_RAAGS:
+            out["validation"].append(j)                              # R6
+        elif j["video"] not in spans:
             out["test"].append(j)                                    # R1, and R4 by construction
         elif any(j["t0"] < b + guard_s and a - guard_s < j["t1"] for a, b in spans[j["video"]]):
             out["unusable"].append(j)                                # R3
@@ -130,8 +134,10 @@ def main():
 
     print("\nCHECKS")
     ok = True
-    bad_raags = [c for c in notes if ch[c]["raag"] in getattr(C, "TEST_ONLY_RAAGS", [])]
-    ok &= _check("R4  no notation in a test-only raag", not bad_raags, bad_raags)
+    bad_raags = [c for c in notes if ch[c]["raag"] in getattr(C, "UNNOTATED_RAAGS", [])]
+    ok &= _check("R4  no notation in an un-notated raag", not bad_raags, bad_raags)
+    bad_val = [r for r in C.VALIDATION_RAAGS if r not in C.UNNOTATED_RAAGS]
+    ok &= _check("R6  validation raags are un-notated raags", not bad_val, bad_val)
     leaked = [j for j in s["test"] + s["validation"]
               if any(j["t0"] < b + GUARD_S and a - GUARD_S < j["t1"]
                      for a, b in notated_spans().get(j["video"], []))]

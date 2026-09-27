@@ -33,12 +33,18 @@ class Candidate:
     n_held: int = 0      # held notes in the interval (filled in by callers that care)
 
 
-def _states(swars, n_dwell):
+def _centre(s, p):
+    """Where swar s sits in cents: equal temperament unless `swar_offsets` were fitted."""
+    off = p.get("swar_offsets")
+    return 100.0 * s + (float(off[s]) if off is not None else 0.0)
+
+
+def _states(swars, n_dwell, p=None):
     """Per state: target cents (NaN = ornament), note index (-1 = ornament), self-loop flag."""
     target, note, loop = [], [], []
     for k, s in enumerate(swars):
         for j in range(n_dwell):
-            target.append(100.0 * s); note.append(k); loop.append(j == n_dwell - 1)
+            target.append(_centre(s, p or {})); note.append(k); loop.append(j == n_dwell - 1)
         if k < len(swars) - 1:
             target.append(np.nan); note.append(-1); loop.append(True)
     return np.array(target), np.array(note), np.array(loop)
@@ -147,7 +153,8 @@ def score_path(seg, kinds, swars, octaves, hop, p):
     -1 for ornament. Split out from the matcher so the annotations can re-score a fixed set of
     spans under different costs without re-running the search."""
     voiced = ~np.isnan(seg)
-    target = np.where(kinds >= 0, 100.0 * np.asarray(swars)[np.clip(kinds, 0, None)], np.nan)
+    cen = np.array([_centre(s, p) for s in swars])
+    target = np.where(kinds >= 0, cen[np.clip(kinds, 0, len(swars) - 1)], np.nan)
     per_note = []
     for k in range(kinds.max() + 1):
         m = (kinds == k) & voiced
@@ -248,7 +255,7 @@ def match(contour, swars, top_k=C.TOP_K, params=None, octaves=None):
     p = {**C.MATCH, **(params or {})}
     hop = contour.hop
     n_dwell = max(1, int(round(p["min_dwell_s"] / hop)))
-    target, note, loop = _states(swars, n_dwell)
+    target, note, loop = _states(swars, n_dwell, p)
     E, brk = _emissions(contour.cents, target, p, hop)
     ends, bp = _viterbi(E, brk, _transitions(note, loop))
 

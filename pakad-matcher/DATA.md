@@ -86,8 +86,9 @@ Two contaminations are possible, and both are handled by recording *and* by time
 | **R1** | a judgment whose recording carries no notation is **test** |
 | **R2** | a judgment on a notated recording, at a different moment (5 s of margin), is **validation** — notation teaches the model about a moment, not about a whole recording |
 | **R3** | a judgment overlapping a notated stretch is **unusable**: neither fitted on nor scored |
-| **R4** | raags in `config.TEST_ONLY_RAAGS` are never notated, so all their judgments are test |
+| **R4** | raags in `config.UNNOTATED_RAAGS` are never notated, so all their judgments are test — except R6 |
 | **R5** | a pool is never rebuilt once it carries judgments — labels are indices into it, so regenerating one silently re-points them. `pool.py` refuses without `--force` |
+| **R6** | judgments in `config.VALIDATION_RAAGS` (un-notated raags, fixed before judging) are **validation**. Without them, validation holds only raags the reader learned, and S7 showed that picks the wrong method |
 
 R2 is what makes the annotation effort pay: without it, every judgment sharing a recording with
 notation would be wasted. As of 2026-09-24 that is 58 judgments rescued as validation, 1 set aside.
@@ -95,11 +96,11 @@ notation would be wasted. As of 2026-09-24 that is 58 judgments rescued as valid
 **Guards in code, not just in prose:**
 
 - `pool.py` refuses to rebuild an existing pool (R5).
-- `chunks.py` skips `TEST_ONLY_RAAGS` and any recording that already carries a judgment (R4, and
+- `chunks.py` skips `UNNOTATED_RAAGS` and any recording that already carries a judgment (R4, and
   keeps R1 growing rather than shrinking). It also **adds** chunks rather than rewriting
   `chunks.json`: notations refer to chunks by id, and a chunk's `video`/`t0` is what turns a
   stretch's times into recording times, so rewriting one orphans the work done on it.
-- `audit.py` recomputes R1–R5 from the files and fails if any is broken.
+- `audit.py` recomputes R1–R6 from the files and fails if any is broken.
 
 **Consequence worth remembering:** 42 recordings now carry judgments, which leaves almost nothing
 free in the six originally notated raags. Further notation therefore comes from **fresh raags**
