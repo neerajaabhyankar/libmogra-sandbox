@@ -8,9 +8,10 @@ reasoning, but this file is what the code actually obeys.
 
 The rules, in one place:
 
-  R1  A *judgment* (a y/n on a candidate span) is TEST when its recording carries no notation.
-  R2  It is VALIDATION when the recording is notated but the two never overlap in time, with
-      GUARD_S seconds of margin -- notation teaches the model about a moment, not a recording.
+  R1  A *judgment* (a y/n on a candidate span) is TEST when its raag carries no notation: the
+      test asks whether the tool works on raags it never learned from.
+  R2  It is VALIDATION when its raag is notated, and it does not overlap a notated stretch (GUARD_S
+      seconds of margin). Seen raags help choose methods; they never grade them.
   R3  It is UNUSABLE when it overlaps a notated stretch. Nothing fits on these; nothing scores.
   R4  Raags in UNNOTATED_RAAGS carry no notation at all, so their judgments are TEST ...
   R6  ... except in VALIDATION_RAAGS, whose judgments are VALIDATION: validation must also hold
@@ -72,19 +73,23 @@ def notated_spans():
     return out
 
 
+def notated_raags():
+    ch = chunks()
+    return {ch[c]["raag"] for c in notations()}
+
+
 def splits(guard_s=GUARD_S):
     """Every judgment labelled 'test', 'validation' or 'unusable'. The rules R1-R4, R6 live here."""
-    spans = notated_spans()
+    spans, seen = notated_spans(), notated_raags()
     out = {"test": [], "validation": [], "unusable": []}
     for j in judgments():
-        if j["phrase_id"].split("#")[0] in C.VALIDATION_RAAGS:
-            out["validation"].append(j)                              # R6
-        elif j["video"] not in spans:
-            out["test"].append(j)                                    # R1, and R4 by construction
-        elif any(j["t0"] < b + guard_s and a - guard_s < j["t1"] for a, b in spans[j["video"]]):
+        raag = j["phrase_id"].split("#")[0]
+        if any(j["t0"] < b + guard_s and a - guard_s < j["t1"] for a, b in spans.get(j["video"], [])):
             out["unusable"].append(j)                                # R3
+        elif raag in C.VALIDATION_RAAGS or raag in seen:
+            out["validation"].append(j)                              # R6, R2
         else:
-            out["validation"].append(j)                              # R2
+            out["test"].append(j)                                    # R1
     return out
 
 

@@ -49,6 +49,12 @@ VALIDATION_RAAGS = ["AlhaiyaBilawal", "Tilang"]
 # Round 3 (2026-09-24): fresh raags for *notation* (training). Chosen away from the test raags,
 # and including two audav raags, where the dynamics of a five-swar scale may differ.
 NOTATION_RAAGS_R3 = ["Yaman", "Bhairav", "Malkauns", "Bhoopali", "Jog", "Kalawati"]
+# Round 4 (2026-09-27): four untouched raags, chosen to use their swars in both directions (so test2
+# keeps its raags unseen) and to add the least-notated swars (M, r, N).
+NOTATION_RAAGS_R4 = ["Charukeshi", "Hindol", "AheerBhairav", "Durga"]
+# ... plus madhya-lay chunks in six already-notated raags (alap and taan chunks miss the middle).
+MADHYA_RAAGS_R4 = ["Yaman", "Bhairav", "Malkauns", "Bageshree", "PuriyaDhanashri", "DarbariKanada"]
+UNIDIR_JSON = HERE / "neeraja_unidirectionals.json"   # test2 ground truth
 
 # ---- matcher (S1). Costs are per frame at the downsampled rate.
 # Values marked (tuned) were fitted to the 168 annotations by coordinate ascent on per-phrase
@@ -129,6 +135,9 @@ POOL_TEMPO_BUCKETS = 3        # slow alap / medium / fast taan renderings all ge
 POOL_PER_PHRASE = 14          # candidates offered per phrase, best-first by cost
 POOL_TOP_PER_VIDEO = 3        # no recording dominates a phrase's pool
 POOL_PER_VIDEO_SEARCH = 4     # candidates pulled from each recording before ranking
+POOL_EXTEND_N = 10            # pool.py --extend: deeper candidates appended to an all-yes pool
+POOL_EXTEND_SEARCH = 10       # ... searching deeper in each recording
+POOL_EXTEND_PER_VIDEO = 6     # ... and letting each recording give more
 CTX_GAP_S = 0.35              # an unvoiced stretch this long ends the musical "sentence"
 CTX_MAX_S = 5.0               # ... but never show more than this either side
 CTX_MIN_S = 1.5               # ... nor less than this
@@ -144,6 +153,8 @@ CHUNK_DIR = S3_DIR / "chunks"
 NOTATIONS = S3_DIR / "notations.jsonl"
 CHUNK_ALAP_S = 20.0           # a slow stretch gets 20 s ...
 CHUNK_TAAN_S = 15.0           # ... a dense one 15 s: about as much as anyone can hold by ear
+CHUNK_MADHYA_S = 15.0         # ... and a typical-density one 15 s (the recording's median density)
+CHUNK_MADHYA_PER_RAAG = 2     # chunks.py --madhya: recordings per notated raag
 CHUNKS_PER_RECORDING = 2
 CHUNK_RECORDINGS_PER_RAAG = 2
 CHUNK_MIN_VOICED = 0.7        # skip stretches that are mostly silence

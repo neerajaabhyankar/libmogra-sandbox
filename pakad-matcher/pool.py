@@ -5,6 +5,7 @@ to catch. Candidates are simply the matcher's top ones, with at most POOL_TOP_PE
 any recording. Each gets a context window cut at the surrounding silences (the "sentence").
 
     poetry run python pool.py [--phrase Bageshree#0]
+    poetry run python pool.py --extend Kedar#2 Marwa#1     # append deeper candidates, judged or not
 """
 
 import argparse
@@ -60,24 +61,29 @@ def _spread_over_tempo(shortlist):
     return out
 
 
-def build_phrase(p, videos):
+def build_phrase(p, videos, existing=(), n=C.POOL_PER_PHRASE, search=C.POOL_PER_VIDEO_SEARCH,
+                 per_video_cap=C.POOL_TOP_PER_VIDEO):
+    """Up to `n` candidates, skipping any that overlap one in `existing`."""
     cands = []
     for v in videos:
         ctr = fullaudio.contour(v)
-        for c in matcher.match(ctr, p.swars, top_k=C.POOL_PER_VIDEO_SEARCH, octaves=p.octaves):
-            cands.append((c.cost, v, c, ctr))
+        for c in matcher.match(ctr, p.swars, top_k=search, octaves=p.octaves):
+            if not any(e["video"] == v and c.t0 < e["t1"] and e["t0"] < c.t1 for e in existing):
+                cands.append((c.cost, v, c, ctr))
     cands.sort(key=lambda t: t[0])
     cands = _spread_over_tempo(cands[:C.POOL_SHORTLIST])
 
     items, per_video = [], {}
+    for e in existing:
+        per_video[e["video"]] = per_video.get(e["video"], 0) + 1
     for cost, v, c, ctr in cands:
-        if per_video.get(v, 0) >= C.POOL_TOP_PER_VIDEO:
+        if per_video.get(v, 0) >= per_video_cap:
             continue
         per_video[v] = per_video.get(v, 0) + 1
         a, b = context_window(ctr, c.f0, c.f1)
         cents = ctr.cents[a:b + 1]
         items.append(dict(
-            video=v, raag=p.raag, rank=len(items),
+            video=v, raag=p.raag, rank=len(existing) + len(items),
             t0=round(c.t0, 2), t1=round(c.t1, 2), dur=round(c.t1 - c.t0, 2),
             win_t0=round(a * ctr.hop, 2), win_t1=round((b + 1) * ctr.hop, 2),
             cost=round(c.cost, 3), pitch_cost=round(c.pitch_cost, 3),
@@ -86,9 +92,29 @@ def build_phrase(p, videos):
             cents=[None if np.isnan(x) else round(float(x), 1) for x in cents],
             path=[int(x) for x in np.pad(c.path, (c.f0 - a, b - c.f1), constant_values=-2)],
         ))
-        if len(items) == C.POOL_PER_PHRASE:
+        if len(items) == n:
             break
     return items
+
+
+def extend(ids, n=C.POOL_EXTEND_N):
+    """Append deeper candidates to judged pools. Append-only, so every label keeps its index (R5):
+    used when a pool came back all-yes and so says nothing about ranking."""
+    for p in mukhyangas.load():
+        if p.id not in ids:
+            continue
+        path = C.S3_DIR / "pool" / f"{p.slug}.json"
+        d = json.loads(path.read_text())
+        old = d["items"]
+        new = build_phrase(p, fullaudio.cached_videos(tuple([p.raag])), existing=old, n=n,
+                           search=C.POOL_EXTEND_SEARCH, per_video_cap=C.POOL_EXTEND_PER_VIDEO)
+        for i, it in enumerate(new, start=len(old)):
+            it["extended"] = True
+            _snippet(it, C.S3_DIR / "audio" / f"{p.slug}_{i:02d}.wav")
+        d["items"] = old + new
+        path.write_text(json.dumps(d))
+        print(f"{p.id:20s} +{len(new)} candidates (now {len(d['items'])}), "
+              f"cost {min(i['cost'] for i in new):.2f}-{max(i['cost'] for i in new):.2f}")
 
 
 def build(only=None, force=False):
@@ -135,5 +161,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--phrase", default=None)
     ap.add_argument("--force", action="store_true", help="rebuild an existing pool (re-points its labels!)")
+    ap.add_argument("--extend", nargs="+", default=None, help="phrase ids whose pools get deeper")
     a = ap.parse_args()
-    build(a.phrase, a.force)
+    extend(a.extend) if a.extend else build(a.phrase, a.force)

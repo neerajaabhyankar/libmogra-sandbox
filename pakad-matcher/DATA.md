@@ -52,6 +52,8 @@ relation to each other.
 | **coverage** | how much of a selected stretch the alignment actually accounts for |
 | **misread rate** | `(substitutions + deletions + insertions) / notated swars`, the same shape as word error rate in speech. 0 is perfect; 1 means as many mistakes as notes. Insertions and deletions are always reported separately, because they fail in opposite directions |
 | **P@1, P@3** | of the 1 or 3 candidates the matcher ranks highest for a samooha, how many a musician accepted. Averaged over samoohas |
+| **test1 / test2** | test1 = judgments in un-notated raags ("is this the samooha?"); test2 = `neeraja_unidirectionals.json`, "is this swar used in aaroh? in avaroh?" per swar |
+| **ROC curve** | how true positives trade against false positives as the score threshold moves; `results/roc/`. The area under it is the AUC |
 | **per-samooha AUC** | does the score rank a "yes" above a "no" *within one samooha*. 0.5 is chance |
 
 ---
@@ -83,15 +85,15 @@ Two contaminations are possible, and both are handled by recording *and* by time
 
 | rule | |
 |---|---|
-| **R1** | a judgment whose recording carries no notation is **test** |
-| **R2** | a judgment on a notated recording, at a different moment (5 s of margin), is **validation** — notation teaches the model about a moment, not about a whole recording |
+| **R1** | a judgment in a raag with **no notation** is **test** (changed 2026-09-27; it used to be "a recording with no notation") — the test asks whether the tool works on raags it never learned from |
+| **R2** | a judgment in a **notated raag**, not overlapping a notated stretch (5 s of margin), is **validation** — seen raags help choose methods, never grade them |
 | **R3** | a judgment overlapping a notated stretch is **unusable**: neither fitted on nor scored |
 | **R4** | raags in `config.UNNOTATED_RAAGS` are never notated, so all their judgments are test — except R6 |
 | **R5** | a pool is never rebuilt once it carries judgments — labels are indices into it, so regenerating one silently re-points them. `pool.py` refuses without `--force` |
 | **R6** | judgments in `config.VALIDATION_RAAGS` (un-notated raags, fixed before judging) are **validation**. Without them, validation holds only raags the reader learned, and S7 showed that picks the wrong method |
 
-R2 is what makes the annotation effort pay: without it, every judgment sharing a recording with
-notation would be wasted. As of 2026-09-24 that is 58 judgments rescued as validation, 1 set aside.
+As of 2026-09-27: **test 232** judgments over 17 samoohas in 9 un-notated raags; **validation 207**
+over 15 samoohas (12 in notated raags, 3 in Alhaiya Bilawal and Tilang); 1 set aside.
 
 **Guards in code, not just in prose:**
 

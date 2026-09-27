@@ -1,6 +1,7 @@
 """Pick stretches to notate: some slow, some dense, spread over raags and recordings.
 
-    poetry run python chunks.py
+    poetry run python chunks.py --raags Hindol ...          # alap, madhya and taan chunks per recording
+    poetry run python chunks.py --madhya Yaman ...          # add madhya-lay chunks to notated raags
 
 Density is held notes per second (the same `matcher._held` the scorer uses), so "alap" and
 "taan" here mean what the model sees, not what a tempo tracker would say.
@@ -25,17 +26,24 @@ def density(ctr):
     return np.convolve(onsets, kernel, mode="same"), held
 
 
-def pick(video, rng):
+def pick(video, rng, kinds=("alap", "madhya", "taan"), avoid=()):
+    """The slowest (alap), most typical (madhya) and densest (taan) stretch of a recording,
+    skipping any overlapping `avoid` = [(t0, t1), ...]."""
     ctr = fullaudio.contour(video)
     dens, _ = density(ctr)
     voiced = (~np.isnan(ctr.cents)).astype(float)
     out = []
-    for tag, secs in (("alap", C.CHUNK_ALAP_S), ("taan", C.CHUNK_TAAN_S)):
+    secs_of = {"alap": C.CHUNK_ALAP_S, "madhya": C.CHUNK_MADHYA_S, "taan": C.CHUNK_TAAN_S}
+    for tag in kinds:
+        secs = secs_of[tag]
         w = int(round(secs / ctr.hop))
         if len(ctr.cents) < 2 * w:
             continue
         frac = np.convolve(voiced, np.ones(w) / w, mode="same")
         ok = frac >= C.CHUNK_MIN_VOICED
+        t = np.arange(len(ok)) * ctr.hop
+        for a, b in avoid:
+            ok &= (t + secs / 2 < a) | (t - secs / 2 > b)
         if not ok.any():
             continue
         d = np.where(ok, dens, np.nan)
@@ -45,7 +53,11 @@ def pick(video, rng):
         vals = d[edge]
         if np.isnan(vals).all():
             continue
-        centre = int(idx[np.nanargmin(vals) if tag == "alap" else np.nanargmax(vals)])
+        if tag == "madhya":
+            k = np.nanargmin(np.abs(vals - np.nanmedian(vals)))
+        else:
+            k = np.nanargmin(vals) if tag == "alap" else np.nanargmax(vals)
+        centre = int(idx[k])
         t0 = max(0.0, (centre - w // 2) * ctr.hop)
         out.append(dict(video=video, raag=fullaudio.index()[video].raag, kind=tag,
                         t0=round(t0, 2), t1=round(t0 + secs, 2),
@@ -131,6 +143,32 @@ def build(raags=None):
               f"{ch['notes_per_s']:.2f} notes/s")
 
 
+def add_madhya(raags, per_raag=C.CHUNK_MADHYA_PER_RAAG):
+    """Madhya-lay chunks for raags already notated. They may share a recording with existing
+    chunks (all training), never overlap one in time, and never touch a judged recording."""
+    rng = np.random.default_rng(C.S3_SEED + 2)
+    path = C.S3_DIR / "chunks.json"
+    chunks = json.loads(path.read_text())
+    reserved = reserved_videos()
+    next_i = max(int(c["id"].rsplit("_", 1)[1]) for c in chunks) + 1
+    added = []
+    for raag in raags:
+        vids = [v for v in fullaudio.cached_videos(tuple([raag])) if v not in reserved]
+        for v in list(rng.permutation(vids))[:per_raag]:
+            avoid = [(c["t0"], c["t1"]) for c in chunks if c["video"] == v]
+            for ch in pick(str(v), rng, kinds=("madhya",), avoid=avoid):
+                ch["id"] = f"{ch['raag']}_{ch['kind']}_{next_i:02d}"
+                ch["tonic_hz"] = fullaudio.index()[str(v)].tonic_hz
+                next_i += 1
+                _snippet(ch)
+                added.append(ch)
+    path.write_text(json.dumps(chunks + added, indent=1))
+    print(f"{len(added)} madhya chunks added")
+    for ch in added:
+        print(f"  {ch['id']:26s} {ch['video']}  {ch['t0']:8.1f}-{ch['t1']:.1f}s  "
+              f"{ch['notes_per_s']:.2f} notes/s")
+
+
 def _snippet(ch):
     import librosa
     import soundfile as sf
@@ -144,5 +182,11 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--replace", nargs="+", default=None, help="chunk ids to swap out")
     ap.add_argument("--raags", nargs="+", default=None, help="raags to add chunks for")
+    ap.add_argument("--madhya", nargs="+", default=None, help="notated raags to add madhya chunks to")
     a = ap.parse_args()
-    replace(a.replace) if a.replace else build(a.raags)
+    if a.replace:
+        replace(a.replace)
+    elif a.madhya:
+        add_madhya(a.madhya)
+    else:
+        build(a.raags)

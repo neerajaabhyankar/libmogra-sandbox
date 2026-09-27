@@ -555,6 +555,36 @@ val-tuned − read-then-match +0.048 [−0.021, +0.113].
   shortest held run 0.578, ornament fraction 0.453 per-samooha AUC on test (hand-set cost 0.631).
   **Duration alone does not capture intent**; see memory `intent-not-duration`.
 
+### 🟨 S9 -- the split, redrawn by raag (2026-09-27)
+
+Neeraja's scheme, now in `audit.py` (R1/R2 changed):
+
+| role | what | now |
+|---|---|---|
+| train | notation | 12 raags |
+| validation | judgments in notated raags + `VALIDATION_RAAGS` | 207 over 15 samoohas |
+| test1 | judgments in un-notated raags | 232 over 17 samoohas, 9 raags |
+| test2 | aaroh/avaroh use of 24 swars in 6 raags (`neeraja_unidirectionals.json`) | 🔄 building |
+
+The method choice is made on validation alone, by the S7 rule.
+
+### 🔄 S10 -- round 4: test2, deeper pools, more notation (2026-09-27)
+
+- **test2** (`unidir.py`, ground truth `neeraja_unidirectionals.json`): per swar, "used in aaroh?"
+  and "used in avaroh?". Neeraja named the one-directional swars in Multani, Madhuvanti, Tilang,
+  Vrindavani Sarang, Jog, Basant; two bidirectional controls per raag picked by me from "all other
+  swars are bidirectional". Jog is notated and Tilang is validation -- accepted, since test2
+  measures something else. Score = fraction of a swar's occurrences approached from below (on
+  absolute pitch, within a phrase). Two label-free methods: held notes snapped to the scale, and
+  the reader.
+- **Deeper pools** (`pool.py --extend`): Kedar#2 and Marwa#1 came back all-yes; +10 lower-ranked
+  candidates each, appended (the 14 judged are byte-identical). 🟨 to judge.
+- **Notation**: new raags Charukeshi, Hindol, Ahir Bhairav, Durga (alap + madhya + taan per
+  recording); plus madhya-lay chunks in six notated raags, since alap/taan chunks miss the middle
+  tempo where most phrases are sung (`chunks.py --madhya`). 🟨 to notate.
+- **ROC curves** (`roc.py`) -> `results/roc/`: test1 and validation (scores ranked within each
+  samooha, then pooled), test2.
+
 ### What I need from Neeraja
 
 1. **More samoohas, especially in raags with no notation.** The test's uncertainty comes from having
@@ -665,3 +695,5 @@ deliberately. Nothing outside `../raag-identifier/` is imported.
 - **2026-09-26** -- S8 judged (136) and S7 rerun: read-then-match chosen again; test 0.698 vs
   baseline 0.631, CI [−0.035, +0.168]. val-tuned and combined now clear the baseline (CIs exclude
   0) but were not the choice. Round-3 baseline below chance.
+- **2026-09-27** -- Split redrawn by raag (S9): judgments in notated raags -> validation, in
+  un-notated raags -> test1. test2 (aaroh/avaroh statistics) proposed.
