@@ -3,14 +3,23 @@
     poetry run python unidir.py            # -> results/test2.json
 
 Ground truth is `neeraja_unidirectionals.json`: per swar, two y/n questions (used in aaroh? used
-in avaroh?). A method answers both with one number per swar -- the fraction of its occurrences
-*approached from below* (aaroh) -- and 1 minus it for avaroh. Approach is judged on absolute pitch
-(the median of each note), so octave jumps count the right way.
+in avaroh?). A method answers both with one number per swar: the fraction of its occurrences that
+go up (aaroh) -- and 1 minus it for avaroh. Pitch is absolute (each note's median), so octave
+jumps count the right way.
 
-Two methods, both label-free:
-  held notes   every held stretch of the contour (matcher._held), snapped to the nearest scale swar
-  reader       the notation-fitted reader (results/reader.json), restricted to the raag's scale
+What "goes up" means is Neeraja's definition of aarohi/avarohi (2026-09-27): **what comes after
+X decides it; what comes before does not matter.** X is avarohi if only lower notes follow it,
+aarohi if only higher ones do -- e.g. in Vrindavani Sarang, `m P n P N S R n P` is valid.
+So each occurrence counts as up or down by its *departure*: the next note.
+
+Two methods, neither sees a test2 label:
+  held-notes only (untuned)  every held stretch of the contour (matcher._held), snapped to the
+                             nearest scale swar. Nothing fitted to notation
+  tuned heuristic notes      the reader (decode.free_read) with its onset cost and swar centres
+                             fitted to notation (results/reader.json), restricted to the scale
 Recordings are cut into phrases at silences; direction is never judged across a silence.
+
+Terms: [DATA.md § Glossary](DATA.md#glossary).
 """
 
 import json
@@ -28,6 +37,8 @@ from utils import raagdb
 OUT = C.RESULTS_DIR / "test2.json"
 MIN_HELD_S = 0.10          # held-notes method: a held stretch shorter than this is not a note
 MIN_PHRASE_S = 1.0         # phrases shorter than this carry no direction worth counting
+HELD = "held-notes only (untuned)"
+READER = "tuned heuristic notes"
 
 
 def phrases(ctr):
@@ -89,10 +100,10 @@ def reader_notes(cents, hop, scale, params, onsets):
 
 
 def directions(notes, counts):
-    """Add (up, down) approaches per swar; repeats of the same note are not an approach."""
-    for (_, a), (s, b) in zip(notes, notes[1:]):
-        if b != a:
-            counts.setdefault(s, [0, 0])[0 if b > a else 1] += 1
+    """Add (up, down) per swar, judged by the next note; repeats of the same note are not a move."""
+    dedup = [n for i, n in enumerate(notes) if i == 0 or n[1] != notes[i - 1][1]]
+    for (s, b), (_, c) in zip(dedup, dedup[1:]):
+        counts.setdefault(s, [0, 0])[0 if c > b else 1] += 1
 
 
 def measure(raag):
@@ -100,14 +111,15 @@ def measure(raag):
     reader = json.loads(fit_reader.READER_JSON.read_text())
     params = dict(C.READ_MATCH, swar_offsets=reader["swar_offsets"])
     onsets = (reader["onset_slow"], reader["onset_fast"])
-    counts = {"held notes": {}, "reader": {}}
+    counts = {HELD: {}, READER: {}}
     videos = fullaudio.cached_videos(tuple([raag]))
     for v in videos:
         ctr = fullaudio.contour(v)
         for a, b in phrases(ctr):
             seg = ctr.cents[a:b]
-            directions(held_notes(seg, ctr.hop, scale), counts["held notes"])
-            directions(reader_notes(seg, ctr.hop, scale, params, onsets), counts["reader"])
+            for m, notes in ((HELD, held_notes(seg, ctr.hop, scale)),
+                             (READER, reader_notes(seg, ctr.hop, scale, params, onsets))):
+                directions(notes, counts[m])
         print(f"  {raag:12s} {v}", flush=True)
     return counts, len(videos)
 
@@ -128,7 +140,8 @@ def main():
             rows.append(row)
             print(f"{e['raag']:12s} {sw:2s} aaroh {'y' if lab['aaroh'] else 'n'} avaroh "
                   f"{'y' if lab['avaroh'] else 'n'}   " + "   ".join(
-                      f"{m}: {row[m]['up']:4d} up {row[m]['down']:4d} down" for m in counts))
+                      f"{row[m]['up_frac']:.2f}" for m in counts))
+    print("up-fraction columns: " + " | ".join(counts))
     OUT.write_text(json.dumps(rows, indent=1))
     print(f"-> {OUT}")
 

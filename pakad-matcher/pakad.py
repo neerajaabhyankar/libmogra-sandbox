@@ -9,6 +9,8 @@
 Deliberately small surface: everything a caller needs is the samooha as text, the tonic, and a
 threshold. The tonic is required and never guessed -- it is the one input that changes every
 answer (see plan.md).
+
+Terms: [DATA.md § Glossary](DATA.md#glossary).
 """
 
 import argparse

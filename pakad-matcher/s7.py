@@ -20,6 +20,8 @@ was *fitted* on validation (the combined weight, val-tuned), the number compared
 leave-one-samooha-out estimate: fit on 11 samoohas, score the 12th. Otherwise the tuned methods
 would be graded on the answers they were tuned to, and would always win. (First version of this
 file compared in-sample numbers; caught and fixed before the test was touched.)
+
+Terms: [DATA.md § Glossary](DATA.md#glossary).
 """
 
 import argparse

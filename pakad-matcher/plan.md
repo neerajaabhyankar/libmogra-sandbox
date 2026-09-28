@@ -1,5 +1,8 @@
 # pakad-matcher
 
+> Every project term (reader, held notes, departure, test1/test2, val-tuned, ...) is defined in
+> **[DATA.md § Glossary](DATA.md#glossary)**; the split rules are in [DATA.md](DATA.md#the-split-and-why-it-is-drawn-this-way).
+
 ## Problem Statement
 
 Raags often have "pakad"s or phrases that belong to the mukhyanga -- that characterize it. A list of these phrases will appear in the `mukhyanga` section of the LibMogra raag database. We have audios for 50-ish raags in the Hugging Face dataset where we would expect to find these phrases. However there's no annotations or anything yet. I'd like to identify locations of a given phrase in a given audio clip, if it exists.
@@ -564,11 +567,11 @@ Neeraja's scheme, now in `audit.py` (R1/R2 changed):
 | train | notation | 12 raags |
 | validation | judgments in notated raags + `VALIDATION_RAAGS` | 207 over 15 samoohas |
 | test1 | judgments in un-notated raags | 232 over 17 samoohas, 9 raags |
-| test2 | aaroh/avaroh use of 24 swars in 6 raags (`neeraja_unidirectionals.json`) | 🔄 building |
+| test2 | aaroh/avaroh use of 24 swars in 6 raags (`neeraja_unidirectionals.json`) | 48 questions |
 
 The method choice is made on validation alone, by the S7 rule.
 
-### 🔄 S10 -- round 4: test2, deeper pools, more notation (2026-09-27)
+### ✅ S10 -- round 4: test2, deeper pools, more notation (2026-09-27)
 
 - **test2** (`unidir.py`, ground truth `neeraja_unidirectionals.json`): per swar, "used in aaroh?"
   and "used in avaroh?". Neeraja named the one-directional swars in Multani, Madhuvanti, Tilang,
@@ -584,6 +587,41 @@ The method choice is made on validation alone, by the S7 rule.
   tempo where most phrases are sung (`chunks.py --madhya`). 🟨 to notate.
 - **ROC curves** (`roc.py`) -> `results/roc/`: test1 and validation (scores ranked within each
   samooha, then pooled), test2.
+
+**Results** (before the new notation; the reader is still the S7 one):
+
+| | chosen on validation | test1 AUC | P@1 | P@3 |
+|---|---|---|---|---|
+| hand-set (baseline) | | 0.663 | 0.88 | 0.78 |
+| read-then-match | | 0.692 | 0.94 | 0.86 |
+| **val-tuned** | **yes** (val 0.744, leave-one-samooha-out) | **0.781** | 0.88 | 0.88 |
+
+val-tuned − baseline on test1: **+0.118 [+0.041, +0.203]**, 10 better / 3 worse of 15 samoohas
+with an AUC. The first pre-registered gain whose interval excludes zero. With un-notated raags in
+validation, the choice went to the method that transfers.
+
+test2 (48 questions, AUC). **Definition (Neeraja, 2026-09-27): the note *after* X decides it** --
+avarohi means only lower notes follow X, aarohi only higher; what comes before does not matter
+(Vrindavani Sarang: `m P n P N S R n P` is valid).
+
+| method | AUC |
+|---|---|
+| held-notes only (untuned) | 0.880 |
+| **tuned heuristic notes** (the reader) | **0.921** |
+
+Two earlier scoring rules were wrong and are gone: judging by the note *before* X, and a
+"pass-through" rule I guessed before the definition was given. Figures:
+`results/roc/test2_roc.png`, `results/roc/test2_scatter.png` (one panel per method, coloured by
+Neeraja's label).
+Misses under departure: Sarang n (0.44 up) and Madhuvanti R (0.41) are under-called avarohi;
+Tilang G (0.81) and Jog m (0.36) are controls pushed toward one side.
+
+**How much of the reader is learned (Neeraja asked, 2026-09-27):** only the onset cost (slow and
+fast) and the 12 swar offsets are fitted to notation; its other constants are hand-set, and its
+held-out misread rate is 0.58. 🟨 Next, once the round-4 notation is in: fit the rest of its
+constants to notation (minimise misread rate, recordings held out), then rescore test2. A check
+that needs no new labels: count departures in Neeraja's *own notation* of Jog and compare with the
+reader's counts on the same stretches.
 
 ### What I need from Neeraja
 
@@ -697,3 +735,14 @@ deliberately. Nothing outside `../raag-identifier/` is imported.
   0) but were not the choice. Round-3 baseline below chance.
 - **2026-09-27** -- Split redrawn by raag (S9): judgments in notated raags -> validation, in
   un-notated raags -> test1. test2 (aaroh/avaroh statistics) proposed.
+- **2026-09-27** -- S10: test2 built and scored; aarohi/avarohi defined by the next note (Neeraja): reader
+  AUC 0.921. Validation now includes un-notated raags and chose val-tuned; test1 0.781 vs
+  baseline 0.663, CI [+0.041, +0.203]. 37 notation chunks (24 in 4 new raags, 13 madhya) and 20
+  deeper candidates await Neeraja.
+- **2026-09-30** -- Round-4 notation done (82 chunks, 3529 swars, 16 raags). From Neeraja's chunk
+  comments: `NMHoLg5PxRM` (Bhairav) has a wrong tonic in tonics.csv -- the scale fits 0.44 of
+  frames at the annotated Sa, 0.56 a semitone up -- so it is left out of training
+  (`config.BAD_TONIC_VIDEOS`; drops Bhairav_taan_32). Shree tonics flagged "may be wrong" check out.
+  Deeper pools judged: Kedar#2 still 24/24 yes (the phrase is that defining); Marwa#1 now 21 yes /
+  3 no, most borderline ornament-vs-intent. Notation app: speed now survives a chunk change;
+  saved stretches are painted green on revisit (placement re-derived on load).

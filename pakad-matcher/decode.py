@@ -10,6 +10,8 @@ the database at cost ~0. The ratio here asks the comparative question instead:
 Both decodes use the same emissions, the same ornament/transit rules and the same minimum dwell,
 so the difference is only the constraint. 0 means the phrase is as good an account as any; large
 means the span is really something else and the phrase was forced onto it.
+
+Terms: [DATA.md § Glossary](DATA.md#glossary).
 """
 
 import numpy as np

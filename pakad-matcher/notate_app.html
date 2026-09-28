@@ -68,7 +68,7 @@
       <button class="btn p" id="play">play <kbd>⇧space</kbd></button>
       <button class="btn" id="playsel" disabled>play selection <kbd>⇧K</kbd></button>
       <button class="btn" id="loop">loop off <kbd>l</kbd></button>
-      <button class="btn" id="rate">0.75× <kbd>[</kbd></button>
+      <button class="btn" id="rate">1× <kbd>[</kbd></button>
       <button class="btn" id="mark">mark raag notes</button>
       <span class="meta" id="selinfo">drag across the plot to select a stretch · click to seek</span>
     </div>
@@ -101,6 +101,10 @@ const $ = s => document.querySelector(s);
 let list = [], cur = null, data = null, segs = [], selIdx = -1;
 let sel = null, preview = null, raf = null, looping = false, dragging = null;
 const au = $("#au");
+let rate = 1;                     // the chosen speed; a new src resets the element's own rate
+function applyRate() { au.defaultPlaybackRate = rate; au.playbackRate = rate; }
+au.addEventListener("loadedmetadata", applyRate);
+au.addEventListener("play", applyRate);
 
 // ---------- swar keypad: ,P up to `P
 const NAMES = ["S","r","R","g","G","m","M","P","d","D","n","N"];
@@ -190,9 +194,29 @@ async function open(id) {
   $("#saved").textContent = "";
   $("#title").textContent = `${data.raag} · ${data.kind}`;
   $("#subtitle").textContent = `${data.video} · ${fmt(data.t0)}–${fmt(data.t1)} · Sa = ${data.tonic_hz.toFixed(1)} Hz`;
-  au.src = `/chunkaudio/${id}.wav`; au.currentTime = 0; stopAt = null;
+  au.src = `/chunkaudio/${id}.wav`; au.currentTime = 0; stopAt = null; applyRate();
   loadExpected(); drawPad();
   drawNav(); drawSegs(); buttons(); draw(); tick();
+  restoreKinds(id);
+}
+// Saved stretches carry swars and times, not which frame is which note, so a revisited chunk
+// had nothing to paint green. Re-derive the placement exactly as it was made: the same
+// alignment over the same selection, or the same even spacing.
+async function restoreKinds(id) {
+  for (const s of segs) {
+    if (s.kinds) continue;
+    const t0 = s.sel0 ?? s.t0, t1 = s.sel1 ?? s.t1, hop = data.hop;
+    if (s.method === "even") {
+      const n = s.swars.split(" ").length, i0 = Math.round(t0 / hop), i1 = Math.round(t1 / hop);
+      Object.assign(s, { i0, i1, kinds: Array.from({ length: i1 - i0 },
+        (_, i) => Math.min(n - 1, Math.floor(i * n / (i1 - i0)))) });
+    } else {
+      const r = await (await fetch("/api/align", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chunk_id: id, swars: s.swars, t0, t1 }) })).json();
+      if (!r.error) Object.assign(s, { i0: r.i0, i1: r.i1, kinds: r.kinds });
+    }
+    if (cur && cur.id === id) draw();
+  }
 }
 const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const dur = () => data.cents.length * data.hop;
@@ -454,8 +478,8 @@ $("#mark").onclick = () => { marking = !marking;
   $("#mark").textContent = marking ? "done marking" : "mark raag notes"; drawPad(); };
 $("#playsel").onclick = playSel;
 $("#loop").onclick = () => { looping = !looping; $("#loop").textContent = `loop ${looping ? "on" : "off"}`; };
-$("#rate").onclick = () => { au.playbackRate = au.playbackRate === 1 ? 0.75 : au.playbackRate === 0.75 ? 0.5 : 1;
-                             $("#rate").textContent = `${au.playbackRate}×`; };
+$("#rate").onclick = () => { rate = rate === 1 ? 0.75 : rate === 0.75 ? 0.5 : 1; applyRate();
+                             $("#rate").innerHTML = `${rate}× <kbd>[</kbd>`; };
 $("#align").onclick = align;
 $("#even").onclick = spaceEvenly;
 $("#add").onclick = addSeg;

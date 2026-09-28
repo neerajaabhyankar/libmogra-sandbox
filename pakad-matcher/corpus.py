@@ -6,6 +6,8 @@ Splits come from `audit.splits()` -- this module never decides what is test.
     stretches()      notated stretches: contour, the swars heard, the recording they came from
     folds(k)         recording-grouped folds over those stretches, for cross-validation
     spans(split)     judged candidate spans for 'validation' or 'test', with their contour
+
+Terms: [DATA.md § Glossary](DATA.md#glossary).
 """
 
 import json
@@ -29,6 +31,8 @@ def stretches():
     out = []
     for cid, rec in sorted(audit.notations().items()):
         c = ch[cid]
+        if c["video"] in C.BAD_TONIC_VIDEOS:
+            continue
         ctr = fullaudio.contour(c["video"])
         for s in rec["segments"]:
             swars, octs = raagdb.parse_phrase(s["swars"].split())

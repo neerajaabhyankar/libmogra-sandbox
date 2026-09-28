@@ -7,6 +7,8 @@
 Costs are in config.MATCH. The DP minimises total cost; candidates are then re-scored with
 duration-invariant terms (worst note's pitch misfit + ornament-time fraction), so a slow
 alap rendering and a fast taan rendering of the same phrase compete on equal terms.
+
+Terms: [DATA.md § Glossary](DATA.md#glossary).
 """
 
 from dataclasses import dataclass

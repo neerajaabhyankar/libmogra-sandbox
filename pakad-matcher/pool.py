@@ -6,6 +6,8 @@ any recording. Each gets a context window cut at the surrounding silences (the "
 
     poetry run python pool.py [--phrase Bageshree#0]
     poetry run python pool.py --extend Kedar#2 Marwa#1     # append deeper candidates, judged or not
+
+Terms: [DATA.md § Glossary](DATA.md#glossary).
 """
 
 import argparse

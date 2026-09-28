@@ -104,6 +104,9 @@ def main():
     print(f"  recordings: {len({ch[c]['video'] for c in notes})}")
     by_method = Counter(s.get("method", "align") for s in segs)
     print(f"  {by_method['align']} aligned to the pitch track, {by_method['even']} spaced by hand")
+    bad = [c for c in notes if ch[c]["video"] in C.BAD_TONIC_VIDEOS]
+    if bad:
+        print(f"  left out of training (wrong tonic, config.BAD_TONIC_VIDEOS): {', '.join(bad)}")
 
     s = splits()
     print("\nTEST / VALIDATION -- judgments (y/n on one candidate span)")

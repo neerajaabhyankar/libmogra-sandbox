@@ -5,6 +5,8 @@
 
 Density is held notes per second (the same `matcher._held` the scorer uses), so "alap" and
 "taan" here mean what the model sees, not what a tempo tracker would say.
+
+Terms: [DATA.md § Glossary](DATA.md#glossary).
 """
 
 import json

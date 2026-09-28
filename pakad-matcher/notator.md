@@ -1,5 +1,7 @@
 # notator — intentions for the notation tool
 
+Terms: [DATA.md § Glossary](DATA.md#glossary).
+
 The notation view (`/notate`, `notate_app.html` + the endpoints in `annotate_app.py`) was built to
 feed S5b: a corpus of human-heard swar sequences to measure the automatic reading against. But
 Neeraja's note on 2026-09-23 is that it is worth more than that errand — *"after this exercise is

@@ -15,46 +15,112 @@ poetry run python audit.py
 
 ## Glossary
 
-Terms are grouped by what they belong to, not alphabetically, because they only make sense in
-relation to each other.
+Grouped by topic, not alphabetically; the terms only make sense next to each other. Written for
+someone who knows ML and Hindustani music but not this project. **If a term in `plan.md`, a
+figure or a docstring is not here, that is a bug in this file.**
+
+### The music
+
+| term | meaning |
+|---|---|
+| **swar letters** | `S r R g G m M P d D n N`: lower case = komal (flat) for r g d n, **M = teevra (sharp) ma**, m = shuddha ma. Same letters as libmogra |
+| **saptak marks** | octave. `,n` = mandra (below Sa), `n` = madhya (middle), `` `n `` = taar (above) |
+| **tonic** (Sa) | the reference pitch of a recording, in Hz, annotated by hand in `tonics.csv`. Never estimated here |
+| **samooha** (phrase, pakad) | a short characteristic swar sequence of a raag, e.g. `m D n D`. Ours are in `neeraja_mukhyangas.json`; libmogra's list is its *mukhyanga* |
+| **samooha id** | `Raag#3` = index 3 of that raag's list in libmogra's `RAAG_DB` (0-indexed); `Raag#N1` = one of Neeraja's own |
+| **aaroh / avaroh** | the ascending / descending movement of a raag |
+| **aarohi / avarohi swar** | **X is avarohi if only notes *below* X may come after X; aarohi if only notes *above* X may. What comes before X does not matter.** (Vrindavani Sarang: `m P n P N S R n P` is valid: n → P, N → S.) |
+| **unidirectional swar** | aarohi or avarohi, as opposed to **bidirectional** (either may follow) |
+| **kan** | a grace note: a brief touch of a neighbouring swar |
+| **meend** | a glide between swars; the swars it passes through are not "sung" |
+| **alap / madhya / taan** | slow and unmetred / medium tempo / fast runs. As *chunk kinds* they mean what the model measures (below), not what a musician would call them |
 
 ### The audio
 
 | term | meaning |
 |---|---|
-| **recording** | one full performance, e.g. `8ldBWSCfR0Q`. Named by its YouTube id, which is also how `tonics.csv` annotates it. Everything is split by recording, never inside one |
-| **clip** | a 20-second excerpt in the pinned HuggingFace dataset. Used for the earlier stages; the annotation work uses full recordings instead |
-| **tonic** (Sa) | the reference pitch of a recording, in Hz, annotated by hand in `tonics.csv`. Never estimated here |
-| **contour** | the pitch track: one number per 18 ms frame, in **cents above Sa** (100 cents = one semitone), or "unvoiced" where no pitch was found |
-| **saptak** | octave. `,n` is mandra (below Sa), `n` is madhya (the middle), `` `n `` is taar (above) |
+| **recording** | one full performance, e.g. `8ldBWSCfR0Q`, named by YouTube id. Everything is split by recording, never inside one |
+| **clip** | a 20 s excerpt in the pinned HuggingFace dataset. Early stages only; the annotation work uses full recordings |
+| **contour** (pitch track) | one number per frame, in **cents above Sa** (100 cents = one semitone), or *unvoiced* (no pitch). From Essentia's Melodia, which quantises to 10 cents |
+| **frame, hop** | one contour sample; the hop between frames is ≈ 18 ms (Melodia's 4.4 ms, downsampled ×4) |
+| **held frames / held note** | frames where pitch moves slower than `held_slope` (800 cents/s, measured over 90 ms) for at least 0.1 s: the voice is *sitting* on a note rather than gliding. A **held note** is one such run. Pure pitch-track geometry, no swar knowledge |
+| **density** (notes per second) | held notes per second over a window: the model's measure of tempo. Chooses alap (lowest), madhya (median), taan (highest) chunks, and the reader's onset cost |
 
 ### What a musician contributes
 
 | term | meaning |
 |---|---|
-| **samooha** (or phrase, pakad) | a short sequence of swars, e.g. `m D n D`. Listed in `neeraja_mukhyangas.json` |
-| **candidate** | a span of audio the matcher proposes as an occurrence of one samooha: a recording plus a start and end time |
-| **judgment** | **one y/n on one candidate**: "is this really that samooha?". Made in the phrase app (`/`). Stored in `annotations/labels.jsonl`. **These are test and validation data** |
-| **pool** | the fixed set of candidates offered for one samooha (14 of them). A judgment is stored as *an index into its pool*, so **a pool must never be rebuilt once judged** |
-| **chunk** | a 15–20 s stretch of a recording chosen for notating, listed in `annotations/chunks.json` |
-| **stretch** | a sub-range of a chunk that has been notated: times, the swars heard, and how they were placed |
-| **notation** | the swars a musician heard in a stretch, written out. Stored in `annotations/notations.jsonl`. **This is training data** |
-| **aligned / spaced by hand** | how a stretch's swars were placed in time: `align` fits them to the pitch track, `even` spreads them evenly because the tracker did not follow the instrument. A hand-spaced stretch is evidence of *what* was sung, not *when* |
+| **candidate** | a span of audio the matcher proposes as one occurrence of a samooha: recording + start + end |
+| **judgment** | **one y/n on one candidate**: "is this really that samooha?". Made in the phrase app (`/phrases`), stored in `annotations/labels.jsonl`. Blank = unsure, never scored |
+| **pool** | the fixed candidates offered for one samooha (14, sometimes 12). A judgment is stored as *an index into its pool*, so a pool is never rebuilt once judged — only **extended** by appending (`pool.py --extend`) |
+| **tempo spreading** | pools interleave slow, medium and fast candidates rather than taking only the cheapest, which are usually quick transits |
+| **chunk** | a 15–20 s stretch of a recording chosen for notating (`annotations/chunks.json`) |
+| **stretch** | a notated sub-range of a chunk: times, the swars heard, and how they were placed |
+| **notation** | the swars a musician heard in a stretch. `annotations/notations.jsonl`. **Training data** |
+| **aligned / spaced by hand** | how a stretch's swars were placed in time: `align` fits them to the contour; `even` spreads them evenly because the tracker lost the voice. Hand-spaced = evidence of *what*, not *when* |
+| **round** | a batch of samoohas or chunks added together (`round` in the json, `*_R3`/`*_R4` in `config.py`); `plan.md` says what each added |
 
-### What the machine produces
+### The split
 
 | term | meaning |
 |---|---|
-| **reading** | what the model hears in a stretch with no samooha to guide it: a swar sequence, from `decode.free_read` |
-| **alignment** | the model's placement of a *given* swar sequence onto a contour — used by the notation app, and by the matcher when it scores a candidate |
-| **cost** | the matcher's score for a candidate. Lower is better. Not comparable across samoohas |
-| **fit** | the same number, shown in the notation app for a stretch |
-| **coverage** | how much of a selected stretch the alignment actually accounts for |
-| **misread rate** | `(substitutions + deletions + insertions) / notated swars`, the same shape as word error rate in speech. 0 is perfect; 1 means as many mistakes as notes. Insertions and deletions are always reported separately, because they fail in opposite directions |
-| **P@1, P@3** | of the 1 or 3 candidates the matcher ranks highest for a samooha, how many a musician accepted. Averaged over samoohas |
-| **test1 / test2** | test1 = judgments in un-notated raags ("is this the samooha?"); test2 = `neeraja_unidirectionals.json`, "is this swar used in aaroh? in avaroh?" per swar |
-| **ROC curve** | how true positives trade against false positives as the score threshold moves; `results/roc/`. The area under it is the AUC |
-| **per-samooha AUC** | does the score rank a "yes" above a "no" *within one samooha*. 0.5 is chance |
+| **train** | notation. Everything the models learn from musical ears |
+| **seen / unseen raag** | seen = at least one notated stretch; unseen = none (`config.UNNOTATED_RAAGS`) |
+| **validation** | judgments in seen raags, plus those in `config.VALIDATION_RAAGS` (unseen raags held out for choosing). Used to **choose** a method, never to grade one |
+| **test1** | judgments in unseen raags: "is this the samooha?" |
+| **test2** | `neeraja_unidirectionals.json`: for 24 swars in 6 raags, "used in aaroh? used in avaroh?" — 48 y/n questions |
+| **control** (test2) | a bidirectional swar included so a method that calls everything unidirectional is caught; two per raag |
+| **R1–R6** | the split rules, below; `audit.py` enforces them |
+| **frozen choice** | the method picked on validation is written to `results/s7_choice.json` (with its hash) *before* test is scored |
+| **wrong-tonic recording** | a recording whose `tonics.csv` Sa is wrong; listed in `config.BAD_TONIC_VIDEOS` and left out of training |
+| **contaminated** | fitted on data that is now test. `config.MATCH`'s tuned values (S4b) are: they were fitted on the first 168 judgments |
+
+### The models
+
+| term | meaning |
+|---|---|
+| **matcher** | `matcher.match`: given a contour and a samooha, finds the spans that best fit it. A left-to-right model: one state per swar (each held for at least `min_dwell_s`), **ornament** states between them for kan and meend, free start and end. Returns candidates with a **cost** |
+| **cost** | how badly a span fits a samooha; lower is better. Not comparable across samoohas |
+| **matcher constants** | `config.MATCH`. `free_cents`: how far off a swar pitch may be for free; `scale_cents`, `note_cap`: how the penalty grows beyond that; `orn_cost`, `transit_cost`: price of ornament frames; `note_trim`: fraction of a note's frames that must fit; `leap_penalty`: a step going the wrong way or octave; `register_penalty`: sung in a different saptak than written |
+| **alignment** | placing a *given* swar sequence onto a contour (`decode.align`). Used by the notation app, and to check notation |
+| **reader** / **reading** | the swar sequence the model hears in a contour **with no samooha to guide it** (`decode.free_read`). The same note and ornament states as the matcher, but any swar may follow any other |
+| **onset cost** | what the reader pays to start a new note. Too low and every glide becomes several notes (the reader's main failure: it over-segments) |
+| **swar centres / offsets** | where each swar actually sits, in cents from equal temperament |
+| **what the reader learned** | **from notation only** (`fit_reader.py` → `results/reader.json`): the onset cost, separately for slow and fast stretches (by density), and the 12 swar offsets (which come out small). Its other constants are hand-set (`config.NOTATE_MATCH`). Its held-out misread rate is 0.58 |
+| **free edges / rim** | an alignment may leave silence or drone at the ends of a selection unexplained |
+
+### Methods compared (S7–S10)
+
+| term | meaning |
+|---|---|
+| **hand-set** | the matcher with constants chosen by hand, before any judgment existed. The **baseline** |
+| **S4b-tuned** | `config.MATCH`: constants tuned on the first 168 judgments. Reference only (contaminated) |
+| **notation-set** | hand-set, with tolerance and dwell taken from the notation, and the reader's swar offsets |
+| **read-then-match** | the reader transcribes the span; the score is how few edits turn the samooha into some stretch of that transcription |
+| **combined** | notation-set cost + a weight × read-then-match; the weight chosen on validation |
+| **val-tuned** | hand-set constants re-tuned on validation judgments (coordinate ascent on per-samooha AUC) |
+| **leave-one-samooha-out** | how a method tuned on validation is scored *on* validation: tune on all samoohas but one, score that one, repeat. Otherwise it grades itself |
+
+### Test2 methods and definitions
+
+| term | meaning |
+|---|---|
+| **departure** | each occurrence of swar X counts as up or down by the **next** note — the definition of aarohi/avarohi above |
+| **up-fraction** | of X's occurrences, the fraction followed by a higher note. The "used in aaroh?" score; 1 − it is the "used in avaroh?" score. The x-axis of `results/roc/test2_scatter.png` |
+| **held-notes only (untuned)** | occurrences = held notes (above) snapped to the nearest swar of the raag's scale. **Nothing fitted to notation**; its one threshold (`held_slope`) was tuned in S4b on judgments |
+| **tuned heuristic notes** | occurrences = the reader's notes, restricted to the raag's scale: the reader with its onset cost and swar centres fitted to notation |
+| **phrase** (in `unidir.py`) | a voiced stretch between silences longer than 0.35 s; direction is never judged across a silence |
+
+### Metrics
+
+| term | meaning |
+|---|---|
+| **misread rate** | `(substitutions + deletions + insertions) / notated swars` between the reader and the notation, like word error rate in speech. 0 is perfect |
+| **per-samooha AUC** | the chance that a "yes" candidate outscores a "no" *of the same samooha*, averaged over samoohas. 0.5 is chance. Samoohas that came back all-yes or all-no have none |
+| **P@1, P@3** | of the 1 or 3 candidates ranked highest for a samooha, the fraction judged "yes". Averaged over samoohas |
+| **ROC curve** | true-positive rate against false-positive rate as the threshold moves; area under it = AUC. In `results/roc/`. For test1, scores are first converted to their **rank within their samooha**, since raw costs do not compare across samoohas |
+| **test2 AUC** | pooled over all 48 questions (up-fractions do compare across swars) |
+| **paired difference, CI** | method A − method B per samooha, averaged; the 95% interval is by bootstrap over samoohas. "10 better / 3 worse of 15" counts samoohas |
 
 ---
 
@@ -111,16 +177,17 @@ raag-independent, so this is not a compromise — it tests whether they generali
 
 ---
 
-## Where it stands (regenerate with `audit.py`)
+## Where it stands (2026-09-27; regenerate with `audit.py`)
 
 | | |
 |---|---|
-| training, notation | 24 chunks · 111 stretches · **1023 swars** · 340 s · 6 raags · 15 recordings |
-| test, judgments | **109** over 12 samoohas, 27 recordings |
-| validation, judgments | **58** over 12 samoohas, 15 recordings |
+| train, notation | 47 chunks · 230 stretches · **2291 swars** · 628 s · 12 raags · 28 recordings |
+| validation, judgments | **207** over 15 samoohas (12 in seen raags, 3 in Alhaiya Bilawal and Tilang) |
+| test1, judgments | **232** over 17 samoohas in 9 unseen raags |
+| test2 | 48 questions over 24 swars in 6 raags |
 | set aside (R3) | 1 |
-| awaiting judgment | **9 samoohas, 122 candidates** — Des, Tilak Kamod, Multani, Todi, Bhinna Shadja |
-| awaiting notation | **24 chunks, 420 s** over Yaman, Bhairav, Malkauns, Bhoopali, Jog, Kalawati (round 3) |
+| awaiting judgment | 20 appended candidates (Kedar#2, Marwa#1) |
+| awaiting notation | **37 chunks** — Charukeshi, Hindol, Ahir Bhairav, Durga (round 4), and 13 madhya chunks |
 
 Anything fitted before 2026-09-24 — the tuned matcher costs in `config.MATCH` and the probability
 in `results/calibration.json` — was fitted on what is now the test set, and is marked as such in

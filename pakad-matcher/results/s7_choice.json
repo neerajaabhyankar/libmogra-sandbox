@@ -15,10 +15,10 @@
   "held_slope": 400.0,
   "held_win_s": 0.09,
   "held_min_s": 0.1,
-  "note_trim": 1.0,
+  "note_trim": 0.75,
   "leap_penalty": 1.0,
   "register_penalty": 0.0
  },
- "chosen": "read-then-match",
- "val_auc": 0.6780303030303031
+ "chosen": "val-tuned (leave-one-samooha-out)",
+ "val_auc": 0.7444601246259409
 }

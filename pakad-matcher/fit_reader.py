@@ -12,6 +12,8 @@ Two things are learned, both from notation only:
 
 Tempo is measured from the contour alone (held notes per second), so the fitted reader can be
 applied to audio nobody has notated.
+
+Terms: [DATA.md § Glossary](DATA.md#glossary).
 """
 
 import argparse

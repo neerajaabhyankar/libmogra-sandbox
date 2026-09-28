@@ -52,9 +52,15 @@ NOTATION_RAAGS_R3 = ["Yaman", "Bhairav", "Malkauns", "Bhoopali", "Jog", "Kalawat
 # Round 4 (2026-09-27): four untouched raags, chosen to use their swars in both directions (so test2
 # keeps its raags unseen) and to add the least-notated swars (M, r, N).
 NOTATION_RAAGS_R4 = ["Charukeshi", "Hindol", "AheerBhairav", "Durga"]
-# ... plus madhya-lay chunks in six already-notated raags (alap and taan chunks miss the middle).
-MADHYA_RAAGS_R4 = ["Yaman", "Bhairav", "Malkauns", "Bageshree", "PuriyaDhanashri", "DarbariKanada"]
+# ... plus madhya-lay chunks in notated raags (alap and taan chunks miss the middle). Puriya
+# Dhanashri and Darbari had no unjudged recording left; Jog skipped (it is in test2).
+MADHYA_RAAGS_R4 = ["Yaman", "Bhairav", "Malkauns", "Bageshree", "Bhoopali", "Kalawati", "Shree",
+                   "Bheempalasi"]
 UNIDIR_JSON = HERE / "neeraja_unidirectionals.json"   # test2 ground truth
+# Recordings whose tonic in the dataset's tonics.csv is wrong (found from notation comments, then
+# checked: the raag's scale fits the contour better a semitone away). Their notation would teach
+# the reader shifted pitches, so it is left out of training. tonics.csv itself is not edited here.
+BAD_TONIC_VIDEOS = {"NMHoLg5PxRM": "Bhairav; Neeraja: 'wrong tonic!!' (2026-09-28); +100 cents fits better"}
 
 # ---- matcher (S1). Costs are per frame at the downsampled rate.
 # Values marked (tuned) were fitted to the 168 annotations by coordinate ascent on per-phrase
