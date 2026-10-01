@@ -1,0 +1,160 @@
+{
+ "_about": "test2: swars Neeraja names as used only in aaroh (ascent) or only in avaroh (descent), plus two bidirectional controls per raag. This file, not libmogra, is the ground truth.",
+ "_format": {
+  "swars": "per swar: is it used in aaroh, is it used in avaroh -- two y/n questions",
+  "control": "bidirectional swars picked by Claude from Neeraja's 'all other swars are bidirectional'; two per raag, not all",
+  "raag": "the dataset's folder name; Sarang is Vrindavani Sarang"
+ },
+ "raags": [
+  {
+   "raag": "Multani",
+   "swars": {
+    "r": {
+     "aaroh": false,
+     "avaroh": true,
+     "control": false
+    },
+    "d": {
+     "aaroh": false,
+     "avaroh": true,
+     "control": false
+    },
+    "g": {
+     "aaroh": true,
+     "avaroh": true,
+     "control": true
+    },
+    "M": {
+     "aaroh": true,
+     "avaroh": true,
+     "control": true
+    }
+   }
+  },
+  {
+   "raag": "Madhuvanti",
+   "swars": {
+    "R": {
+     "aaroh": false,
+     "avaroh": true,
+     "control": false
+    },
+    "D": {
+     "aaroh": false,
+     "avaroh": true,
+     "control": false
+    },
+    "g": {
+     "aaroh": true,
+     "avaroh": true,
+     "control": true
+    },
+    "M": {
+     "aaroh": true,
+     "avaroh": true,
+     "control": true
+    }
+   }
+  },
+  {
+   "raag": "Tilang",
+   "swars": {
+    "n": {
+     "aaroh": false,
+     "avaroh": true,
+     "control": false
+    },
+    "N": {
+     "aaroh": true,
+     "avaroh": false,
+     "control": false
+    },
+    "G": {
+     "aaroh": true,
+     "avaroh": true,
+     "control": true
+    },
+    "m": {
+     "aaroh": true,
+     "avaroh": true,
+     "control": true
+    }
+   }
+  },
+  {
+   "raag": "Sarang",
+   "swars": {
+    "n": {
+     "aaroh": false,
+     "avaroh": true,
+     "control": false
+    },
+    "N": {
+     "aaroh": true,
+     "avaroh": false,
+     "control": false
+    },
+    "R": {
+     "aaroh": true,
+     "avaroh": true,
+     "control": true
+    },
+    "m": {
+     "aaroh": true,
+     "avaroh": true,
+     "control": true
+    }
+   }
+  },
+  {
+   "raag": "Jog",
+   "swars": {
+    "g": {
+     "aaroh": false,
+     "avaroh": true,
+     "control": false
+    },
+    "G": {
+     "aaroh": true,
+     "avaroh": false,
+     "control": false
+    },
+    "m": {
+     "aaroh": true,
+     "avaroh": true,
+     "control": true
+    },
+    "n": {
+     "aaroh": true,
+     "avaroh": true,
+     "control": true
+    }
+   }
+  },
+  {
+   "raag": "Basant",
+   "swars": {
+    "r": {
+     "aaroh": false,
+     "avaroh": true,
+     "control": false
+    },
+    "P": {
+     "aaroh": false,
+     "avaroh": true,
+     "control": false
+    },
+    "G": {
+     "aaroh": true,
+     "avaroh": true,
+     "control": true
+    },
+    "M": {
+     "aaroh": true,
+     "avaroh": true,
+     "control": true
+    }
+   }
+  }
+ ]
+}

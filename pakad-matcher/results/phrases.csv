@@ -1,0 +1,230 @@
+id,raag,phrase,len,df,idf,turns,kept
+AheerBhairav#6,AheerBhairav,",n ,D ,n r S",5,1,2.759,2,1
+AheerBhairav#5,AheerBhairav,G m P m r S,6,1,1.761,1,1
+AheerBhairav#4,AheerBhairav,n D P m G m,6,1,1.319,1,1
+AheerBhairav#1,AheerBhairav,D n D,3,12,1.686,1,0
+AheerBhairav#2,AheerBhairav,P D P,3,17,1.259,1,0
+AheerBhairav#3,AheerBhairav,`S n D,3,32,1.062,0,0
+AheerBhairav#0,AheerBhairav,G m P,3,26,1.058,0,0
+AlhaiyaBilawal#0,AlhaiyaBilawal,G R G P,4,4,2.089,1,1
+AlhaiyaBilawal#3,AlhaiyaBilawal,G P D N `S,5,2,1.773,0,1
+AlhaiyaBilawal#1,AlhaiyaBilawal,D n D P,4,5,1.495,1,1
+AlhaiyaBilawal#2,AlhaiyaBilawal,m G R,3,15,1.597,0,0
+Bageshree#0,Bageshree,",n S m",3,1,2.742,0,1
+Bageshree#4,Bageshree,m D n D,4,3,1.895,1,1
+Bageshree#1,Bageshree,S g m,3,11,1.965,0,0
+Bageshree#5,Bageshree,m g R S,4,10,1.625,0,0
+Bageshree#2,Bageshree,g R S,3,15,1.512,0,0
+Bageshree#3,Bageshree,",n ,D",2,36,1.17,0,0
+Bahar#3,Bahar,m n D N `S,5,1,2.322,2,1
+Bahar#1,Bahar,P m g m,4,7,1.592,1,1
+Bahar#6,Bahar,g m R S,4,9,1.529,1,1
+Bahar#0,Bahar,S m,2,11,2.356,0,0
+Bahar#2,Bahar,n P m,3,16,1.45,0,0
+Bahar#4,Bahar,n P m,3,16,1.45,0,0
+Bahar#5,Bahar,P m,2,60,0.659,0,0
+Bairagi#1,Bairagi,r P m r S,5,1,2.787,1,1
+Bairagi#2,Bairagi,",n S r S",4,1,2.154,1,1
+Bairagi#0,Bairagi,m P n P m r,6,1,1.956,1,1
+Basant#3,Basant,M d G M G,5,1,3.488,3,1
+Basant#0,Basant,M d `r `S,4,1,3.269,1,1
+Basant#2,Basant,G M d N M G,6,1,3.245,1,1
+Basant#4,Basant,M G M G r S,6,1,2.275,2,1
+Basant#1,Basant,N `S `r N d P,6,1,2.237,1,1
+Bhairav#2,Bhairav,G m d P,4,3,2.307,1,1
+Bhairav#3,Bhairav,G m r S,4,3,2.288,1,1
+Bhairav#1,Bhairav,d P,2,27,1.458,0,0
+Bhairav#0,Bhairav,r S,2,31,1.32,0,0
+Bhairav#4,Bhairav,",N S",2,51,0.822,0,0
+Bhairavi#2,Bhairavi,d m d n `S,5,1,2.579,1,1
+Bhairavi#3,Bhairavi,`r `S d P g m r S,8,1,2.56,2,1
+Bhairavi#0,Bhairavi,g S r S,4,1,2.523,2,1
+Bhairavi#1,Bhairavi,g m P,3,13,1.457,0,0
+Bheempalasi#0,Bheempalasi,",n S g m P",5,3,1.818,0,1
+Bheempalasi#3,Bheempalasi,m g R S,4,10,1.625,0,0
+Bheempalasi#1,Bheempalasi,n D P,3,24,1.196,0,0
+Bheempalasi#2,Bheempalasi,n D P,3,24,1.196,0,0
+Bhoopali#4,Bhoopali,P G R G,4,3,2.013,1,1
+Bhoopali#3,Bhoopali,`S D P G,4,2,1.865,0,1
+Bhoopali#0,Bhoopali,G R G,3,11,1.865,1,0
+Bhoopali#1,Bhoopali,P G,2,22,1.663,0,0
+Bhoopali#5,Bhoopali,G R S,3,18,1.355,0,0
+Bhoopali#2,Bhoopali,D P,2,50,0.842,0,0
+Bihag#2,Bihag,P M P G m G,6,1,1.956,4,1
+Bihag#3,Bihag,P M G m G R S,7,1,1.897,2,1
+Bihag#0,Bihag,",N S G",3,4,1.87,0,1
+Bihag#1,Bihag,G m G,3,12,1.518,1,0
+Chandrakauns#3,Chandrakauns,N d `S,3,4,2.548,1,1
+Chandrakauns#2,Chandrakauns,g m d N `S,5,1,2.375,0,1
+Chandrakauns#4,Chandrakauns,"N d m g m g S ,N S",9,1,2.26,3,1
+Chandrakauns#0,Chandrakauns,"S g m g S ,N",6,1,2.173,1,1
+Chandrakauns#1,Chandrakauns,",N S",2,51,0.822,0,0
+Charukeshi#1,Charukeshi,R G m d P,5,2,2.236,1,1
+Charukeshi#0,Charukeshi,",d ,n S R G m G R",8,1,1.8,1,1
+Charukeshi#2,Charukeshi,R G m R S,5,1,1.593,1,1
+DarbariKanada#2,DarbariKanada,n m P `S,4,1,2.64,1,1
+DarbariKanada#0,DarbariKanada,S R g R g,5,1,2.369,2,1
+DarbariKanada#1,DarbariKanada,m P d P d n P,7,1,2.196,3,1
+DarbariKanada#3,DarbariKanada,`S n d n P m P m g m R S,12,1,1.814,6,1
+DarbariKanada#4,DarbariKanada,",d ,n S",3,11,1.839,0,0
+Des#1,Des,"G ,N S",3,1,3.443,1,1
+Des#0,Des,D S m G R,5,1,2.483,2,1
+Des#3,Des,`S `R n D P,5,3,1.89,1,1
+Des#2,Des,R m P N,4,6,1.565,0,1
+Deshkar#1,Deshkar,D G P,3,2,3.023,1,1
+Deshkar#3,Deshkar,P D G P,4,2,2.829,2,1
+Deshkar#0,Deshkar,S R G P D,5,5,1.855,0,1
+Deshkar#2,Deshkar,`S D,2,21,1.709,0,0
+Deshkar#5,Deshkar,",D S",2,28,1.421,0,0
+Deshkar#4,Deshkar,G R S,3,18,1.355,0,0
+Dhani#2,Dhani,n P g S,4,1,2.829,0,1
+Dhani#0,Dhani,",n S g",3,6,1.999,0,1
+Dhani#1,Dhani,S g m P g,5,1,1.81,1,1
+Durga#1,Durga,"m R ,D S",4,1,2.815,1,1
+Durga#2,Durga,R P,2,11,2.356,0,0
+Durga#0,Durga,m P D,3,17,1.167,0,0
+Hameer#0,Hameer,G m N D,4,1,3.374,1,1
+Hameer#2,Hameer,G m P G m R S,7,3,1.526,3,1
+Hameer#1,Hameer,D P,2,50,0.842,0,0
+HansDhwani#0,HansDhwani,",N R G P G R G P N `S",10,1,2.298,2,1
+HansDhwani#1,HansDhwani,`S N P G R G P G R S,10,1,2.215,2,1
+Hindol#0,Hindol,D N M D `S,5,1,3.109,2,1
+Hindol#1,Hindol,D M G,3,4,2.74,0,1
+Hindol#2,Hindol,"S ,D S",3,2,2.397,1,1
+Jaijaivanti#0,Jaijaivanti,",D ,n R",3,1,3.477,0,1
+Jaijaivanti#1,Jaijaivanti,R g R S,4,4,1.99,1,1
+Jaijaivanti#3,Jaijaivanti,R m P N,4,6,1.565,0,1
+Jaijaivanti#4,Jaijaivanti,n D P,3,24,1.196,0,0
+Jaijaivanti#2,Jaijaivanti,",N S",2,51,0.822,0,0
+Jog#2,Jog,G m g S,4,4,1.942,1,1
+Jog#1,Jog,P n P m G m,6,1,1.674,2,1
+Jog#0,Jog,G m P n P,5,2,1.648,1,1
+Kafi#6,Kafi,D m P g R,5,1,1.983,2,1
+Kafi#2,Kafi,m P D P,4,2,1.252,1,1
+Kafi#0,Kafi,g R,2,18,1.863,0,0
+Kafi#3,Kafi,D n `S,3,13,1.641,0,0
+Kafi#5,Kafi,S R m P,4,16,1.372,0,0
+Kafi#4,Kafi,n D P,3,24,1.196,0,0
+Kafi#1,Kafi,m P,2,66,0.564,0,0
+Kalawati#7,Kalawati,P G S,3,1,2.991,0,1
+Kalawati#0,Kalawati,S G P D,4,1,2.243,0,1
+Kalawati#3,Kalawati,G P D S n,5,1,2.009,2,1
+Kalawati#8,Kalawati,n D S,3,7,1.8,0,1
+Kalawati#1,Kalawati,P D n D,4,7,1.686,1,1
+Kalawati#6,Kalawati,D G,2,6,2.962,0,0
+Kalawati#5,Kalawati,n P,2,21,1.709,0,0
+Kalawati#4,Kalawati,D n S,3,13,1.641,1,0
+Kalawati#2,Kalawati,D P,2,50,0.842,0,0
+KaushikDhwani#3,KaushikDhwani,D m G S,4,2,2.43,0,1
+KaushikDhwani#0,KaushikDhwani,G m D N D `S,6,2,2.139,2,1
+KaushikDhwani#1,KaushikDhwani,N `S D,3,4,1.966,1,1
+KaushikDhwani#2,KaushikDhwani,G m,2,38,1.116,0,0
+Kedar#6,Kedar,`S `R `S D P,5,1,1.846,1,1
+Kedar#4,Kedar,M P D P M,5,2,1.632,1,1
+Kedar#2,Kedar,M P D P m,5,1,1.449,1,1
+Kedar#3,Kedar,S R S,3,8,1.387,1,1
+Kedar#0,Kedar,S m,2,11,2.356,0,0
+Kedar#5,Kedar,P `S,2,14,2.115,0,0
+Kedar#1,Kedar,m P,2,66,0.564,0,0
+Keerwani#5,Keerwani,"g R S ,N ,d ,N R S",8,1,2.299,2,1
+Keerwani#0,Keerwani,P d `S,3,7,2.246,0,1
+Keerwani#1,Keerwani,`S N `S `R `g `R `S N d P,10,1,1.804,2,1
+Keerwani#3,Keerwani,P m g R,4,9,1.584,0,1
+Keerwani#2,Keerwani,d P m P,4,4,1.355,1,1
+Keerwani#4,Keerwani,g m,2,23,1.618,0,0
+Khamaj#2,Khamaj,P `S N `S,4,1,2.086,2,1
+Khamaj#0,Khamaj,G m P D,4,5,1.222,0,1
+Khamaj#4,Khamaj,m P m G,4,3,1.19,1,1
+Khamaj#1,Khamaj,G m G,3,12,1.518,1,0
+Khamaj#3,Khamaj,n D P,3,24,1.196,0,0
+Khamaj#5,Khamaj,R S,2,62,0.626,0,0
+Lalit#3,Lalit,G m M m,4,1,3.806,1,1
+Lalit#2,Lalit,`r N d M m,5,1,3.361,0,1
+Lalit#1,Lalit,G M d N d M m,7,1,3.219,1,1
+Lalit#0,Lalit,",N r G m M m G r S",9,1,2.959,1,1
+Lalit#4,Lalit,M G r S,4,6,2.027,0,1
+Madhukauns#4,Madhukauns,g M g S,4,2,2.962,1,1
+Madhukauns#1,Madhukauns,P M g M P,5,1,2.775,1,1
+Madhukauns#0,Madhukauns,S g M,3,4,2.75,0,1
+Madhukauns#2,Madhukauns,M P n `S,4,3,2.049,0,1
+Madhukauns#3,Madhukauns,`S n P M,4,2,2.044,0,1
+Madhuvanti#0,Madhuvanti,",N S M g M P",6,1,3.212,2,1
+Madhuvanti#1,Madhuvanti,M g S R S,5,1,2.328,2,1
+Malhar#3,Malhar,",n D ,N S",4,2,1.927,2,1
+Malhar#2,Malhar,g m R S,4,9,1.529,1,1
+Malhar#1,Malhar,R P,2,11,2.356,0,0
+Malhar#0,Malhar,S R,2,49,0.862,0,0
+Malkauns#1,Malkauns,g m n d m,5,1,2.932,1,1
+Malkauns#3,Malkauns,`g `S n d,4,1,2.059,0,1
+Malkauns#0,Malkauns,",d ,n S g m",5,2,2.053,0,1
+Malkauns#2,Malkauns,d n `S,3,11,1.839,0,0
+MaruBihag#4,MaruBihag,M G M G R S,6,1,2.202,2,1
+MaruBihag#3,MaruBihag,m G P,3,4,2.194,1,1
+MaruBihag#1,MaruBihag,M G R S,4,4,1.896,0,1
+MaruBihag#0,MaruBihag,M G,2,15,2.046,0,0
+MaruBihag#2,MaruBihag,"S ,N S",3,17,1.188,1,0
+Marwa#3,Marwa,",N ,D r S",4,1,3.415,2,1
+Marwa#2,Marwa,D M G r,4,2,2.602,0,1
+Marwa#1,Marwa,r G M D,4,2,2.557,0,1
+Marwa#0,Marwa,",N ,D S ,N r",5,1,2.361,3,1
+Multani#2,Multani,M g P,3,1,3.508,1,1
+Multani#3,Multani,M g M g r S,6,1,2.844,2,1
+Multani#1,Multani,M g,2,6,2.962,0,0
+Multani#0,Multani,",N S",2,51,0.822,0,0
+Pilu#5,Pilu,S g R S,4,1,2.242,1,1
+Pilu#2,Pilu,m P N d P,5,1,2.071,1,1
+Pilu#4,Pilu,"P g R S ,N",5,2,1.701,0,1
+Pilu#0,Pilu,G m P N `S,5,6,1.342,0,1
+Pilu#3,Pilu,m g R S,4,10,1.625,0,0
+Pilu#1,Pilu,n D P,3,24,1.196,0,0
+PuriyaDhanashri#1,PuriyaDhanashri,P M G M r G,6,1,2.895,3,1
+PuriyaDhanashri#2,PuriyaDhanashri,M d P,3,2,2.827,1,1
+PuriyaDhanashri#6,PuriyaDhanashri,P d P M G M r G,8,1,2.712,4,1
+PuriyaDhanashri#0,PuriyaDhanashri,",N r G M P",5,2,2.584,0,1
+PuriyaDhanashri#3,PuriyaDhanashri,M d N `S,4,4,2.291,0,1
+PuriyaDhanashri#4,PuriyaDhanashri,N `r,2,6,2.962,0,0
+PuriyaDhanashri#5,PuriyaDhanashri,N d P,3,14,1.831,0,0
+PuriyaDhanashri#7,PuriyaDhanashri,r S,2,31,1.32,0,0
+PuriyaKalyan#0,PuriyaKalyan,",N r G M P M r G r S",10,1,2.719,3,1
+PuriyaKalyan#1,PuriyaKalyan,M D P,3,3,2.351,1,1
+PuriyaKalyan#2,PuriyaKalyan,M D N `S,4,5,1.985,0,1
+Sarang#2,Sarang,"m R ,N S",4,2,2.601,1,1
+Sarang#3,Sarang,"m P n P m R ,N S",8,1,2.087,2,1
+Sarang#1,Sarang,P R,2,7,2.808,0,0
+Sarang#0,Sarang,R m,2,21,1.709,0,0
+Shankara#0,Shankara,G P N D `S N,6,1,2.361,3,1
+Shankara#1,Shankara,D P G P,4,2,2.233,1,1
+Shankara#2,Shankara,R G R S,4,2,1.819,1,1
+Shivranjani#0,Shivranjani,R g P,3,1,3.277,0,1
+Shivranjani#2,Shivranjani,g S R D S,5,1,2.567,2,1
+Shivranjani#1,Shivranjani,D P g R,4,3,2.128,0,1
+Shree#5,Shree,M d M G r,5,1,2.983,1,1
+Shree#2,Shree,M P d M G r G r S,9,1,2.663,3,1
+Shree#0,Shree,"S ,N r",3,3,2.48,1,1
+Shree#4,Shree,`r N d P,4,2,2.334,0,1
+Shree#3,Shree,M P N `S `r,5,1,1.903,0,1
+Shree#1,Shree,r P,2,2,4.06,0,0
+Shree#6,Shree,G r S,3,16,1.761,0,0
+Sohani#2,Sohani,`S `r `S `r N `S N D G M G,11,1,2.624,7,1
+Sohani#1,Sohani,N D N D,4,1,2.474,2,1
+Sohani#0,Sohani,M D N `S `r `S,6,1,2.118,1,1
+TilakKamod#5,TilakKamod,`S P D m G,5,1,2.321,2,1
+TilakKamod#2,TilakKamod,"S R G S ,N",5,1,2.147,1,1
+TilakKamod#7,TilakKamod,"S R G S ,N",5,1,2.147,1,1
+TilakKamod#4,TilakKamod,`S `R `G `S,4,2,2.029,1,1
+TilakKamod#0,TilakKamod,",P ,N S R G S",6,1,1.933,1,1
+TilakKamod#6,TilakKamod,S R m G,4,3,1.794,1,1
+TilakKamod#1,TilakKamod,R P m G,4,1,1.714,1,1
+TilakKamod#3,TilakKamod,S R m P `S,5,1,1.683,0,1
+Tilang#1,Tilang,n P G m G,5,1,2.148,2,1
+Tilang#0,Tilang,G m P n P m G,7,1,1.538,1,1
+Todi#1,Todi,M r g,3,1,3.655,1,1
+Todi#0,Todi,",N S r g",4,1,2.146,0,1
+Todi#2,Todi,r S,2,31,1.32,0,0
+Vibhas#1,Vibhas,G P G r S,5,2,2.256,1,1
+Vibhas#0,Vibhas,P d P,3,4,2.134,1,1
+Yaman#1,Yaman,",N R M G",4,1,3.495,1,1
+Yaman#4,Yaman,",N R ,D ,N S",5,1,2.86,2,1
+Yaman#0,Yaman,",N R G",3,4,2.664,0,1
+Yaman#3,Yaman,M D P N D P M R G R,10,1,2.507,5,1
+Yaman#2,Yaman,M P,2,24,1.576,0,0

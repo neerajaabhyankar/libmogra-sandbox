@@ -1,0 +1,28 @@
+Bageshree#0          ,n S m                     clips= 40 median best=0.81 <0.2:  10  <0.4:  14
+Bageshree#4          m D n D                    clips= 40 median best=0.71 <0.2:   8  <0.4:  15
+Bhoopali#3           `S D P G                   clips= 35 median best=3.00 <0.2:   5  <0.4:   7
+Bhoopali#4           P G R G                    clips= 35 median best=1.27 <0.2:   9  <0.4:  13
+DarbariKanada#0      S R g R g                  clips= 30 median best=0.65 <0.2:  10  <0.4:  12
+DarbariKanada#1      m P d P d n P              clips= 30 median best=3.00 <0.2:   0  <0.4:   1
+DarbariKanada#2      n m P `S                   clips= 30 median best=3.00 <0.2:   1  <0.4:   1
+DarbariKanada#3      `S n d n P m P m g m R S   clips= 30 median best=3.00 <0.2:   0  <0.4:   0
+Lalit#0              ,N r G m M m G r S         clips= 45 median best=3.00 <0.2:   0  <0.4:   0
+Lalit#1              G M d N d M m              clips= 45 median best=3.00 <0.2:   0  <0.4:   0
+Lalit#2              `r N d M m                 clips= 45 median best=2.79 <0.2:   1  <0.4:   2
+Lalit#3              G m M m                    clips= 45 median best=0.63 <0.2:   8  <0.4:  20
+Lalit#4              M G r S                    clips= 45 median best=1.45 <0.2:   7  <0.4:   8
+Malhar#2             g m R S                    clips= 35 median best=1.58 <0.2:   8  <0.4:  12
+Malhar#3             ,n D ,N S                  clips= 35 median best=0.43 <0.2:   9  <0.4:  17
+Malkauns#0           ,d ,n S g m                clips= 50 median best=3.00 <0.2:   3  <0.4:   5
+Malkauns#1           g m n d m                  clips= 50 median best=3.00 <0.2:   0  <0.4:   0
+Malkauns#3           `g `S n d                  clips= 50 median best=1.08 <0.2:  11  <0.4:  17
+PuriyaDhanashri#0    ,N r G M P                 clips= 35 median best=1.85 <0.2:   1  <0.4:   3
+PuriyaDhanashri#1    P M G M r G                clips= 35 median best=3.00 <0.2:   2  <0.4:   3
+PuriyaDhanashri#2    M d P                      clips= 35 median best=0.44 <0.2:  15  <0.4:  17
+PuriyaDhanashri#3    M d N `S                   clips= 35 median best=1.81 <0.2:   3  <0.4:   7
+PuriyaDhanashri#6    P d P M G M r G            clips= 35 median best=3.00 <0.2:   0  <0.4:   0
+Shree#0              S ,N r                     clips= 45 median best=0.08 <0.2:  29  <0.4:  34
+Shree#2              M P d M G r G r S          clips= 45 median best=3.00 <0.2:   2  <0.4:   3
+Shree#3              M P N `S `r                clips= 45 median best=1.89 <0.2:   5  <0.4:   7
+Shree#4              `r N d P                   clips= 45 median best=1.83 <0.2:   6  <0.4:   8
+Shree#5              M d M G r                  clips= 45 median best=1.50 <0.2:   6  <0.4:  10

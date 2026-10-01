@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "annotate-app",
+      "runtimeExecutable": "poetry",
+      "runtimeArgs": ["run", "python", "annotate_app.py"],
+      "port": 8765
+    }
+  ]
+}
