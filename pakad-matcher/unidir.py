@@ -108,9 +108,7 @@ def directions(notes, counts):
 
 def measure(raag):
     scale = sorted(raagdb.dataset_raags([raag])[raag].scale)
-    reader = json.loads(fit_reader.READER_JSON.read_text())
-    params = dict(C.READ_MATCH, swar_offsets=reader["swar_offsets"])
-    onsets = (reader["onset_slow"], reader["onset_fast"])
+    params, onsets = fit_reader.load()
     counts = {HELD: {}, READER: {}}
     videos = fullaudio.cached_videos(tuple([raag]))
     for v in videos:

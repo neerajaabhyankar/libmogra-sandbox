@@ -86,7 +86,8 @@ figure or a docstring is not here, that is a bug in this file.**
 | **reader** / **reading** | the swar sequence the model hears in a contour **with no samooha to guide it** (`decode.free_read`). The same note and ornament states as the matcher, but any swar may follow any other |
 | **onset cost** | what the reader pays to start a new note. Too low and every glide becomes several notes (the reader's main failure: it over-segments) |
 | **swar centres / offsets** | where each swar actually sits, in cents from equal temperament |
-| **what the reader learned** | **from notation only** (`fit_reader.py` → `results/reader.json`): the onset cost, separately for slow and fast stretches (by density), and the 12 swar offsets (which come out small). Its other constants are hand-set (`config.NOTATE_MATCH`). Its held-out misread rate is 0.58 |
+| **what the reader learned** | **from notation only** (`fit_reader.py` → `results/reader.json`): the onset cost, separately for slow and fast stretches (by density), and the 12 swar offsets (which come out small). Since S11 all its other constants too (tolerance, ornament prices, minimum note length). Its held-out misread rate is 0.559 |
+| **learned reader** | `ctc_reader.py` (S12): a small neural network (GRU) that outputs a swar or "no note" for each frame, trained on the notation with per-frame targets from the **alignment**. Held-out misread 0.618; not used downstream |
 | **free edges / rim** | an alignment may leave silence or drone at the ends of a selection unexplained |
 
 ### Methods compared (S7–S10)

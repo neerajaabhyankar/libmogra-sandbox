@@ -3,12 +3,18 @@
     poetry run python fit_reader.py            # cross-validated comparison
     poetry run python fit_reader.py --save     # also fit on all notation -> results/reader.json
 
-Two things are learned, both from notation only:
+Learned from notation only:
 
   swar_offsets   where each swar actually sits, from the notes Neeraja heard (komal swars sit sharp
                  of equal temperament). Shrunk toward 0 when a swar is rare.
   onset_cost     what it costs to declare a new note, separately for slow and fast stretches --
                  alap over-reads, taan under-reads, and one constant cannot serve both.
+  constants      (2026-09-30) every other constant of the reader -- pitch tolerance, ornament
+                 prices, minimum note length, what counts as held -- by coordinate ascent on
+                 misread rate over CONST_GRID.
+
+`--save` keeps whichever variant has the lowest *held-out* misread rate, so adding the constants
+fit can only be adopted if it generalises across recordings. Consumers call `load()`.
 
 Tempo is measured from the contour alone (held notes per second), so the fitted reader can be
 applied to audio nobody has notated.
@@ -32,6 +38,21 @@ SHRINK_N = 10                        # an offset from n notes is scaled by n / (
 FAST_NOTES_PER_S = 1.0               # held-note rate above which a stretch reads as fast
 ONSET_GRID = (0.5, 1.0, 1.5, 2.0, 3.0, 4.0)
 READER_JSON = C.RESULTS_DIR / "reader.json"
+CONST_GRID = {                          # values tried per constant; the current one is always kept
+    "free_cents": (15.0, 23.0, 35.0, 50.0), "scale_cents": (50.0, 70.0, 100.0),
+    "note_cap": (1.5, 2.0, 3.0), "orn_cost": (0.3, 0.6, 1.0, 1.5),
+    "transit_cost": (0.05, 0.1, 0.3), "min_dwell_s": (0.03, 0.05, 0.07, 0.10),
+    "held_slope": (400.0, 800.0, 1200.0), "kan_cents": (100.0, 200.0, 300.0),
+    "onset_slow": ONSET_GRID, "onset_fast": ONSET_GRID,
+}
+CONST_ROUNDS = 3
+
+
+def load():
+    """(params, (onset_slow, onset_fast)) of the saved reader."""
+    r = json.loads(READER_JSON.read_text())
+    params = r.get("params") or dict(C.READ_MATCH, swar_offsets=r["swar_offsets"])
+    return params, (r["onset_slow"], r["onset_fast"])
 
 
 def density(cents, hop):
@@ -90,16 +111,49 @@ def fit_onsets(stretches, params):
     return tuple(best)
 
 
-def variants(train):
+def rate(stretches, params, onsets):
+    ops, n = misread(stretches, params, onsets)
+    return ops.sum() / max(n, 1)
+
+
+def fit_constants(train, params, onsets):
+    """Coordinate ascent over CONST_GRID (onset costs included), minimising misread on `train`."""
+    best_p, best_o = dict(params), tuple(onsets)
+    best = rate(train, best_p, best_o)
+    for _ in range(CONST_ROUNDS):
+        improved = False
+        for k, values in CONST_GRID.items():
+            for v in values:
+                if k == "onset_slow":
+                    p, o = best_p, (v, best_o[1])
+                elif k == "onset_fast":
+                    p, o = best_p, (best_o[0], v)
+                else:
+                    p, o = dict(best_p, **{k: v}), best_o
+                if p == best_p and o == best_o:
+                    continue
+                r = rate(train, p, o)
+                if r < best - 1e-4:
+                    best_p, best_o, best, improved = p, o, r, True
+        if not improved:
+            break
+    return best_p, best_o
+
+
+def variants(train, fit_all=True):
     base = dict(C.READ_MATCH)
     offsets = fit_offsets(train, dict(C.NOTATE_MATCH))
     with_off = dict(base, swar_offsets=offsets)
-    return {
+    both = (with_off, fit_onsets(train, with_off))
+    out = {
         "reader as of S6 (onset 2.0, equal temperament)": (base, None),
         "+ per-swar centres": (with_off, None),
         "+ onset by tempo": (base, fit_onsets(train, base)),
-        "+ both": (with_off, fit_onsets(train, with_off)),
-    }, offsets
+        "+ both": both,
+    }
+    if fit_all:
+        out["+ both + all constants"] = fit_constants(train, *both)
+    return out, offsets
 
 
 def cross_validate(k=4):
@@ -124,17 +178,26 @@ def cross_validate(k=4):
     for name, (ops, n, n_read, _) in totals.items():
         print(f"  {name:44s} {n_read:6d}/{n:<6d} {ops[0]:5d} {ops[1]:5d} {ops[2]:5d} "
               f"{ops.sum() / n:8.3f}")
+    return {name: t[0].sum() / t[1] for name, t in totals.items()}
 
 
-def save():
+def save(cv):
+    """Refit the variant with the lowest held-out misread rate on all notation."""
+    choice = min(cv, key=cv.get)
     st = corpus.stretches()
-    vs, offsets = variants(st)
-    params, onsets = vs["+ both"]
+    vs, offsets = variants(st, fit_all=choice.endswith("all constants"))
+    params, onsets = vs[choice]
+    onsets = onsets or (params["onset_cost"], params["onset_cost"])
     READER_JSON.parent.mkdir(exist_ok=True)
     READER_JSON.write_text(json.dumps(dict(
-        swar_offsets=offsets, onset_slow=onsets[0], onset_fast=onsets[1],
+        variant=choice, cv_misread=round(cv[choice], 4),
+        params={k: v for k, v in params.items()},
+        swar_offsets=params.get("swar_offsets", offsets), onset_slow=onsets[0], onset_fast=onsets[1],
         fast_notes_per_s=FAST_NOTES_PER_S, fitted_on="notation corpus, all stretches",
         n_stretches=len(st), n_swars=sum(len(s["swars"]) for s in st)), indent=1))
+    print(f"\nchosen by held-out misread: {choice} ({cv[choice]:.3f})")
+    print("  constants: " + ", ".join(f"{k}={v}" for k, v in params.items()
+                                      if k != "swar_offsets" and C.READ_MATCH.get(k, C.MATCH.get(k)) != v))
     from utils import raagdb
     print("\nfitted on all notation:")
     print("  swar centres (cents from equal temperament): "
@@ -146,6 +209,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--save", action="store_true")
     a = ap.parse_args()
-    cross_validate()
+    cv = cross_validate()
     if a.save:
-        save()
+        save(cv)

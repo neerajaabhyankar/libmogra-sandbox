@@ -182,3 +182,18 @@ NOTATE_SLACK = 0.5            # when aligning a typed sequence in a selected str
                               # *fullest* alignment among those costing within this of the best:
                               # free ends are for silence and drone at the edges, not an excuse
                               # to explain a 6 s selection with 0.2 s of it
+
+# ---- S12: learned reader (ctc_reader.py) -- a small network trained on the notation corpus
+CTC = dict(
+    pc_bins=24, pc_sigma=30.0,        # pitch class as soft bins over the octave (cents)
+    hidden=64, layers=2, dropout=0.2,
+    epochs=120, batch=4, lr=3e-3, weight_decay=1e-4,
+    patience=20,                      # early stop on held-out *recordings* inside the training side
+    inner_frac=0.15,
+    tempo=(0.8, 1.25), tuning_sd=10.0,  # augmentation: time-stretch range, global detune (cents)
+    seeds=(0, 1, 2),                  # an ensemble: log-probs averaged over seeds
+    frame_weight=1.0,                 # weight of the per-frame loss on the aligner's note frames
+    octaves=1, stride=2,              # classes: 1 = pitch class only, 3 = with octave; frame-rate divisor
+    ctc_weight=0.0,                   # weight of the sequence-only (CTC) loss; 0.1 read worse (S12)
+)
+CTC_DIR = RESULTS_DIR / "ctc_reader"

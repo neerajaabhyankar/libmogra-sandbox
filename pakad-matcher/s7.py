@@ -72,9 +72,7 @@ def semiglobal(pattern, text):
 
 
 def read_distance(spans):
-    reader = json.loads(fit_reader.READER_JSON.read_text())
-    params = dict(C.READ_MATCH, swar_offsets=reader["swar_offsets"])
-    onsets = (reader["onset_slow"], reader["onset_fast"])
+    params, onsets = fit_reader.load()
     out = []
     for s in spans:
         seq = fit_reader.read(s, params, onsets)

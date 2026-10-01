@@ -623,6 +623,69 @@ constants to notation (minimise misread rate, recordings held out), then rescore
 that needs no new labels: count departures in Neeraja's *own notation* of Jog and compare with the
 reader's counts on the same stretches.
 
+### ✅ S11 -- reader refit on round-4 notation, all constants (2026-09-30)
+
+`fit_reader.py` now also fits every reader constant (tolerance, ornament prices, minimum note
+length, held threshold, onset costs) by coordinate ascent on misread rate; `--save` keeps
+whichever variant is best on **held-out recordings**. Notation: 361 stretches, 3504 swars, 43
+recordings, 16 raags (wrong-tonic recording excluded).
+
+| reader, held out (4 folds by recording) | read/notated | sub | del | ins | misread |
+|---|---|---|---|---|---|
+| as of S6 | 2444/3504 | 489 | 1340 | 280 | 0.602 |
+| + centres + onset by tempo (S7) | 2713/3504 | 622 | 1108 | 317 | 0.584 |
+| **+ all constants** (adopted) | 2849/3504 | 732 | 941 | 286 | **0.559** |
+
+Changed constants: `free_cents` 35→50, `transit_cost` 0.1→0.3; onset slow 3.0, fast 1.5. The reader
+now *under*-reads (deletions dominate), the reverse of S6 -- see `reading-over-segments` memory.
+
+Re-evaluated (validation chose val-tuned again; val-tuned does not use the reader):
+
+| test1: 250 spans, 17 samoohas | AUC | P@1 | P@3 |
+|---|---|---|---|
+| hand-set (baseline) | 0.655 | 0.88 | 0.78 |
+| read-then-match | 0.702 | 0.94 | 0.88 |
+| **val-tuned (chosen)** | **0.793** | 0.88 | 0.88 |
+
+val-tuned − baseline **+0.138 [+0.057, +0.226]**, 11 better / 3 worse of 16. read-then-match −
+baseline +0.047 [−0.034, +0.142].
+
+| test2 (48 questions) | AUC |
+|---|---|
+| held-notes only (untuned) | 0.880 |
+| **tuned heuristic notes** | **0.931** (was 0.921) |
+
+### ✅ S12 -- a learned reader: negative (`ctc_reader.py`, 2026-09-30)
+
+First learned model in the project. A small network (2 conv layers → 2-layer bidirectional GRU,
+64 units) reads the contour frame by frame and outputs a swar or "no note" per frame. Inputs:
+pitch class as soft bins, register, slope, voiced. Trained on the notation: the notated sequence
+placed on the contour by the notation aligner gives per-frame targets; transits are "no note".
+Augmented by time-stretch (0.8–1.25×) and ±10-cent detune; early-stopped on recordings held out
+inside the training side; 3 seeds averaged. Same 4 recording-held-out folds as S11.
+
+| reader, held out (4 folds by recording) | read/notated | sub | del | ins | misread |
+|---|---|---|---|---|---|
+| tuned heuristic (S11, adopted) | 2849/3504 | 732 | 941 | 286 | **0.559** |
+| learned, 1 seed | 3257/3504 | 851 | 797 | 550 | 0.627 |
+| learned, 3 seeds averaged | 3083/3504 | 721 | 932 | 511 | 0.618 |
+
+Tried on fold 1 before the full run, all worse than "pitch class only, half frame rate, no CTC":
+- swar × octave as classes: the contour's octave often disagrees with the notated saptak
+- CTC (trained on the sequence alone, no timing): stalls on "no note" for ~40 epochs; at weight 0.1
+  beside the per-frame loss it still reads worse (0.580 vs 0.566)
+- full frame rate (0.648)
+- 128 hidden units (0.655)
+
+Smoothing the output or demanding a minimum note length only trades insertions for deletions
+(best 0.618; with a 2-frame minimum, 401 subs but 1603 dels).
+
+**Reading:** the learned model hits the *same wall* as the heuristic: which short notes are
+notated. When it keeps only steady notes, it names them well (401 substitutions). So the limit
+is not the heuristic's form. It is that "a note Neeraja would write" is decided by intent
+(cf. S8 dwell AUC 0.58), and 3.5k swars do not teach that. Not adopted; nothing downstream changed.
+Its per-frame targets also come from the heuristic aligner, so it learns that aligner's timing.
+
 ### What I need from Neeraja
 
 1. **More samoohas, especially in raags with no notation.** The test's uncertainty comes from having
@@ -667,6 +730,7 @@ reader's counts on the same stretches.
 | `audit.py` | **the data discipline, executable**: computes the splits, checks the rules |
 | `corpus.py` | notation stretches and judged spans as training / validation / test data |
 | `fit_reader.py` | fits the reader on notation (pitch centres, onset by tempo), cross-validated by recording |
+| `ctc_reader.py` | S12: the learned reader (GRU on the contour), cross-validated by recording; not adopted |
 | `s7.py` | ranks judged spans with every method; `--val` chooses and freezes, `--test` scores once |
 | `DATA.md` | the glossary and the rules in prose |
 | `run_s1.py` / `run_s2.py` / `plot.py` | the eyeball run, the null-control run, plotting |
@@ -746,3 +810,7 @@ deliberately. Nothing outside `../raag-identifier/` is imported.
   Deeper pools judged: Kedar#2 still 24/24 yes (the phrase is that defining); Marwa#1 now 21 yes /
   3 no, most borderline ornament-vs-intent. Notation app: speed now survives a chunk change;
   saved stretches are painted green on revisit (placement re-derived on load).
+- **2026-09-30** -- S11: reader refit with all constants on notation (held-out misread 0.584 ->
+  0.559). test1 val-tuned 0.793 (CI vs baseline [+0.057, +0.226]); test2 tuned heuristic notes 0.931.
+- **2026-09-30** -- S12: learned reader (GRU, trained on notation): held-out misread 0.618 vs the
+  tuned heuristic's 0.559. Same insertion/deletion trade; not adopted.
