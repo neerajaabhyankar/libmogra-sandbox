@@ -14,10 +14,14 @@ So each occurrence counts as up or down by its *departure*: the next note.
 
 Two methods, neither sees a test2 label:
   held-notes only (untuned)  every held stretch of the contour (matcher._held), snapped to the
-                             nearest scale swar. Nothing fitted to notation
+                             nearest of the 12 swars. Nothing fitted to notation
   tuned heuristic notes      the reader (decode.free_read) with its onset cost and swar centres
-                             fitted to notation (results/reader.json), restricted to the scale
+                             fitted to notation (results/reader.json)
 Recordings are cut into phrases at silences; direction is never judged across a silence.
+
+**Audio only** (since 2026-10-03): neither method knows the raag -- no scale restriction. The raag
+label only says which recordings to pool for a test2 question. Earlier results (test2_s10.json,
+and test2.json before this date) restricted notes to the raag's scale.
 
 Terms: [DATA.md § Glossary](DATA.md#glossary).
 """
@@ -32,6 +36,7 @@ import decode
 import fit_reader
 import fullaudio
 import matcher
+from insights import core
 from utils import raagdb
 
 OUT = C.RESULTS_DIR / "test2.json"
@@ -43,20 +48,7 @@ READER = "tuned heuristic notes"
 
 def phrases(ctr):
     """(a, b) frame bounds of voiced stretches, split at unvoiced gaps longer than max_gap_s."""
-    voiced = ~np.isnan(ctr.cents)
-    gap = max(1, int(C.MATCH["max_gap_s"] / ctr.hop))
-    out, a, silent = [], None, 0
-    for t, v in enumerate(voiced):
-        if v:
-            a = t if a is None else a
-            silent = 0
-        elif a is not None:
-            silent += 1
-            if silent > gap:
-                out.append((a, t - silent + 1)); a, silent = None, 0
-    if a is not None:
-        out.append((a, len(voiced)))
-    return [(a, b) for a, b in out if (b - a) * ctr.hop >= MIN_PHRASE_S]
+    return core.phrases(ctr.cents, ctr.hop, C.MATCH["max_gap_s"], MIN_PHRASE_S)
 
 
 def _snap(c, scale):
@@ -85,29 +77,15 @@ def held_notes(cents, hop, scale):
 
 
 def reader_notes(cents, hop, scale, params, onsets):
-    p = dict(params, onset_cost=onsets[1] if fit_reader.density(cents, hop)
-             >= fit_reader.FAST_NOTES_PER_S else onsets[0])
-    seq, spans = decode.free_read(cents, hop, params=p, allowed=scale)
-    out = []
-    for s, (t0, t1) in zip(seq, spans):
-        v = cents[int(t0 / hop):int(t1 / hop)]
-        if np.isnan(v).all():
-            continue
-        c = float(np.nanmedian(v))
-        octave = round((c - 100 * s) / 1200)
-        out.append((s, 100 * s + 1200 * octave))
-    return out
+    return [(sw, c) for sw, c, _, _ in core.notes(cents, hop, scale, (params, onsets))]
 
 
-def directions(notes, counts):
-    """Add (up, down) per swar, judged by the next note; repeats of the same note are not a move."""
-    dedup = [n for i, n in enumerate(notes) if i == 0 or n[1] != notes[i - 1][1]]
-    for (s, b), (_, c) in zip(dedup, dedup[1:]):
-        counts.setdefault(s, [0, 0])[0 if c > b else 1] += 1
+directions = core.directions    # [up, down] per swar, judged by the next note
 
 
 def measure(raag):
-    scale = sorted(raagdb.dataset_raags([raag])[raag].scale)
+    """Pool every recording of `raag`; each is read without knowing its raag."""
+    scale = list(range(12))
     params, onsets = fit_reader.load()
     counts = {HELD: {}, READER: {}}
     videos = fullaudio.cached_videos(tuple([raag]))
@@ -116,7 +94,7 @@ def measure(raag):
         for a, b in phrases(ctr):
             seg = ctr.cents[a:b]
             for m, notes in ((HELD, held_notes(seg, ctr.hop, scale)),
-                             (READER, reader_notes(seg, ctr.hop, scale, params, onsets))):
+                             (READER, reader_notes(seg, ctr.hop, None, params, onsets))):
                 directions(notes, counts[m])
         print(f"  {raag:12s} {v}", flush=True)
     return counts, len(videos)

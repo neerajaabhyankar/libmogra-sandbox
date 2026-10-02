@@ -464,11 +464,22 @@ function playSel() {                                   // once, through to the e
   au.play().catch(() => {});
 }
 function playAll() { stopAt = null; au.paused ? au.play() : au.pause(); }
+// Where each typed note was placed, saved as it was shown -- what the notator heard is kept even
+// where the pitch track disagrees, and later methods (spectrogram, not f0) can use every note.
+function noteTimes(swars, i0, kinds) {
+  if (!kinds) return null;
+  return swars.split(" ").map((tok, k) => {
+    let a = -1, b = -1;
+    kinds.forEach((x, i) => { if (x === k) { if (a < 0) a = i; b = i; } });
+    return a < 0 ? { swar: tok, t0: null, t1: null }
+                 : { swar: tok, t0: +((i0 + a) * data.hop).toFixed(3), t1: +((i0 + b + 1) * data.hop).toFixed(3) };
+  });
+}
 async function save() {
   await fetch("/api/notation", { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chunk_id: cur.id, note: $("#note").value,
-      segments: segs.map(({ t0, t1, swars, fit, flags, sel0, sel1, method }) =>
-        ({ t0, t1, swars, fit, flags, sel0, sel1, method: method || "align" })) }) });
+      segments: segs.map(({ t0, t1, swars, fit, flags, sel0, sel1, method, i0, kinds }) =>
+        ({ t0, t1, swars, fit, flags, sel0, sel1, method: method || "align", notes: noteTimes(swars, i0, kinds) })) }) });
   cur.segments = segs.length; drawNav();
   $("#saved").textContent = "saved"; setTimeout(() => ($("#saved").textContent = ""), 1800);
 }

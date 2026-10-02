@@ -3,6 +3,7 @@
     poetry run python annotate_app.py
         http://localhost:8765/phrases   judge candidates for a samooha  (test/validation data)
         http://localhost:8765/notate    write down what you hear        (training data)
+        http://localhost:8765/insights  aarohi/avarohi and nyas per clip (insights/clips.py)
 
 Left is the pitch track of the surrounding musical sentence; the shaded span is the candidate
 the matcher proposes, with its aligned path drawn on top. Keys: y / n / u, r replay,
@@ -25,6 +26,7 @@ from utils import raagdb
 LABELS = C.S3_DIR / "labels.jsonl"
 PAGE = (C.HERE / "annotate_app.html").read_text
 NOTATE_PAGE = (C.HERE / "notate_app.html").read_text
+INSIGHTS_PAGE = (C.HERE / "insights_app.html").read_text
 
 
 def chunks():
@@ -106,6 +108,25 @@ class Handler(SimpleHTTPRequestHandler):
             return self._send(PAGE(), "text/html; charset=utf-8")
         if path == "/notate":
             return self._send(NOTATE_PAGE(), "text/html; charset=utf-8")
+        if path == "/insights":
+            return self._send(INSIGHTS_PAGE(), "text/html; charset=utf-8")
+        if path == "/api/insight_clips":
+            from insights import clips as ic
+            done = ic.labels()
+            return self._send(json.dumps([dict(**c, done=c["id"] in done) for c in ic.registry()]))
+        if path.startswith("/api/insight_clip/"):
+            from insights import clips as ic
+            cid = path.rsplit("/", 1)[1]
+            ch = next(c for c in ic.registry() if c["id"] == cid)
+            cents, hop = chunk_contour(ch)
+            scale = sorted(raagdb.dataset_raags([ch["raag"]])[ch["raag"]].scale)
+            return self._send(json.dumps(dict(
+                **ch, hop=hop, scale=scale, swar_names=raagdb.SWAR_NAMES,
+                cents=[None if np.isnan(x) else round(float(x), 1) for x in cents],
+                label=ic.labels().get(cid))))
+        if path.startswith("/insightaudio/"):
+            f = C.INSIGHT_CLIP_DIR / path.rsplit("/", 1)[1]
+            return self._send_audio(f) if f.exists() else self._send("{}", code=404)
         if path == "/api/chunks":
             done = notations()
             return self._send(json.dumps([
@@ -244,6 +265,18 @@ class Handler(SimpleHTTPRequestHandler):
             with open(C.NOTATIONS, "a") as fh:
                 fh.write(json.dumps(rec) + "\n")
             return self._send(json.dumps(dict(ok=True)))
+        if path == "/api/insight_label":
+            from insights import clips as ic
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            ch = next(c for c in ic.registry() if c["id"] == body["clip_id"])
+            rec = dict(clip_id=ch["id"], split=ch["split"], raag=ch["raag"], video=ch["video"],
+                       t0=ch["t0"], t1=ch["t1"], directions=body.get("directions", {}),
+                       nyas=body.get("nyas", []), note=(body.get("note") or "").strip(),
+                       annotator=body.get("who", "neeraja"),
+                       ts=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+            with open(C.INSIGHT_LABELS, "a") as fh:
+                fh.write(json.dumps(rec) + "\n")
+            return self._send(json.dumps(dict(ok=True)))
         if path != "/api/label":
             return self._send("{}", code=404)
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -269,4 +302,5 @@ class Handler(SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     print(f"  judging phrases:  http://localhost:{C.APP_PORT}/phrases")
     print(f"  notating chunks:  http://localhost:{C.APP_PORT}/notate")
+    print(f"  insight clips:    http://localhost:{C.APP_PORT}/insights")
     ThreadingHTTPServer(("127.0.0.1", C.APP_PORT), Handler).serve_forever()

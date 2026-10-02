@@ -28,16 +28,16 @@ def density(ctr):
     return np.convolve(onsets, kernel, mode="same"), held
 
 
-def pick(video, rng, kinds=("alap", "madhya", "taan"), avoid=()):
+def pick(video, rng, kinds=("alap", "madhya", "taan"), avoid=(), secs=None):
     """The slowest (alap), most typical (madhya) and densest (taan) stretch of a recording,
-    skipping any overlapping `avoid` = [(t0, t1), ...]."""
+    skipping any overlapping `avoid` = [(t0, t1), ...]. `secs` overrides the configured lengths."""
     ctr = fullaudio.contour(video)
     dens, _ = density(ctr)
     voiced = (~np.isnan(ctr.cents)).astype(float)
     out = []
     secs_of = {"alap": C.CHUNK_ALAP_S, "madhya": C.CHUNK_MADHYA_S, "taan": C.CHUNK_TAAN_S}
     for tag in kinds:
-        secs = secs_of[tag]
+        secs = secs_of[tag] if secs is None else secs
         w = int(round(secs / ctr.hop))
         if len(ctr.cents) < 2 * w:
             continue
@@ -171,12 +171,12 @@ def add_madhya(raags, per_raag=C.CHUNK_MADHYA_PER_RAAG):
               f"{ch['notes_per_s']:.2f} notes/s")
 
 
-def _snippet(ch):
+def _snippet(ch, out_dir=None):
     import librosa
     import soundfile as sf
     fa = fullaudio.index()[ch["video"]]
     y, sr = librosa.load(fa.path, sr=None, mono=True, offset=ch["t0"], duration=ch["t1"] - ch["t0"])
-    sf.write(C.CHUNK_DIR / f"{ch['id']}.wav", y, sr)
+    sf.write((out_dir or C.CHUNK_DIR) / f"{ch['id']}.wav", y, sr)
 
 
 if __name__ == "__main__":

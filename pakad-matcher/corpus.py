@@ -4,6 +4,8 @@ Everything S7 fits comes through `stretches()`; everything it scores comes throu
 Splits come from `audit.splits()` -- this module never decides what is test.
 
     stretches()      notated stretches: contour, the swars heard, the recording they came from
+    note_table()     every notated note with its placement and whether the pitch track agrees
+                     (python corpus.py --notes -> annotations/notation_notes.jsonl)
     folds(k)         recording-grouped folds over those stretches, for cross-validation
     spans(split)     judged candidate spans for 'validation' or 'test', with their contour
 
@@ -97,7 +99,64 @@ def precision_at(score, items, k):
                           for p in sorted(set(pid))]))
 
 
+NOTE_TABLE = C.S3_DIR / "notation_notes.jsonl"
+F0_AGREE_CENTS = 50.0       # a note's pitch track "agrees" if its median is within this of the swar
+F0_MIN_VOICED = 0.5         # ... and at least this share of its frames have a pitch at all
+
+
+def note_table():
+    """One row per notated note: what Neeraja heard, where the aligner placed it (recording
+    seconds), and whether the pitch track supports it. Notes the pitch track misses (tanpura Sa
+    on top, a tapering voice) are kept -- `f0_agrees` = False marks them, so pitch-based fits can
+    skip them and spectrogram methods can still use them. Placement of such a note is the
+    aligner's best guess between its neighbours, not a measured boundary."""
+    import decode
+    ch, rows = audit.chunks(), []
+    for cid, rec in sorted(audit.notations().items()):
+        c = ch[cid]
+        ctr = fullaudio.contour(c["video"])
+        for si, seg in enumerate(rec["segments"]):
+            toks = seg["swars"].split()
+            swars, octs = raagdb.parse_phrase(toks)
+            if not swars or len(swars) != len(toks):
+                continue
+            a = int(round((c["t0"] + seg["t0"]) / ctr.hop))
+            b = int(round((c["t0"] + seg["t1"]) / ctr.hop))
+            cents = ctr.cents[a:b]
+            if len(cents) < 4:
+                continue
+            if seg.get("method", "align") == "align":
+                kinds, _ = decode.align(cents, swars, ctr.hop, params=dict(C.NOTATE_MATCH),
+                                        free_edges=True)
+            else:
+                kinds = np.minimum(np.arange(len(cents)) * len(swars) // len(cents), len(swars) - 1)
+            for k, (tok, sw, o) in enumerate(zip(toks, swars, octs)):
+                f = np.flatnonzero(kinds == k)
+                row = dict(chunk=cid, recording=c["video"], raag=c["raag"], kind=c["kind"],
+                           segment=si, index=k, swar=tok, method=seg.get("method", "align"),
+                           bad_tonic=c["video"] in C.BAD_TONIC_VIDEOS, t0=None, t1=None,
+                           f0_cents=None, voiced=0.0, f0_agrees=False)
+                if len(f):
+                    v = cents[f][~np.isnan(cents[f])]
+                    row.update(t0=round((a + f[0]) * ctr.hop, 3), t1=round((a + f[-1] + 1) * ctr.hop, 3),
+                               voiced=round(len(v) / len(f), 2))
+                    if len(v):
+                        med = float(np.median(v))
+                        row["f0_cents"] = round(med, 1)
+                        row["f0_agrees"] = bool(row["voiced"] >= F0_MIN_VOICED and abs(
+                            (med - 100 * sw + 600) % 1200 - 600) <= F0_AGREE_CENTS)   # pitch class
+                rows.append(row)
+    return rows
+
+
 if __name__ == "__main__":
+    import sys
+    if "--notes" in sys.argv:
+        rows = note_table()
+        NOTE_TABLE.write_text("".join(json.dumps(r) + "\n" for r in rows))
+        n = sum(not r["f0_agrees"] for r in rows)
+        print(f"{len(rows)} notes, {n} ({n / len(rows):.0%}) not supported by the pitch track -> {NOTE_TABLE}")
+        sys.exit()
     st = stretches()
     print(f"{len(st)} stretches, {sum(len(s['swars']) for s in st)} swars, "
           f"{len({s['recording'] for s in st})} recordings")

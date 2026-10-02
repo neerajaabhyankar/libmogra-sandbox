@@ -1,0 +1,313 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>insights</title>
+<style>
+  :root {
+    --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --grid: #e6e5e0;
+    --note: #2a78d6; --ok: #1baf7a; --nyas: #c9772e;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface); color: var(--ink);
+         font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  header { padding: 12px 20px 9px; border-bottom: 1px solid var(--grid);
+           display: flex; align-items: baseline; gap: 14px; }
+  h1 { margin: 0; font-size: 15px; }
+  h2 { margin: 18px 0 4px; font-size: 13.5px; }
+  .sub, .meta { color: var(--ink2); font-size: 12.5px; }
+  a { color: var(--note); }
+  main { display: grid; grid-template-columns: 210px 1fr; min-height: calc(100vh - 52px); }
+  nav { border-right: 1px solid var(--grid); padding: 6px 0; overflow-y: auto; max-height: calc(100vh - 52px); }
+  nav .split { padding: 10px 13px 3px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink2); }
+  nav button { display: block; width: 100%; text-align: left; border: 0; background: none;
+               padding: 5px 13px; font: inherit; color: var(--ink); cursor: pointer; font-size: 13px; }
+  nav button.on { background: #eef4fc; box-shadow: inset 3px 0 0 var(--note); }
+  nav .done { color: var(--ok); font-size: 12px; }
+  section { padding: 12px 20px 30px; max-width: 1200px; }
+  #plot { width: 100%; height: 280px; display: block; cursor: crosshair; touch-action: none; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 9px; }
+  .btn { border: 1px solid var(--grid); background: #fff; border-radius: 7px; padding: 6px 12px;
+         font: inherit; cursor: pointer; }
+  .btn.p { border-color: var(--note); color: #1b5fae; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  kbd { font: 11px ui-monospace, monospace; background: #f1f0ec; border-radius: 4px; padding: 1px 5px; }
+  input.text { flex: 1; min-width: 260px; padding: 7px 10px; font: inherit;
+               border: 1px solid var(--grid); border-radius: 7px; background: #fff; }
+  #pad { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  #pad .k { min-width: 34px; height: 30px; border-radius: 15px; border: 1px solid var(--grid); background: #fff;
+            font: 12px ui-monospace, monospace; cursor: pointer; padding: 0 6px; }
+  #pad .k.in { border-color: #b8b5ab; }
+  #pad .k.out { color: #b0aea6; }
+  #pad .k:disabled { opacity: .35; cursor: default; }
+  #pad .gap { width: 10px; }
+  table { border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--ink2); font-weight: 500; font-size: 12px; }
+  td.sw { font: 600 13px ui-monospace, monospace; width: 44px; }
+  .seg { display: inline-flex; border: 1px solid var(--grid); border-radius: 7px; overflow: hidden; }
+  .seg button { border: 0; border-right: 1px solid var(--grid); background: #fff; padding: 4px 10px;
+                font: inherit; font-size: 12.5px; cursor: pointer; color: var(--ink2); }
+  .seg button:last-child { border-right: 0; }
+  .seg button.on { background: #eef4fc; color: #1b5fae; font-weight: 600; }
+  tr.out td.sw { color: #b0aea6; }
+  .x { border: 0; background: none; color: var(--ink2); cursor: pointer; font-size: 15px; }
+  #nyas tr { cursor: pointer; }
+  .cols { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(260px, 1fr); gap: 28px; }
+</style>
+
+<header>
+  <h1 id="title">insights</h1>
+  <div class="sub" id="subtitle">loading…</div>
+  <div class="sub" style="margin-left:auto"><a href="/notate">notate</a> · <a href="/phrases">judge phrases</a></div>
+</header>
+<main>
+  <nav id="nav"></nav>
+  <section>
+    <canvas id="plot"></canvas>
+    <div class="row">
+      <button class="btn p" id="play">play <kbd>space</kbd></button>
+      <button class="btn" id="playsel" disabled>play selection <kbd>p</kbd></button>
+      <button class="btn" id="loop">loop off <kbd>l</kbd></button>
+      <button class="btn" id="rate">1× <kbd>[</kbd></button>
+      <span class="meta" id="selinfo"></span>
+    </div>
+
+    <div class="cols">
+      <div>
+        <h2>Direction of each swar <span class="meta">— as it is sung <b>in this clip</b>, not in the raag at large</span></h2>
+        <div class="meta">aarohi: after it, only higher notes follow · avarohi: only lower · both: either.
+          Swars outside the raag's scale are listed greyed, in case they are heard.</div>
+        <table id="dirs"><tbody></tbody></table>
+      </div>
+      <div>
+        <h2>Nyas <span class="meta">— where a breath or pause follows the note</span></h2>
+        <div class="meta">Drag across the pitch track over the resting note, then click its swar.
+          Click a row to replay it.</div>
+        <div id="pad"></div>
+        <table id="nyas" style="margin-top:10px"><thead><tr><th>swar</th><th>from–to</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:18px">
+      <input class="text" id="note" placeholder="note about this clip (optional)">
+      <button class="btn p" id="save">save clip <kbd>⌘S</kbd></button>
+      <span class="meta" id="saved"></span>
+    </div>
+  </section>
+</main>
+<audio id="au"></audio>
+
+<script>
+const $ = s => document.querySelector(s);
+const NAMES = ["S","r","R","g","G","m","M","P","d","D","n","N"];
+const CHOICES = [["aarohi", "aarohi ↑"], ["avarohi", "avarohi ↓"], ["both", "both ↕"],
+                 ["absent", "not sung"], ["unsure", "unsure"]];
+let list = [], cur = null, data = null, dirs = {}, nyas = [], sel = null, dragging = null;
+let looping = false, stopAt = null, dirty = false, raf = null;
+const au = $("#au");
+let rate = 1;
+function applyRate() { au.defaultPlaybackRate = rate; au.playbackRate = rate; }
+au.addEventListener("loadedmetadata", applyRate);
+au.addEventListener("play", applyRate);
+const tok = v => { const sw = ((v % 12) + 12) % 12, o = Math.floor(v / 12);
+                   return (o > 0 ? "`" : o < 0 ? "," : "") + NAMES[sw]; };
+const mark = msg => { dirty = true; $("#saved").textContent = msg || "unsaved"; };
+
+// ---------- clips
+async function boot() {
+  list = await (await fetch("/api/insight_clips")).json();
+  drawNav(); await open(list[0].id);
+}
+function drawNav() {
+  const nav = $("#nav"); nav.innerHTML = "";
+  ["test", "validation", "train"].forEach(split => {
+    const items = list.filter(c => c.split === split);
+    if (!items.length) return;
+    const h = document.createElement("div"); h.className = "split";
+    h.textContent = `${split} · ${items.filter(c => c.done).length}/${items.length}`;
+    nav.appendChild(h);
+    items.forEach(c => {
+      const b = document.createElement("button");
+      b.className = cur && c.id === cur.id ? "on" : "";
+      b.innerHTML = `${c.raag} ${c.done ? '<span class="done">✓</span>' : ""}`;
+      b.onclick = () => open(c.id);
+      nav.appendChild(b);
+    });
+  });
+}
+async function open(id) {
+  if (dirty && !confirm("This clip has unsaved changes. Leave it?")) return;
+  data = await (await fetch("/api/insight_clip/" + id)).json();
+  cur = list.find(c => c.id === id);
+  const lab = data.label || {};
+  dirs = Object.assign({}, lab.directions || {});
+  nyas = (lab.nyas || []).slice();
+  $("#note").value = lab.note || "";
+  sel = null; dirty = false; $("#saved").textContent = data.label ? "saved earlier" : "";
+  $("#title").textContent = `${data.raag} · ${data.split}`;
+  $("#subtitle").textContent = `${data.video} · ${fmt(data.t0)}–${fmt(data.t1)} · ${data.notes_per_s} notes/s · Sa = ${data.tonic_hz.toFixed(1)} Hz`;
+  au.src = `/insightaudio/${id}.wav`; au.currentTime = 0; stopAt = null; applyRate();
+  drawNav(); drawDirs(); drawPad(); drawNyas(); buttons(); tick();
+}
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+// ---------- direction table
+function drawDirs() {
+  const tb = $("#dirs tbody"); tb.innerHTML = "";
+  const order = [...data.scale, ...[...Array(12).keys()].filter(s => !data.scale.includes(s))];
+  order.forEach(sw => {
+    const name = NAMES[sw], tr = document.createElement("tr");
+    if (!data.scale.includes(sw)) tr.className = "out";
+    tr.innerHTML = `<td class="sw">${name}</td>`;
+    const td = document.createElement("td"), seg = document.createElement("div");
+    seg.className = "seg";
+    CHOICES.forEach(([val, label]) => {
+      const b = document.createElement("button");
+      b.textContent = label; b.className = dirs[name] === val ? "on" : "";
+      b.onclick = () => { dirs[name] === val ? delete dirs[name] : (dirs[name] = val); mark(); drawDirs(); };
+      seg.appendChild(b);
+    });
+    td.appendChild(seg); tr.appendChild(td); tb.appendChild(tr);
+  });
+}
+
+// ---------- nyas
+function drawPad() {                         // ,P .. `P; raag swars outlined, others faint
+  const pad = $("#pad"); pad.innerHTML = "";
+  for (let v = -5; v <= 19; v++) {
+    if (v === 0 || v === 12) pad.appendChild(Object.assign(document.createElement("span"), { className: "gap" }));
+    const sw = ((v % 12) + 12) % 12, b = document.createElement("button");
+    b.className = "k " + (data.scale.includes(sw) ? "in" : "out");
+    b.textContent = tok(v); b.disabled = !sel;
+    b.onclick = () => addNyas(tok(v));
+    pad.appendChild(b);
+  }
+}
+function addNyas(swar) {
+  if (!sel) return;
+  nyas.push({ t0: +sel[0].toFixed(2), t1: +sel[1].toFixed(2), swar });
+  nyas.sort((a, b) => a.t0 - b.t0);
+  sel = null; mark(); drawNyas(); drawPad(); buttons();
+}
+function drawNyas() {
+  const tb = $("#nyas tbody"); tb.innerHTML = "";
+  nyas.forEach((n, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="sw">${n.swar}</td><td>${n.t0.toFixed(1)}–${n.t1.toFixed(1)} s</td>`;
+    const td = document.createElement("td"), x = document.createElement("button");
+    x.className = "x"; x.textContent = "×";
+    x.onclick = e => { e.stopPropagation(); nyas.splice(i, 1); mark("removed — unsaved"); drawNyas(); };
+    td.appendChild(x); tr.appendChild(td);
+    tr.onclick = () => { sel = [n.t0, n.t1]; buttons(); drawPad(); playSel(); };
+    tb.appendChild(tr);
+  });
+  $("#nyas").style.display = nyas.length ? "table" : "none";
+}
+
+// ---------- drawing
+function geom() {
+  const c = $("#plot"), dpr = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== w * dpr) { c.width = w * dpr; c.height = h * dpr; }
+  const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { g, w, h, pad: { l: 34, r: 12, t: 14, b: 20 } };
+}
+function draw() {
+  if (!data) return;
+  const { g, w, h, pad } = geom();
+  const vals = data.cents.filter(v => v !== null);
+  const lo = Math.min(...vals) - 120, hi = Math.max(...vals) + 120;
+  const X = i => pad.l + (i / (data.cents.length - 1)) * (w - pad.l - pad.r);
+  const Y = c => pad.t + (1 - (c - lo) / (hi - lo)) * (h - pad.t - pad.b);
+  g.clearRect(0, 0, w, h);
+  g.font = "11px -apple-system, sans-serif"; g.textBaseline = "middle";
+  for (let c = Math.floor(lo / 100) * 100; c <= hi; c += 100) {
+    const sw = ((Math.round(c / 100) % 12) + 12) % 12, inScale = data.scale.includes(sw);
+    g.strokeStyle = inScale ? "#dedcd6" : "#f2f1ed"; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(pad.l, Y(c) + .5); g.lineTo(w - pad.r, Y(c) + .5); g.stroke();
+    if (inScale) { g.fillStyle = "#8a8880"; g.textAlign = "right"; g.fillText(tok(Math.round(c / 100)), pad.l - 6, Y(c)); }
+  }
+  const T = t => X(t / data.hop);
+  nyas.forEach(n => {
+    g.fillStyle = "rgba(201,119,46,.14)"; g.fillRect(T(n.t0), pad.t, T(n.t1) - T(n.t0), h - pad.t - pad.b);
+    g.fillStyle = "#9a5419"; g.textAlign = "center"; g.font = "600 12px -apple-system, sans-serif";
+    g.fillText(n.swar, (T(n.t0) + T(n.t1)) / 2, pad.t + 2);
+  });
+  if (sel) {
+    g.fillStyle = "rgba(42,120,214,.12)"; g.fillRect(T(sel[0]), pad.t, T(sel[1]) - T(sel[0]), h - pad.t - pad.b);
+    g.strokeStyle = "#2a78d6"; g.lineWidth = 1;
+    [T(sel[0]), T(sel[1])].forEach(x => { g.beginPath(); g.moveTo(x, pad.t); g.lineTo(x, h - pad.b); g.stroke(); });
+  }
+  g.strokeStyle = "#6f6d66"; g.lineWidth = 1.6; g.lineJoin = "round";
+  g.beginPath(); let pen = false, prev = null;
+  data.cents.forEach((c, i) => {
+    if (c === null) { pen = false; prev = null; return; }
+    if (prev !== null && Math.abs(c - prev) > 600) pen = false;
+    pen ? g.lineTo(X(i), Y(c)) : g.moveTo(X(i), Y(c)); pen = true; prev = c;
+  });
+  g.stroke();
+  g.fillStyle = "#8a8880"; g.textAlign = "center"; g.font = "10.5px -apple-system, sans-serif";
+  for (let s = 0; s <= data.cents.length * data.hop; s += 5) g.fillText(s + "s", T(s), h - 8);
+  window._px = { X, hop: data.hop, pad, h, w, n: data.cents.length };
+}
+function tick() {
+  cancelAnimationFrame(raf);
+  const step = () => {
+    draw();
+    const { X, hop, pad, h } = window._px, { g } = geom(), i = au.currentTime / hop;
+    g.strokeStyle = "#0b0b0b"; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(X(i), pad.t - 5); g.lineTo(X(i), h - pad.b); g.stroke();
+    if (looping && sel && au.currentTime >= sel[1]) { au.currentTime = sel[0]; au.play(); }
+    raf = requestAnimationFrame(step);
+  };
+  step();
+}
+
+// ---------- selection and playback
+const timeAt = e => {
+  const { pad, w, n, hop } = window._px, r = $("#plot").getBoundingClientRect();
+  return Math.max(0, Math.min(n * hop, ((e.clientX - r.left - pad.l) / (w - pad.l - pad.r)) * n * hop));
+};
+$("#plot").addEventListener("pointerdown", e => { dragging = { from: timeAt(e) }; $("#plot").setPointerCapture(e.pointerId); });
+$("#plot").addEventListener("pointermove", e => {
+  if (!dragging) return;
+  const t = timeAt(e);
+  if (Math.abs(t - dragging.from) > 0.04) { sel = [Math.min(dragging.from, t), Math.max(dragging.from, t)]; dragging.moved = true; buttons(); }
+});
+$("#plot").addEventListener("pointerup", e => {
+  const was = dragging; dragging = null;
+  if (was && !was.moved) { au.currentTime = timeAt(e); stopAt = null; sel = null; buttons(); drawPad(); return; }
+  drawPad(); playSel();
+});
+function buttons() {
+  $("#playsel").disabled = !sel;
+  $("#selinfo").textContent = sel
+    ? `selected ${sel[0].toFixed(1)}–${sel[1].toFixed(1)} s — click its swar to mark a nyas`
+    : "drag across the pitch track to select · click to seek";
+}
+au.addEventListener("timeupdate", () => { if (stopAt !== null && au.currentTime >= stopAt) { au.pause(); stopAt = null; } });
+function playSel() { if (!sel) return; stopAt = looping ? null : sel[1]; au.currentTime = Math.max(0, sel[0] - 0.3); au.play().catch(() => {}); }
+function playAll() { stopAt = null; au.paused ? au.play() : au.pause(); }
+async function save() {
+  await fetch("/api/insight_label", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clip_id: cur.id, directions: dirs, nyas, note: $("#note").value }) });
+  cur.done = true; dirty = false; drawNav();
+  $("#saved").textContent = "saved"; setTimeout(() => { if (!dirty) $("#saved").textContent = ""; }, 1800);
+}
+$("#play").onclick = playAll;
+$("#playsel").onclick = playSel;
+$("#loop").onclick = () => { looping = !looping; $("#loop").innerHTML = `loop ${looping ? "on" : "off"} <kbd>l</kbd>`; };
+$("#rate").onclick = () => { rate = rate === 1 ? 0.75 : rate === 0.75 ? 0.5 : 1; applyRate(); $("#rate").innerHTML = `${rate}× <kbd>[</kbd>`; };
+$("#save").onclick = save;
+$("#note").addEventListener("input", () => mark());
+addEventListener("resize", draw);
+addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+addEventListener("keydown", e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); return save(); }
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === " ") { e.preventDefault(); playAll(); }
+  else if (e.key === "p") playSel();
+  else if (e.key === "l") $("#loop").click();
+  else if (e.key === "[") $("#rate").click();
+  else if (e.key === "Escape") { sel = null; buttons(); drawPad(); }
+});
+boot();
+</script>

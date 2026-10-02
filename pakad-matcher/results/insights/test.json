@@ -1,0 +1,58 @@
+{
+ "baseline": {
+  "directions": {
+   "balanced": 0.6018518518518519,
+   "recall": {
+    "aarohi": 0.5833333333333334,
+    "avarohi": 0.6666666666666666,
+    "both": 0.5555555555555556
+   },
+   "precision": {
+    "aarohi": 0.4375,
+    "avarohi": 0.42857142857142855
+   },
+   "n": {
+    "aarohi": 12,
+    "avarohi": 18,
+    "both": 54
+   }
+  },
+  "nyas": {
+   "f1": 0.358974358974359,
+   "detect_precision": 0.4909090909090909,
+   "detect_recall": 0.43548387096774194,
+   "swar_right": 0.7777777777777778,
+   "set_f1": 0.5116279069767442,
+   "events": 55,
+   "marked": 62
+  }
+ },
+ "chosen": {
+  "directions": {
+   "balanced": 0.5740740740740741,
+   "recall": {
+    "aarohi": 0.6666666666666666,
+    "avarohi": 0.6111111111111112,
+    "both": 0.4444444444444444
+   },
+   "precision": {
+    "aarohi": 0.3333333333333333,
+    "avarohi": 0.39285714285714285
+   },
+   "n": {
+    "aarohi": 12,
+    "avarohi": 18,
+    "both": 54
+   }
+  },
+  "nyas": {
+   "f1": 0.4369747899159664,
+   "detect_precision": 0.5614035087719298,
+   "detect_recall": 0.5161290322580645,
+   "swar_right": 0.8125,
+   "set_f1": 0.5909090909090909,
+   "events": 57,
+   "marked": 62
+  }
+ }
+}

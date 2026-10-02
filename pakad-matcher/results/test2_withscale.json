@@ -7,14 +7,14 @@
   "control": false,
   "recordings": 6,
   "held-notes only (untuned)": {
-   "up": 89,
-   "down": 101,
-   "up_frac": 0.46842105263157896
+   "up": 155,
+   "down": 143,
+   "up_frac": 0.5201342281879194
   },
   "tuned heuristic notes": {
-   "up": 272,
-   "down": 814,
-   "up_frac": 0.2504604051565378
+   "up": 410,
+   "down": 967,
+   "up_frac": 0.29774872912127814
   }
  },
  {
@@ -25,14 +25,14 @@
   "control": false,
   "recordings": 6,
   "held-notes only (untuned)": {
-   "up": 22,
-   "down": 51,
-   "up_frac": 0.3013698630136986
+   "up": 42,
+   "down": 82,
+   "up_frac": 0.3387096774193548
   },
   "tuned heuristic notes": {
-   "up": 59,
-   "down": 478,
-   "up_frac": 0.10986964618249534
+   "up": 72,
+   "down": 552,
+   "up_frac": 0.11538461538461539
   }
  },
  {
@@ -43,14 +43,14 @@
   "control": true,
   "recordings": 6,
   "held-notes only (untuned)": {
-   "up": 629,
-   "down": 376,
-   "up_frac": 0.6258706467661691
+   "up": 759,
+   "down": 460,
+   "up_frac": 0.6226415094339622
   },
   "tuned heuristic notes": {
-   "up": 1501,
-   "down": 960,
-   "up_frac": 0.6099146688338074
+   "up": 1751,
+   "down": 1115,
+   "up_frac": 0.6109560362875087
   }
  },
  {
@@ -61,14 +61,14 @@
   "control": true,
   "recordings": 6,
   "held-notes only (untuned)": {
-   "up": 340,
-   "down": 490,
-   "up_frac": 0.40963855421686746
+   "up": 414,
+   "down": 524,
+   "up_frac": 0.44136460554371004
   },
   "tuned heuristic notes": {
-   "up": 1489,
-   "down": 1378,
-   "up_frac": 0.519358214161144
+   "up": 1644,
+   "down": 1396,
+   "up_frac": 0.5407894736842105
   }
  },
  {
@@ -79,14 +79,14 @@
   "control": false,
   "recordings": 10,
   "held-notes only (untuned)": {
-   "up": 301,
-   "down": 433,
-   "up_frac": 0.4100817438692098
+   "up": 345,
+   "down": 479,
+   "up_frac": 0.4186893203883495
   },
   "tuned heuristic notes": {
-   "up": 906,
-   "down": 1523,
-   "up_frac": 0.37299300123507617
+   "up": 973,
+   "down": 1639,
+   "up_frac": 0.3725114854517611
   }
  },
  {
@@ -97,14 +97,14 @@
   "control": false,
   "recordings": 10,
   "held-notes only (untuned)": {
-   "up": 74,
-   "down": 340,
-   "up_frac": 0.178743961352657
+   "up": 115,
+   "down": 435,
+   "up_frac": 0.20909090909090908
   },
   "tuned heuristic notes": {
-   "up": 348,
-   "down": 1241,
-   "up_frac": 0.21900566393958465
+   "up": 494,
+   "down": 1448,
+   "up_frac": 0.25437693099897013
   }
  },
  {
@@ -115,14 +115,14 @@
   "control": true,
   "recordings": 10,
   "held-notes only (untuned)": {
-   "up": 934,
-   "down": 541,
-   "up_frac": 0.6332203389830509
+   "up": 1092,
+   "down": 607,
+   "up_frac": 0.6427310182460271
   },
   "tuned heuristic notes": {
-   "up": 1652,
-   "down": 1541,
-   "up_frac": 0.517381772627623
+   "up": 1832,
+   "down": 1647,
+   "up_frac": 0.5265881000287439
   }
  },
  {
@@ -133,14 +133,14 @@
   "control": true,
   "recordings": 10,
   "held-notes only (untuned)": {
-   "up": 711,
-   "down": 907,
-   "up_frac": 0.4394313967861557
+   "up": 806,
+   "down": 1044,
+   "up_frac": 0.43567567567567567
   },
   "tuned heuristic notes": {
-   "up": 2643,
-   "down": 2099,
-   "up_frac": 0.5573597638127372
+   "up": 2905,
+   "down": 2018,
+   "up_frac": 0.5900873451147675
   }
  },
  {
@@ -151,14 +151,14 @@
   "control": false,
   "recordings": 4,
   "held-notes only (untuned)": {
-   "up": 38,
-   "down": 211,
-   "up_frac": 0.15261044176706828
+   "up": 64,
+   "down": 259,
+   "up_frac": 0.19814241486068113
   },
   "tuned heuristic notes": {
-   "up": 248,
-   "down": 486,
-   "up_frac": 0.33787465940054495
+   "up": 303,
+   "down": 531,
+   "up_frac": 0.36330935251798563
   }
  },
  {
@@ -174,9 +174,9 @@
    "up_frac": 0.45104895104895104
   },
   "tuned heuristic notes": {
-   "up": 490,
-   "down": 285,
-   "up_frac": 0.632258064516129
+   "up": 502,
+   "down": 273,
+   "up_frac": 0.6477419354838709
   }
  },
  {
@@ -187,14 +187,14 @@
   "control": true,
   "recordings": 4,
   "held-notes only (untuned)": {
-   "up": 280,
-   "down": 164,
-   "up_frac": 0.6306306306306306
+   "up": 309,
+   "down": 207,
+   "up_frac": 0.5988372093023255
   },
   "tuned heuristic notes": {
-   "up": 846,
-   "down": 333,
-   "up_frac": 0.7175572519083969
+   "up": 925,
+   "down": 263,
+   "up_frac": 0.7786195286195287
   }
  },
  {
@@ -205,14 +205,14 @@
   "control": true,
   "recordings": 4,
   "held-notes only (untuned)": {
-   "up": 197,
-   "down": 121,
-   "up_frac": 0.6194968553459119
+   "up": 211,
+   "down": 131,
+   "up_frac": 0.6169590643274854
   },
   "tuned heuristic notes": {
-   "up": 561,
-   "down": 612,
-   "up_frac": 0.4782608695652174
+   "up": 589,
+   "down": 617,
+   "up_frac": 0.48839137645107794
   }
  },
  {
@@ -223,14 +223,14 @@
   "control": false,
   "recordings": 10,
   "held-notes only (untuned)": {
-   "up": 210,
-   "down": 430,
-   "up_frac": 0.328125
+   "up": 284,
+   "down": 598,
+   "up_frac": 0.3219954648526077
   },
   "tuned heuristic notes": {
-   "up": 869,
-   "down": 1226,
-   "up_frac": 0.41479713603818613
+   "up": 1032,
+   "down": 1370,
+   "up_frac": 0.42964196502914237
   }
  },
  {
@@ -246,9 +246,9 @@
    "up_frac": 0.7071090047393365
   },
   "tuned heuristic notes": {
-   "up": 3251,
-   "down": 747,
-   "up_frac": 0.8131565782891446
+   "up": 3263,
+   "down": 693,
+   "up_frac": 0.8248230535894844
   }
  },
  {
@@ -259,14 +259,14 @@
   "control": true,
   "recordings": 10,
   "held-notes only (untuned)": {
-   "up": 940,
-   "down": 1106,
-   "up_frac": 0.45943304007820135
+   "up": 1122,
+   "down": 1373,
+   "up_frac": 0.4496993987975952
   },
   "tuned heuristic notes": {
-   "up": 2446,
-   "down": 3078,
-   "up_frac": 0.44279507603186097
+   "up": 2464,
+   "down": 3541,
+   "up_frac": 0.4103247293921732
   }
  },
  {
@@ -277,14 +277,14 @@
   "control": true,
   "recordings": 10,
   "held-notes only (untuned)": {
-   "up": 594,
-   "down": 729,
-   "up_frac": 0.4489795918367347
+   "up": 794,
+   "down": 1020,
+   "up_frac": 0.43770672546857775
   },
   "tuned heuristic notes": {
-   "up": 1626,
-   "down": 2003,
-   "up_frac": 0.4480573160650317
+   "up": 1969,
+   "down": 2266,
+   "up_frac": 0.4649350649350649
   }
  },
  {
@@ -295,14 +295,14 @@
   "control": false,
   "recordings": 6,
   "held-notes only (untuned)": {
-   "up": 108,
-   "down": 346,
-   "up_frac": 0.23788546255506607
+   "up": 202,
+   "down": 487,
+   "up_frac": 0.2931785195936139
   },
   "tuned heuristic notes": {
-   "up": 486,
-   "down": 853,
-   "up_frac": 0.36295743091859595
+   "up": 593,
+   "down": 1041,
+   "up_frac": 0.3629130966952264
   }
  },
  {
@@ -318,9 +318,9 @@
    "up_frac": 0.5423728813559322
   },
   "tuned heuristic notes": {
-   "up": 1439,
-   "down": 806,
-   "up_frac": 0.6409799554565702
+   "up": 1442,
+   "down": 778,
+   "up_frac": 0.6495495495495496
   }
  },
  {
@@ -331,14 +331,14 @@
   "control": true,
   "recordings": 6,
   "held-notes only (untuned)": {
-   "up": 280,
-   "down": 329,
-   "up_frac": 0.45977011494252873
+   "up": 309,
+   "down": 360,
+   "up_frac": 0.4618834080717489
   },
   "tuned heuristic notes": {
-   "up": 840,
-   "down": 1290,
-   "up_frac": 0.39436619718309857
+   "up": 883,
+   "down": 1333,
+   "up_frac": 0.39846570397111913
   }
  },
  {
@@ -349,14 +349,14 @@
   "control": true,
   "recordings": 6,
   "held-notes only (untuned)": {
-   "up": 258,
-   "down": 215,
-   "up_frac": 0.5454545454545454
+   "up": 393,
+   "down": 310,
+   "up_frac": 0.5590327169274538
   },
   "tuned heuristic notes": {
-   "up": 1325,
-   "down": 646,
-   "up_frac": 0.6722475900558093
+   "up": 1731,
+   "down": 723,
+   "up_frac": 0.7053789731051344
   }
  },
  {
@@ -367,14 +367,14 @@
   "control": false,
   "recordings": 5,
   "held-notes only (untuned)": {
-   "up": 59,
-   "down": 153,
-   "up_frac": 0.2783018867924528
+   "up": 83,
+   "down": 215,
+   "up_frac": 0.2785234899328859
   },
   "tuned heuristic notes": {
-   "up": 179,
-   "down": 793,
-   "up_frac": 0.18415637860082304
+   "up": 160,
+   "down": 1007,
+   "up_frac": 0.13710368466152528
   }
  },
  {
@@ -391,8 +391,8 @@
   },
   "tuned heuristic notes": {
    "up": 422,
-   "down": 932,
-   "up_frac": 0.31166912850812406
+   "down": 913,
+   "up_frac": 0.3161048689138577
   }
  },
  {
@@ -403,14 +403,14 @@
   "control": true,
   "recordings": 5,
   "held-notes only (untuned)": {
-   "up": 263,
-   "down": 161,
-   "up_frac": 0.6202830188679245
+   "up": 304,
+   "down": 189,
+   "up_frac": 0.6166328600405679
   },
   "tuned heuristic notes": {
-   "up": 811,
-   "down": 353,
-   "up_frac": 0.6967353951890034
+   "up": 909,
+   "down": 384,
+   "up_frac": 0.703016241299304
   }
  },
  {
@@ -421,14 +421,14 @@
   "control": true,
   "recordings": 5,
   "held-notes only (untuned)": {
-   "up": 259,
-   "down": 217,
-   "up_frac": 0.5441176470588235
+   "up": 278,
+   "down": 237,
+   "up_frac": 0.5398058252427185
   },
   "tuned heuristic notes": {
-   "up": 857,
-   "down": 604,
-   "up_frac": 0.5865845311430528
+   "up": 888,
+   "down": 637,
+   "up_frac": 0.5822950819672131
   }
  }
 ]

@@ -708,6 +708,184 @@ Its per-frame targets also come from the heuristic aligner, so it learns that al
 
 ---
 
+## Insights (`insights/`) -- auxiliary per-clip measurements
+
+Separate from the samooha matcher. Built on the tuned heuristic notes. Terms:
+[DATA.md § Insight functions](DATA.md#insight-functions-insights). Usage (the app knows Sa and a pitch
+track, not the raag, so `raag` is optional): `insights.core.insights(cents, hop, raag=None)` →
+aarohi / avarohi / nyas swar names plus the counts behind them.
+
+### ✅ I1 -- aarohi / avarohi swars (2026-10-01)
+Moves of X, judged by the next note; a swar is reported if ups ≥ 10× downs (≥ 3 ups), or the reverse.
+Tuned on notation (`python -m insights.fit`): count only notes ≥ 0.12 s. On the 11 raag-swars that
+your notation shows as one-directional (≥ 85% one way, ≥ 8 moves), the machine then gets every
+direction right (11/11), but its majority is only 86% (median) -- below 10×, so on short clips it
+reports a swar only when the pattern is strong. Jog `g` and Malhar `n` are one-directional in the
+DB but sung with G→g / N→n meends as artistic liberty: the DB is a hint, not the truth.
+
+### ✅ I2 -- nyas swars (2026-10-01)
+The swar a pause follows (see the glossary for what counts as a pause). On 195 notated pauses
+(38 recordings), the swar before the pause, scored on held-out recordings:
+
+| rule | accuracy |
+|---|---|
+| longest note in the 3 s before (held ≠ nyas) | 0.487 |
+| last note | 0.615 |
+| **last note, skipping a final note < 0.1 s** (adopted) | **0.651** (alap 0.72, madhya 0.67, taan 0.63) |
+
+Pause thresholds are *not* tuned: gaps inside one notated note are no shorter than gaps between
+notes, so the notation cannot tell a dropout from a breath. Defaults; the eyeball test decides.
+
+### ✅ I3 -- annotated insight clips (`python -m insights.clips`, http://localhost:8765/insights)
+The eyeball pass needs real labels, so it is now a test set. 33 clips × 30 s madhya lay, registry
+`annotations/insight_clips.json` (append-only), audio `annotations/insight_clips/`:
+
+| split | clips | raags | recordings |
+|---|---|---|---|
+| test | 15 | the eyeball set; Bageshree swapped for Chandrakauns (its recording was notated) | none notated |
+| validation | 8 | AheerBhairav, Durga, Basant, KaushikDhwani, Malkauns, Charukeshi, Hindol, Jog | none notated |
+| train | 10 | Bageshree, Bhairav, Shree, PuriyaDhanashri, DarbariKanada, Bheempalasi, Malhar, Kalawati, Yaman, Bhoopali | may be notated, never overlapping a notated stretch |
+
+Rules I-R1–I-R4 in `insights/clips.py`, checked by `--check` (OK). 7 test clips share a recording
+with phrase judgments -- allowed: the insight functions never train on judgments.
+
+Annotation (`annotations/insights.jsonl`, last per clip wins), blind to the machine's answers:
+- per swar: aarohi / avarohi / both / not sung / unsure, **as sung in this clip**
+- nyas: windows dragged on the pitch track, each labelled with its swar (octave included)
+
+Annotated 2026-10-03: 32 clips. Multani_test dropped (wrong tonic, Neeraja; only its opening
+stretch fits the scale poorly, so the recording's judgments stay). KaushikDhwani_validation saved
+empty -- treated as skipped.
+
+`python -m insights.evaluate --val` tunes on train, chooses on validation, freezes
+(`results/insights/choice.json`); `--test` scores once. Directions: balanced accuracy over
+aarohi / avarohi / both. Nyas: F1 of pause events matched to her windows with the right swar.
+
+| | train (in-sample) | validation (7) | **test (14)** |
+|---|---|---|---|
+| directions, defaults | 0.448 | 0.449 | 0.426 |
+| directions, tuned (chosen) | 0.584 | 0.568 | **0.577** |
+| nyas F1, defaults | 0.294 | 0.235 | 0.286 |
+| nyas F1, tuned (chosen) | 0.400 | 0.351 | **0.446** |
+| nyas F1, tuned + loudness drop | 0.265 | 0.195 | — |
+
+Chosen: `dir_ratio` 2 (not 10: machine counts are noisier than true ones), `dir_min_count` 2,
+`dir_min_note_s` 0.08, `pause_min_s` 0.25, `pause_rel` 0.5, `skip_short_s` 0. On test, nyas: when a
+pause is found where she marked one, the swar is right 82% of the time; finding the pauses is
+the weak part (precision 0.49, recall 0.61). A loudness-drop condition hurt: RMS includes the
+tanpura. Pauses come from the pitch track, which also drops out when the voice tapers --
+the next fix is a voice-only loudness (or a spectrogram model), not a threshold.
+
+### ✅ I4 -- learned direction and nyas detectors (`insights/detect.py`, `voice.py`, 2026-10-03)
+Small logistic models on cues from the tuned heuristic notes; coefficients frozen as numbers
+(`results/insights/detectors_*.json`) so they can be ported.
+- **nyas:** every note end is a candidate. That reaches 95% of marked nyas; pitch-track gaps alone
+  reach ~80%, because during a breath the tracker often locks onto the tanpura. Cues: pitch-track
+  gap after the note (and over the local pace), loudness drop, *voice-above-drone* loudness drop,
+  note length, ends a stretch, pitch slope, Sa, Pa, DB nyas (optional).
+- **direction:** per swar, up/down counts at 3 minimum note lengths, smoothed up-fraction, time on
+  the swar, DB aaroha-only / avaroha-only (optional).
+
+Each cue alone is weak at a marked nyas (AUC: pitch-track gap 0.67, voice loudness 0.65, overall
+loudness 0.63); combined, held-out candidate AUC 0.755. Overall loudness gets a negative weight
+once voice loudness is in: a level change outside the voice is the drone.
+
+Selection: the 7 validation clips (3 aarohi labels) could not tell variants apart, so the choice
+is by leave-one-clip-out over train + validation (17 clips); test untouched until frozen.
+
+| leave-one-clip-out, 17 clips | directions | nyas F1 |
+|---|---|---|
+| rules (I3 settings) | 0.585 | 0.383 |
+| learned + DB prior | **0.663** (chosen) | 0.419 |
+| learned, no DB | 0.569 | **0.448** (chosen) |
+
+| **test, 14 clips, once** | directions | nyas F1 |
+|---|---|---|
+| rules (I3 settings) | 0.577 | 0.446 |
+| learned, frozen | 0.605 | 0.425 |
+| difference, bootstrap over clips | +0.033 [−0.090, +0.178] | −0.024 [−0.092, +0.030] |
+
+**Reading:** the learned detectors equal the tuned rules on test, not better. They err differently:
+the direction model rarely calls a swar one-directional when it isn't (both-recall 0.65 vs 0.37)
+but finds fewer true aarohi (0.50 vs 0.75). Nyas: when a pause is found where one was marked, the
+swar is right ~80%; finding the pause stays the limit (P ~0.5, R ~0.55). 14–17 clips is the
+binding constraint: more labelled clips would decide more than more features.
+`insights(..., learned=True, wav=...)` uses the frozen detectors; default stays the rules.
+
+### ✅ I5 -- best effort without new labels (2026-10-03)
+No new annotation. Extra signal from data already here; phrase matching untouched (every matcher,
+reader and s7 file and setting identical to commit 41dc56b -- checked).
+- **Direction, notation as proxy labels** (`detect.notation_items`): in each notated chunk, a swar
+  whose notated moves (>= 4) go >= 85% one way is aarohi/avarohi; 25–75% is both; others skipped.
+  226 labels (168 both / 43 avarohi / 15 aarohi), 4x the clip labels. Left out for the held-out
+  clip's recording during selection.
+- **Nyas:** tried L2 strength 0.1 / 2 and two silence cues (time to the next note, voice level
+  below the clip's median): none helped (0.422–0.428 vs 0.448).
+
+| leave-one-clip-out, 17 clips | directions | nyas F1 |
+|---|---|---|
+| rules | 0.585 | 0.383 |
+| learned + DB prior | 0.663 | 0.419 |
+| learned + DB prior + notation (chosen) | 0.663 (more even: aar 0.69 / ava 0.72 / both 0.57) | 0.419 |
+| learned, no DB | 0.569 | **0.448** |
+| learned, no DB + notation (frozen for no-raag use) | 0.634 | 0.448 |
+
+| **test, 14 clips, once** | directions | nyas F1 |
+|---|---|---|
+| rules | 0.577 | 0.446 |
+| chosen | **0.636** (+0.063 [−0.058, +0.181]) | 0.425 (−0.024 [−0.092, +0.030]) |
+
+Defaults now (`insights.core.insights`): direction = learned (with the DB prior when the raag is
+given, the no-DB model otherwise -- the app case); nyas = rules (the learned detector only ties
+them, and needs audio). Direction is ahead of the rules in both selection and test, but not
+significantly on 14 clips; nyas detection (P ~0.5, R ~0.55) is where more labels would pay most.
+
+### ✅ I6 -- audio only: no raag at inference (2026-10-03)
+Neeraja: test audio comes with no raag label (only Sa) -- for phrase matching, direction and nyas
+alike. "Rules" in I3–I5 meant my threshold heuristics, not raag rules. Audit of where the raag
+reached inference:
+- **phrase matching: clean.** The matcher and read-then-match see the contour and the samooha
+  only. (The raag decided which recordings were pooled for judging -- data, not inference.)
+- **test2 (`unidir.py`): used the raag's scale** (held notes snapped to it, reader restricted).
+- **insights I3–I5: used the raag's scale, and I4/I5's chosen direction model used DB priors**
+  (aaroha-only / avaroha-only swars) -- the DB must never supply the answer.
+
+Fixed: `insights/` takes no raag anywhere (`insights(cents, hop, wav=None)`); DB-prior features
+removed; notation proxies read without a scale; `unidir.py` reads all 12 swars. Re-scored:
+
+| test2 (48 questions) | with scale (before) | **audio only** |
+|---|---|---|
+| held-notes only (untuned) | 0.880 | 0.873 |
+| tuned heuristic notes | 0.931 | **0.947** |
+
+| insights, leave-one-clip-out (17), audio only | directions | nyas F1 |
+|---|---|---|
+| threshold heuristics, retuned on train audio-only | 0.563 | 0.343 |
+| learned | 0.596 | **0.409** (chosen) |
+| learned + notation proxies | **0.639** (chosen) | 0.409 |
+
+| **insights test (14), once, audio only** | directions | nyas F1 |
+|---|---|---|
+| threshold heuristics | 0.602 | 0.359 |
+| chosen learned | 0.574 (−0.026 [−0.135, +0.103]) | **0.437** (+0.078 [−0.007, +0.170]) |
+
+Defaults (`insights.core.insights`): direction = learned + notation; nyas = learned when the
+clip's audio is given, else the heuristics (`config.INSIGHTS`, retuned audio-only: `dir_ratio` 3,
+`pause_rel` 2). Without the raag the heuristics lose most (nyas 0.446 -> 0.359 on test); the learned
+nyas detector barely does (0.425 -> 0.437). The scale was a crutch the learned models don't need.
+
+### ✅ N1 -- notation beyond the pitch track (2026-10-03)
+Neeraja notates what she hears, including notes the pitch track misses (tanpura Sa on top, a
+tapering voice). The typed swars were always stored verbatim; per-note timing was not, only
+re-derived from the pitch track. Now:
+- `notate_app.html` saves each note's placement (`notes: [{swar, t0, t1}]`) with every segment.
+- `python corpus.py --notes` -> `annotations/notation_notes.jsonl`: every notated note (3527),
+  its placement in recording seconds, its median pitch, and `f0_agrees` (within 50 cents, mostly
+  voiced). 27% are not supported by the pitch track: alap 13%, madhya 12%, taan 33%.
+- Their placement is the aligner's guess between neighbours, not a measured boundary.
+Not yet done: pitch-based fits (swar centres in `fit_reader`) still use every note; they should
+skip `f0_agrees = False`.
+
 ## Files
 
 | file | what |
@@ -730,6 +908,7 @@ Its per-frame targets also come from the heuristic aligner, so it learns that al
 | `audit.py` | **the data discipline, executable**: computes the splits, checks the rules |
 | `corpus.py` | notation stretches and judged spans as training / validation / test data |
 | `fit_reader.py` | fits the reader on notation (pitch centres, onset by tempo), cross-validated by recording |
+| `insights/` | insight functions: `core.py` (rules + `insights()`), `detect.py` (learned detectors), `voice.py` (voice-above-drone loudness), `fit.py` (tuning on notation), `clips.py` (clip registry), `evaluate.py` (selection + test) |
 | `ctc_reader.py` | S12: the learned reader (GRU on the contour), cross-validated by recording; not adopted |
 | `s7.py` | ranks judged spans with every method; `--val` chooses and freezes, `--test` scores once |
 | `DATA.md` | the glossary and the rules in prose |
@@ -814,3 +993,19 @@ deliberately. Nothing outside `../raag-identifier/` is imported.
   0.559). test1 val-tuned 0.793 (CI vs baseline [+0.057, +0.226]); test2 tuned heuristic notes 0.931.
 - **2026-09-30** -- S12: learned reader (GRU, trained on notation): held-out misread 0.618 vs the
   tuned heuristic's 0.559. Same insertion/deletion trade; not adopted.
+- **2026-10-01** -- Insights I1/I2/I3: aarohi/avarohi and nyas functions in `insights/`, tuned on
+  notation (nyas swar before a pause 0.651 held-out; direction counts only notes >= 0.12 s);
+  15 eyeball clips built. Nyas = swar before a breath/pause, not a phrase end (Neeraja).
+- **2026-10-02** -- I3: insight clips become a labelled set (test 15 / validation 8 / train 10, one
+  split per recording); annotation page at /insights.
+- **2026-10-03** -- I3 scored: test directions 0.577 (untuned 0.426), nyas F1 0.446 (0.286).
+  Multani_test dropped (wrong tonic). N1: per-note notation snapshot with `f0_agrees`; the app
+  now saves per-note times.
+- **2026-10-03** -- I4: learned direction/nyas detectors with voice-above-drone loudness. Chosen
+  by leave-one-clip-out (17 clips); test: directions 0.605 vs rules 0.577, nyas F1 0.425 vs 0.446,
+  neither significant.
+- **2026-10-03** -- I5: notation as proxy direction labels; direction now learned by default
+  (test 0.636 vs rules 0.577, n.s.); nyas stays rules. Phrase matching verified untouched.
+- **2026-10-03** -- I6: audio only, no raag at inference anywhere. test2 tuned heuristic notes 0.947
+  (was 0.931 with the scale); insights test directions 0.574 vs heuristics 0.602, nyas 0.437 vs
+  0.359. DB-prior features removed. Phrase matching was already raag-free.

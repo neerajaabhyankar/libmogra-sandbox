@@ -1,0 +1,63 @@
+{
+ "nyas": {
+  "pauses": 195,
+  "recordings": 38,
+  "rule": {
+   "tail_trim_s": 0.0,
+   "skip_short_s": 0.1,
+   "droop_only": false
+  },
+  "held_out_accuracy": 0.651,
+  "plain_last_note": 0.615,
+  "longest_note": 0.487,
+  "by_kind": {
+   "alap": 0.72,
+   "madhya": 0.667,
+   "taan": 0.631
+  }
+ },
+ "directions": [
+  {
+   "min_note_s": 0.0,
+   "rho": 0.714,
+   "direction_right": 0.909,
+   "majority_share": 0.812
+  },
+  {
+   "min_note_s": 0.05,
+   "rho": 0.714,
+   "direction_right": 0.909,
+   "majority_share": 0.812
+  },
+  {
+   "min_note_s": 0.08,
+   "rho": 0.697,
+   "direction_right": 1.0,
+   "majority_share": 0.8
+  },
+  {
+   "min_note_s": 0.12,
+   "rho": 0.65,
+   "direction_right": 1.0,
+   "majority_share": 0.857
+  },
+  {
+   "min_note_s": 0.16,
+   "rho": 0.66,
+   "direction_right": 0.909,
+   "majority_share": 0.857
+  },
+  {
+   "min_note_s": 0.2,
+   "rho": 0.511,
+   "direction_right": 0.636,
+   "majority_share": 0.667
+  },
+  {
+   "min_note_s": 0.3,
+   "rho": 0.443,
+   "direction_right": 0.455,
+   "majority_share": 0.667
+  }
+ ]
+}

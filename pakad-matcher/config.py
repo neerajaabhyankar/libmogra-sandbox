@@ -197,3 +197,57 @@ CTC = dict(
     ctc_weight=0.0,                   # weight of the sequence-only (CTC) loss; 0.1 read worse (S12)
 )
 CTC_DIR = RESULTS_DIR / "ctc_reader"
+
+# ---- Insights (insights/): per-clip aarohi/avarohi swars and nyas swars
+INSIGHTS = dict(
+    phrase_gap_s=0.25,        # a silence this long always breaks the reading (and is a pause)
+    min_phrase_s=0.5,         # shorter voiced blips are noise
+    # aarohi / avarohi
+    dir_min_note_s=0.08,      # only notes this long count as a move (I3: tuned on train clips)
+    dir_ratio=3.0,            # aarohi: up >= dir_ratio x down (I6: retuned on train, audio only; her
+                              # ~10x holds for true counts, machine counts are noisier)
+    dir_min_count=2,          # ... with at least this many moves in the winning direction (I3)
+    # nyas = the swar a breath or pause follows
+    pause_min_s=0.25,         # shorter unvoiced runs are not pauses (I3: tuned; was 0.06)
+    pause_rel=2.0,            # ... and >= this x the local median note length (I6: audio only)
+    pace_window_s=3.0,        # "local": notes within this many seconds
+    pause_drop_db=None,       # if set: also this many dB quieter than just before (I3: hurt -- the
+                              # tanpura keeps the level up through a breath)
+    tail_trim_s=0.0,          # ignore this much voiced contour before the pause (fit: 0)
+    skip_short_s=0.0,         # skip a final note shorter than this (notation fit 0.1; I3 clips 0)
+    droop_only=False,         # True = only when it sits below the note before (fit: no difference)
+    nyas_min_count=2,         # a nyas swar precedes at least this many pauses ...
+    nyas_min_share=0.15,      # ... and at least this share of all pauses
+)
+INSIGHTS_DIR = RESULTS_DIR / "insights"
+INSIGHT_CLIP_S = 30.0         # eyeball clips: one madhya-lay stretch per raag
+# Insight clips: one per raag per split, never two splits on one recording (insights/clips.py).
+# test and validation never use a notated recording; train may (outside the notated stretches).
+INSIGHT_CLIP_RAAGS = {
+    "test": ["Yaman", "Bhoopali", "Malkauns", "Chandrakauns", "Des", "TilakKamod", "Multani",
+             "Todi", "Kedar", "Marwa", "Tilang", "Madhuvanti", "Sarang", "Bhairavi",
+             "AlhaiyaBilawal"],                     # the eyeball set (Bageshree moved to train)
+    "validation": ["AheerBhairav", "Durga", "Basant", "KaushikDhwani", "Malkauns", "Charukeshi",
+                   "Hindol", "Jog"],
+    "train": ["Bageshree", "Bhairav", "Shree", "PuriyaDhanashri", "DarbariKanada", "Bheempalasi",
+              "Malhar", "Kalawati", "Yaman", "Bhoopali"],
+}
+INSIGHT_CLIPS = S3_DIR / "insight_clips.json"       # the registry: append-only, like the pools
+INSIGHT_CLIP_DIR = S3_DIR / "insight_clips"
+INSIGHT_LABELS = S3_DIR / "insights.jsonl"          # Neeraja's answers, last per clip wins
+INSIGHT_VOICE = dict(         # insights/voice.py: loudness above the drone's steady spectrum
+    sr=16000, n_fft=1024, band_hz=(150.0, 4000.0),
+    floor_pct=20.0,           # a bin's drone level = this percentile of its power over the clip
+    floor_mult=2.0,           # energy above this multiple of it counts as voice
+    range_db=50.0,            # floor of the scale, below the clip's loud end
+)
+INSIGHT_DETECT = dict(        # insights/detect.py: learned nyas / direction detectors
+    pace_window_s=3.0,
+    nms_s=1.0,                # two nyas events closer than this: keep the likelier
+    dir_min_notes=(0.0, 0.08, 0.16),   # direction counts at these minimum note lengths
+    l2_C=0.5,                 # logistic regression: inverse L2 strength (small data)
+    thresholds=(0.3, 0.4, 0.5, 0.6, 0.7, 0.8),   # nyas probability cut, picked on train
+)
+INSIGHT_DETECT.update(        # notation as proxy direction labels (detect.notation_items)
+    proxy_min=4, proxy_one_way=0.85, proxy_both=(0.25, 0.75),
+)

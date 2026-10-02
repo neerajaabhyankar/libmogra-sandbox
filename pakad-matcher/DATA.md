@@ -108,9 +108,28 @@ figure or a docstring is not here, that is a bug in this file.**
 |---|---|
 | **departure** | each occurrence of swar X counts as up or down by the **next** note — the definition of aarohi/avarohi above |
 | **up-fraction** | of X's occurrences, the fraction followed by a higher note. The "used in aaroh?" score; 1 − it is the "used in avaroh?" score. The x-axis of `results/roc/test2_scatter.png` |
-| **held-notes only (untuned)** | occurrences = held notes (above) snapped to the nearest swar of the raag's scale. **Nothing fitted to notation**; its one threshold (`held_slope`) was tuned in S4b on judgments |
-| **tuned heuristic notes** | occurrences = the reader's notes, restricted to the raag's scale: the reader with its onset cost and swar centres fitted to notation |
+| **held-notes only (untuned)** | occurrences = held notes (above) snapped to the nearest of the 12 swars (audio only since 2026-10-03; before, the raag's scale). **Nothing fitted to notation**; its one threshold (`held_slope`) was tuned in S4b on judgments |
+| **tuned heuristic notes** | occurrences = the reader's notes (any of the 12 swars -- audio only since 2026-10-03): the reader fitted to notation |
 | **phrase** (in `unidir.py`) | a voiced stretch between silences longer than 0.35 s; direction is never judged across a silence |
+
+### Insight functions (`insights/`)
+
+| term | meaning |
+|---|---|
+| **insight function** | a per-clip summary of raag grammar built from the tuned heuristic notes: `insights.core.insights(cents, hop, raag=None)` |
+| **move** | one occurrence of swar X followed by a different note, counted up or down (the **departure**). Only notes ≥ 0.12 s count; shorter ones are kan and transit |
+| **aarohi / avarohi (in a clip)** | X's ups ≥ 10× its downs, with ≥ 3 ups (and the reverse). Ratio and minimum in `config.INSIGHTS` |
+| **pause** | an unvoiced run ≥ 0.06 s that is also ≥ 0.5× the median note length within 3 s (short, if the music is fast), or any silence ≥ 0.25 s. Not where the clip is cut |
+| **nyas (in a clip)** | the swar a pause follows: the last note before it, skipping a final note < 0.1 s. **Not** the longest note, and **not** the end of a phrase: `P M G m G R S` in one breath rests on S. Reported if it precedes ≥ 15% of the clip's pauses (and ≥ 2) |
+| **insight clip** | a 30 s madhya-lay stretch annotated for insights: per swar a **direction label** (aarohi / avarohi / both / not sung / unsure, *as sung in that clip*) and **nyas windows** (a stretch of pitch track and the swar resting there). Splits and rules I-R1–I-R4: `insights/clips.py` |
+| **voice above drone** | `insights/voice.py`: per frame, spectral energy (150–4000 Hz) above each frequency's quiet-end level over the clip -- the steady tanpura removed. Falls during a breath even when the tanpura keeps the overall level up |
+| **audio only** | the rule for every task here: at inference a clip comes with its Sa, never its raag. Raag labels may train; they never restrict, prime or answer. The raag DB is never an input |
+| **threshold heuristics** | the hand-written insight rules in `config.INSIGHTS` (ratio of up to down moves, pause length), as opposed to the learned detectors. Not raag rules |
+| **learned detectors** | `insights/detect.py`: logistic models, audio only. Nyas: is a breath/pause after this note end? Direction: is this swar aarohi / avarohi / both in this clip? |
+| **proxy direction label** | from notation, not from a direction judgment: in a notated chunk, a swar whose notated moves (>= 4) go >= 85% up is aarohi, >= 85% down avarohi, 25–75% both. Extra training for the direction detector |
+| **leave-one-clip-out** | how insight variants are chosen: fit on all train + validation clips but one, predict that one, repeat |
+| **f0_agrees** | in `annotations/notation_notes.jsonl`: the notated note's pitch track is within 50 cents of the swar and mostly voiced. False = heard by Neeraja but not seen by the pitch track (tanpura on top, tapering voice); kept, for methods that don't rely on f0 |
+| **notated pause** | for tuning: an unvoiced run ≥ 0.06 s inside a notated stretch, between two different notated notes. The notated swar before it is the answer |
 
 ### Metrics
 
