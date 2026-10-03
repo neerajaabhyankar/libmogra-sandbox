@@ -14,10 +14,11 @@ So each occurrence counts as up or down by its *departure*: the next note.
 
 Two methods, neither sees a test2 label:
   held-notes only (untuned)  every held stretch of the contour (matcher._held), snapped to the
-                             nearest of the 12 swars. Nothing fitted to notation
-  tuned heuristic notes      the reader (decode.free_read) with its onset cost and swar centres
-                             fitted to notation (results/reader.json)
-Recordings are cut into phrases at silences; direction is never judged across a silence.
+                             nearest of the 12 swars. Not fitted to notation (its held threshold is
+                             S4b's, fitted on validation judgments)
+  tuned heuristic notes      the reader fitted to notation (notes.notes, results/reader.json)
+"Next note" is notes.directions: the next sung note (kan skipped), never across a breath.
+Pooled recordings exclude notated ones (training) and wrong-tonic ones (audit R7).
 
 **Audio only** (since 2026-10-03): neither method knows the raag -- no scale restriction. The raag
 label only says which recordings to pool for a test2 question. Earlier results (test2_s10.json,
@@ -31,81 +32,80 @@ import json
 import numpy as np
 
 import _bootstrap  # noqa: F401
+import audit
 import config as C
-import decode
 import fit_reader
 import fullaudio
 import matcher
-from insights import core
+import metrics
+import notes
 from utils import raagdb
 
 OUT = C.RESULTS_DIR / "test2.json"
-MIN_HELD_S = 0.10          # held-notes method: a held stretch shorter than this is not a note
-MIN_PHRASE_S = 1.0         # phrases shorter than this carry no direction worth counting
 HELD = "held-notes only (untuned)"
 READER = "tuned heuristic notes"
 
 
-def phrases(ctr):
-    """(a, b) frame bounds of voiced stretches, split at unvoiced gaps longer than max_gap_s."""
-    return core.phrases(ctr.cents, ctr.hop, C.MATCH["max_gap_s"], MIN_PHRASE_S)
-
-
-def _snap(c, scale):
-    """Nearest scale swar to `c` cents, as (swar 0-11, absolute cents of that swar)."""
-    cand = [(abs(c - (100 * s + 1200 * o)), s, 100 * s + 1200 * o)
-            for s in scale for o in (-1, 0, 1, 2)]
-    _, s, abs_c = min(cand)
-    return s, abs_c
-
-
-def held_notes(cents, hop, scale):
+def held_notes(cents, hop):
+    """Every held stretch (matcher._held, >= held_min_s), snapped to the nearest of the 12 swars:
+    [(swar, absolute cents of that swar)]."""
     held = matcher._held(cents, hop, C.MATCH)
-    n = int(MIN_HELD_S / hop)
     out, t = [], 0
     while t < len(held):
         if held[t]:
             u = t
             while u < len(held) and held[u]:
                 u += 1
-            if u - t >= n:
-                out.append(_snap(float(np.nanmedian(cents[t:u])), scale))
+            c = float(np.nanmedian(cents[t:u]))
+            k = int(round(c / 100))
+            out.append((k % 12, 100 * k))
             t = u
         else:
             t += 1
     return out
 
 
-def reader_notes(cents, hop, scale, params, onsets):
-    return [(sw, c) for sw, c, _, _ in core.notes(cents, hop, scale, (params, onsets))]
+def excluded_recordings():
+    """Recordings test2 must not pool: notated ones (training, rule "never straddles") and
+    wrong-tonic ones (R7)."""
+    ch = audit.chunks()
+    return {ch[c]["video"] for c in audit.notations()} | set(C.BAD_TONIC_VIDEOS)
 
 
-directions = core.directions    # [up, down] per swar, judged by the next note
-
-
-def measure(raag):
-    """Pool every recording of `raag`; each is read without knowing its raag."""
-    scale = list(range(12))
-    params, onsets = fit_reader.load()
+def measure(raag, skip):
+    """Pool every usable recording of `raag`; each is read without knowing its raag."""
+    reader = fit_reader.load()
     counts = {HELD: {}, READER: {}}
-    videos = fullaudio.cached_videos(tuple([raag]))
+    videos = [v for v in fullaudio.cached_videos(tuple([raag])) if v not in skip]
     for v in videos:
         ctr = fullaudio.contour(v)
-        for a, b in phrases(ctr):
+        for a, b in notes.breath_spans(ctr.cents, ctr.hop):
             seg = ctr.cents[a:b]
-            for m, notes in ((HELD, held_notes(seg, ctr.hop, scale)),
-                             (READER, reader_notes(seg, ctr.hop, None, params, onsets))):
-                directions(notes, counts[m])
+            notes.directions(held_notes(seg, ctr.hop), counts[HELD])
+            notes.directions(notes.notes(seg, ctr.hop, reader), counts[READER])
         print(f"  {raag:12s} {v}", flush=True)
     return counts, len(videos)
 
 
+def auc(rows, m):
+    """Pooled AUC over the questions "used in aaroh?" (score: up-fraction) and "used in avaroh?"
+    (score: 1 - up-fraction). Two questions per swar, so the swar is the unit of resampling."""
+    s = [r[m]["up_frac"] for r in rows] + [1 - r[m]["up_frac"] for r in rows]
+    y = np.array([int(r["aaroh"]) for r in rows] + [int(r["avaroh"]) for r in rows])
+    s = np.array(s)
+    if y.all() or not y.any():
+        return np.nan
+    a, b = s[y == 1], s[y == 0]
+    return float(np.mean((a[:, None] > b[None, :]) + 0.5 * (a[:, None] == b[None, :])))
+
+
 def main():
     truth = json.loads(C.UNIDIR_JSON.read_text())["raags"]
-    names = raagdb.SWAR_NAMES
-    rows = []
+    names, skip = raagdb.SWAR_NAMES, excluded_recordings()
+    rows, left_out = [], 0
     for e in truth:
-        counts, n_rec = measure(e["raag"])
+        left_out += sum(v in skip for v in fullaudio.cached_videos(tuple([e["raag"]])))
+        counts, n_rec = measure(e["raag"], skip)
         for sw, lab in e["swars"].items():
             s = names.index(sw)
             row = dict(raag=e["raag"], swar=sw, aaroh=lab["aaroh"], avaroh=lab["avaroh"],
@@ -114,11 +114,15 @@ def main():
                 up, down = c.get(s, [0, 0])
                 row[m] = dict(up=up, down=down, up_frac=up / max(up + down, 1))
             rows.append(row)
-            print(f"{e['raag']:12s} {sw:2s} aaroh {'y' if lab['aaroh'] else 'n'} avaroh "
-                  f"{'y' if lab['avaroh'] else 'n'}   " + "   ".join(
-                      f"{row[m]['up_frac']:.2f}" for m in counts))
-    print("up-fraction columns: " + " | ".join(counts))
-    OUT.write_text(json.dumps(rows, indent=1))
+    print(f"\n{len(rows)} swars ({2 * len(rows)} questions); {left_out} recording(s) left out "
+          "of the pools (notated or wrong-tonic)")
+    out = dict(rows=rows, auc={}, splits_manifest=audit.manifest_hash())
+    for m in (HELD, READER):
+        out["auc"][m] = metrics.bootstrap(lambda g, m=m: auc([r for x in g for r in x], m),
+                                          [[r] for r in rows])
+        est, lo, hi = out["auc"][m]
+        print(f"  {m:28s} AUC {est:.3f}  95% interval [{lo:.3f}, {hi:.3f}] (swars resampled)")
+    OUT.write_text(json.dumps(out, indent=1))
     print(f"-> {OUT}")
 
 

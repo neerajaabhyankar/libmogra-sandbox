@@ -4,8 +4,21 @@
  "params": {
   "free_cents": 50.0,
   "scale_cents": 70.0,
-  "note_trim": 0.4,
+  "note_cap": 2.0,
+  "orn_cost": 0.6,
+  "transit_cost": 0.3,
+  "gap_cost": 0.4,
+  "max_gap_s": 0.35,
   "min_dwell_s": 0.05,
+  "step_eps": 0.01,
+  "orn_weight": 1.0,
+  "kan_cents": 200.0,
+  "held_slope": 800.0,
+  "held_win_s": 0.09,
+  "held_min_s": 0.1,
+  "note_trim": 0.4,
+  "leap_penalty": 1.0,
+  "register_penalty": 0.5,
   "onset_cost": 2.0,
   "swar_offsets": [
    -2.244228733305441,
@@ -20,8 +33,7 @@
    4.805855277534965,
    3.2761485541044775,
    16.16818450218023
-  ],
-  "transit_cost": 0.3
+  ]
  },
  "swar_offsets": [
   -2.244228733305441,
@@ -42,5 +54,6 @@
  "fast_notes_per_s": 1.0,
  "fitted_on": "notation corpus, all stretches",
  "n_stretches": 361,
- "n_swars": 3504
+ "n_swars": 3504,
+ "params_note": "every constant the reader uses, frozen 2026-10-03 (values unchanged; before, unset keys came from config.MATCH at run time)"
 }

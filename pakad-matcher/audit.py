@@ -1,6 +1,7 @@
 """The data-discipline check. Run it before trusting any number.
 
-    poetry run python audit.py
+    poetry run python audit.py            # the rules, checked; the live splits vs the frozen manifest
+    poetry run python audit.py --freeze   # write results/splits_manifest.json (before choosing anything)
 
 This module, not prose, decides which human labels are training, validation or test. Anything
 that fits parameters must import `splits()` and honour it; `DATA.md` explains the terms and the
@@ -18,15 +19,24 @@ The rules, in one place:
       raags the reader never saw, or it picks methods that only work on notated raags.
   R5  A pool is never rebuilt once it carries judgments: labels are keyed by *index into* the
       pool, so regenerating it silently re-points them. (`pool.py` refuses without --force.)
+  R7  Nothing on a recording with a wrong tonic (config.BAD_TONIC_VIDEOS) is used anywhere:
+      its notation, judgments, test2 counts and insight clips are all set aside.
+
+Splits are recomputed from the annotation files, so they move when annotation is added. The
+manifest (--freeze) pins them: evaluation scripts record its hash, and warn when the live splits
+no longer match it. The only reader of judgments is `judgments()` here.
 """
 
+import hashlib
 import json
 from collections import Counter, defaultdict
+from datetime import date
 
 import _bootstrap  # noqa: F401
 import config as C
 
 GUARD_S = 5.0       # a judgment this close to a notated stretch is not treated as unseen
+MANIFEST = C.RESULTS_DIR / "splits_manifest.json"
 
 
 def _last(path, key):
@@ -79,18 +89,64 @@ def notated_raags():
 
 
 def splits(guard_s=GUARD_S):
-    """Every judgment labelled 'test', 'validation' or 'unusable'. The rules R1-R4, R6 live here."""
+    """Every judgment labelled 'test', 'validation' or 'unusable'. The rules R1-R4, R6, R7 live here."""
     spans, seen = notated_spans(), notated_raags()
     out = {"test": [], "validation": [], "unusable": []}
     for j in judgments():
         raag = j["phrase_id"].split("#")[0]
-        if any(j["t0"] < b + guard_s and a - guard_s < j["t1"] for a, b in spans.get(j["video"], [])):
+        if j["video"] in C.BAD_TONIC_VIDEOS:
+            out["unusable"].append(j)                                # R7
+        elif any(j["t0"] < b + guard_s and a - guard_s < j["t1"] for a, b in spans.get(j["video"], [])):
             out["unusable"].append(j)                                # R3
         elif raag in C.VALIDATION_RAAGS or raag in seen:
             out["validation"].append(j)                              # R6, R2
         else:
             out["test"].append(j)                                    # R1
     return out
+
+
+def manifest():
+    """Which label belongs to which split, for every task: the thing to pin before choosing."""
+    from insights import clips
+    key = lambda j: f"{j['phrase_id']}|{j['index']}|{j['video']}"
+    ch = chunks()
+    reg = clips.registry(with_excluded=True)
+    return dict(
+        judgments={k: sorted(key(j) for j in v) for k, v in splits().items()},
+        notation_chunks=sorted(c for c in notations() if ch[c]["video"] not in C.BAD_TONIC_VIDEOS),
+        bad_tonic=sorted(C.BAD_TONIC_VIDEOS),
+        insight_clips={sp: sorted(c["id"] for c in reg if c["split"] == sp and not c.get("excluded")
+                                  and c["video"] not in C.BAD_TONIC_VIDEOS)
+                       for sp in ("train", "validation", "test")})
+
+
+def manifest_hash(m=None):
+    return hashlib.sha256(json.dumps(m or manifest(), sort_keys=True).encode()).hexdigest()[:12]
+
+
+def freeze():
+    m = manifest()
+    MANIFEST.write_text(json.dumps(dict(hash=manifest_hash(m), frozen=str(date.today()), **m), indent=1))
+    print(f"splits frozen: {manifest_hash(m)} -> {MANIFEST}")
+
+
+def check_frozen():
+    """True if the live splits are the frozen ones; otherwise prints what moved."""
+    if not MANIFEST.exists():
+        print("  no frozen manifest yet (audit.py --freeze)")
+        return False
+    old, new = json.loads(MANIFEST.read_text()), manifest()
+    if old["hash"] == manifest_hash(new):
+        print(f"  splits match the manifest frozen {old['frozen']} ({old['hash']})")
+        return True
+    for k in ("judgments", "insight_clips"):
+        for sp in new[k]:
+            a, b = set(old[k].get(sp, [])), set(new[k][sp])
+            if a != b:
+                print(f"  {k}/{sp}: +{len(b - a)} -{len(a - b)} since {old['frozen']}")
+    if set(old["notation_chunks"]) != set(new["notation_chunks"]):
+        print(f"  notation chunks changed since {old['frozen']}")
+    return False
 
 
 def main():
@@ -151,9 +207,10 @@ def main():
                      for a, b in notated_spans().get(j["video"], []))]
     ok &= _check("R3  nothing scored or fitted overlaps a notated stretch", not leaked,
                  [f"{j['phrase_id']}#{j['index']}" for j in leaked])
-    if s["unusable"]:
-        print(f"        ({len(s['unusable'])} judgment(s) set aside by this rule, as intended: "
-              + ", ".join(f"{j['phrase_id']}#{j['index']}" for j in s["unusable"]) + ")")
+    r3 = [j for j in s["unusable"] if j["video"] not in C.BAD_TONIC_VIDEOS]
+    if r3:
+        print(f"        ({len(r3)} judgment(s) set aside by this rule, as intended: "
+              + ", ".join(f"{j['phrase_id']}#{j['index']}" for j in r3) + ")")
     bad_idx = []
     for j in js:
         slug = j["phrase_id"].replace("#", "_")
@@ -165,6 +222,11 @@ def main():
             if j["index"] >= len(items) or items[j["index"]]["video"] != j["video"]:
                 bad_idx.append(f"{j['phrase_id']}#{j['index']}: pool no longer matches the label")
     ok &= _check("R5  every judgment still points at the candidate it judged", not bad_idx, bad_idx)
+    bad_t = [f"{j['phrase_id']}#{j['index']}" for j in s["unusable"] if j["video"] in C.BAD_TONIC_VIDEOS]
+    if bad_t:
+        print(f"        (R7: {len(bad_t)} judgment(s) on wrong-tonic recordings set aside)")
+    print("\nMANIFEST")
+    check_frozen()
     print("\n" + ("all good" if ok else "SOMETHING IS WRONG -- see above"))
 
 
@@ -176,4 +238,5 @@ def _check(label, passed, offenders):
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    freeze() if "--freeze" in sys.argv else main()

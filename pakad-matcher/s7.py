@@ -30,11 +30,13 @@ import json
 import numpy as np
 
 import _bootstrap  # noqa: F401
+import audit
 import config as C
 import corpus
 import decode
 import fit_reader
 import matcher
+import metrics
 from contour import Contour
 
 HAND_SET = dict(C.MATCH, free_cents=30.0, note_cap=3.0, held_slope=400.0, note_trim=0.5)
@@ -83,7 +85,7 @@ def read_distance(spans):
 
 def val_tuned(spans):
     """Coordinate ascent on validation only -- the legitimate analogue of S4b."""
-    best, score = dict(HAND_SET), corpus.per_samooha_auc(-match_cost(spans, HAND_SET), spans)
+    best, score = dict(HAND_SET), metrics.per_samooha_auc(-match_cost(spans, HAND_SET), spans)
     for _ in range(2):
         improved = False
         for k, values in TUNE_GRID.items():
@@ -91,7 +93,7 @@ def val_tuned(spans):
                 if best.get(k) == v:
                     continue
                 trial = dict(best, **{k: v})
-                s = corpus.per_samooha_auc(-match_cost(spans, trial), spans)
+                s = metrics.per_samooha_auc(-match_cost(spans, trial), spans)
                 if s > score + 1e-6:
                     best, score, improved = trial, s, True
         if not improved:
@@ -118,8 +120,8 @@ def scores(spans, choice=None):
 def table(spans, sc):
     print(f"{'method':50s} {'AUC':>6s} {'P@1':>6s} {'P@3':>6s}")
     for name, s in sc.items():
-        print(f"{name:50s} {corpus.per_samooha_auc(s, spans):6.3f} "
-              f"{corpus.precision_at(s, spans, 1):6.2f} {corpus.precision_at(s, spans, 3):6.2f}")
+        print(f"{name:50s} {metrics.per_samooha_auc(s, spans):6.3f} "
+              f"{metrics.precision_at(s, spans, 1):6.2f} {metrics.precision_at(s, spans, 3):6.2f}")
 
 
 def loso(spans, base):
@@ -130,7 +132,7 @@ def loso(spans, base):
     for p in sorted(set(pid)):
         tr, te = pid != p, pid == p
         sub = [s for s, m in zip(spans, tr) if m]
-        w = ws[int(np.argmax([corpus.per_samooha_auc(base["notation-set"][tr]
+        w = ws[int(np.argmax([metrics.per_samooha_auc(base["notation-set"][tr]
                                                      + x * base["read-then-match"][tr], sub) for x in ws]))]
         comb[te] = base["notation-set"][te] + w * base["read-then-match"][te]
         params = val_tuned(sub)
@@ -145,7 +147,7 @@ def validate():
     base = scores(spans)
     # the one free weight, chosen here
     ws = (0.25, 0.5, 1.0, 2.0, 4.0)
-    auc_w = [corpus.per_samooha_auc(base["notation-set"] + w * base["read-then-match"], spans) for w in ws]
+    auc_w = [metrics.per_samooha_auc(base["notation-set"] + w * base["read-then-match"], spans) for w in ws]
     weight = ws[int(np.argmax(auc_w))]
     tuned = val_tuned(spans)
     choice = dict(combined_weight=weight, val_tuned={k: v for k, v in tuned.items()})
@@ -156,17 +158,19 @@ def validate():
     honest = loso(spans, base)
     print(f"\n{'fitted on validation -> leave-one-samooha-out':50s} {'AUC':>6s} {'P@1':>6s} {'P@3':>6s}")
     for name, s in honest.items():
-        print(f"{name:50s} {corpus.per_samooha_auc(s, spans):6.3f} "
-              f"{corpus.precision_at(s, spans, 1):6.2f} {corpus.precision_at(s, spans, 3):6.2f}")
+        print(f"{name:50s} {metrics.per_samooha_auc(s, spans):6.3f} "
+              f"{metrics.precision_at(s, spans, 1):6.2f} {metrics.precision_at(s, spans, 3):6.2f}")
     # eligible: methods that never saw validation, plus the *honest* numbers of those that did.
     # The in-sample "combined" and "val-tuned" rows above are shown, never compared.
     eligible = {k: v for k, v in sc.items()
                 if not k.startswith("S4b") and k not in ("combined", "val-tuned")}
     eligible.update(honest)
-    key = lambda k: (corpus.per_samooha_auc(eligible[k], spans), corpus.precision_at(eligible[k], spans, 3))
+    key = lambda k: (metrics.per_samooha_auc(eligible[k], spans), metrics.precision_at(eligible[k], spans, 3))
     chosen = max(eligible, key=key)
     choice["chosen"] = chosen
-    choice["val_auc"] = corpus.per_samooha_auc(eligible[chosen], spans)
+    choice["val_auc"] = metrics.per_samooha_auc(eligible[chosen], spans)
+    choice["splits_manifest"] = audit.manifest_hash()
+    choice["reader"] = json.loads(fit_reader.READER_JSON.read_text())["params"]   # what it was chosen with
     CHOICE_JSON.parent.mkdir(exist_ok=True)
     CHOICE_JSON.write_text(json.dumps(choice, indent=1))
     print(f"\ncombined weight {weight}; val-tuned changes: "
@@ -174,18 +178,55 @@ def validate():
     print(f"CHOSEN on validation: {chosen}  -> frozen in {CHOICE_JSON}")
 
 
-def test():
+def frozen_params():
+    """Matcher parameters of the method chosen on validation -- what the tool (pakad.py) runs."""
     choice = json.loads(CHOICE_JSON.read_text())
+    chosen = choice["chosen"].replace(" (leave-one-samooha-out)", "")
+    if chosen == "val-tuned":
+        return dict(choice["val_tuned"])
+    if chosen == "hand-set (baseline)":
+        return dict(HAND_SET)
+    if chosen == "notation-set":
+        return notation_params()
+    raise ValueError(f"the chosen method '{chosen}' is not a matcher setting; the tool cannot run it")
+
+
+def test():
+    """Score the frozen choice on test. Nothing is fitted here. Intervals: samoohas resampled."""
+    choice = json.loads(CHOICE_JSON.read_text())
+    if choice.get("splits_manifest") != audit.manifest_hash():
+        print("WARNING: the splits changed since the choice was frozen")
     spans = corpus.spans("test")
     print(f"TEST: {len(spans)} spans, {len({s['pid'] for s in spans})} samoohas, "
           f"{np.mean([s['y'] for s in spans]):.0%} yes  (choice frozen: {choice['chosen']})\n")
     sc = scores(spans, choice)
     table(spans, sc)
     chosen = choice["chosen"].replace(" (leave-one-samooha-out)", "")
+    base = "hand-set (baseline)"
+    items = [dict(s_, i=i) for i, s_ in enumerate(spans)]
+    cis = {}
+    for name in dict.fromkeys([chosen, "read-then-match"]):
+        if name == base or name not in sc:
+            continue
+        d = lambda g, a=sc[name], b=sc[base]: _auc_diff(g, a, b)
+        cis[name] = metrics.bootstrap(d, metrics.by_group(items, "pid"))
+        est, lo, hi = cis[name]
+        print(f"  {name} - {base}: {est:+.3f}  95% interval [{lo:+.3f}, {hi:+.3f}] (samoohas resampled)")
     print(f"\nheadline, chosen on validation before this run: {chosen}")
-    json.dump({k: dict(auc=corpus.per_samooha_auc(v, spans), p1=corpus.precision_at(v, spans, 1),
-                       p3=corpus.precision_at(v, spans, 3)) for k, v in sc.items()},
-              open(C.RESULTS_DIR / "s7_test.json", "w"), indent=1)
+    out = {k: dict(auc=metrics.per_samooha_auc(v, spans), p1=metrics.precision_at(v, spans, 1),
+                   p3=metrics.precision_at(v, spans, 3)) for k, v in sc.items()}
+    out["difference_ci_vs_baseline"] = cis
+    out["splits_manifest"] = audit.manifest_hash()
+    json.dump(out, open(C.RESULTS_DIR / "s7_test.json", "w"), indent=1)
+    json.dump([dict(pid=s_["pid"], recording=s_["recording"], y=s_["y"],
+                    **{k: float(v[i]) for k, v in sc.items()}) for i, s_ in enumerate(spans)],
+              open(C.RESULTS_DIR / "s7_test_spans.json", "w"), indent=1)
+
+
+def _auc_diff(groups, a, b):
+    its = [x for g in groups for x in g]
+    idx = [x["i"] for x in its]
+    return metrics.per_samooha_auc(a[idx], its) - metrics.per_samooha_auc(b[idx], its)
 
 
 if __name__ == "__main__":

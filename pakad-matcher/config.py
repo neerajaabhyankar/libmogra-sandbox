@@ -46,21 +46,24 @@ UNNOTATED_RAAGS = ["Des", "TilakKamod", "Multani", "Todi", "KaushikDhwani",
 # raags the reader never saw (S7 chose badly without them). Fixed before any are judged.
 VALIDATION_RAAGS = ["AlhaiyaBilawal", "Tilang"]
 
-# Round 3 (2026-09-24): fresh raags for *notation* (training). Chosen away from the test raags,
-# and including two audav raags, where the dynamics of a five-swar scale may differ.
-NOTATION_RAAGS_R3 = ["Yaman", "Bhairav", "Malkauns", "Bhoopali", "Jog", "Kalawati"]
-# Round 4 (2026-09-27): four untouched raags, chosen to use their swars in both directions (so test2
-# keeps its raags unseen) and to add the least-notated swars (M, r, N).
-NOTATION_RAAGS_R4 = ["Charukeshi", "Hindol", "AheerBhairav", "Durga"]
-# ... plus madhya-lay chunks in notated raags (alap and taan chunks miss the middle). Puriya
-# Dhanashri and Darbari had no unjudged recording left; Jog skipped (it is in test2).
-MADHYA_RAAGS_R4 = ["Yaman", "Bhairav", "Malkauns", "Bageshree", "Bhoopali", "Kalawati", "Shree",
-                   "Bheempalasi"]
+# (Which raags were notated in which round is history, not configuration: DATA.md § Inventory.)
 UNIDIR_JSON = HERE / "neeraja_unidirectionals.json"   # test2 ground truth
-# Recordings whose tonic in the dataset's tonics.csv is wrong (found from notation comments, then
-# checked: the raag's scale fits the contour better a semitone away). Their notation would teach
-# the reader shifted pitches, so it is left out of training. tonics.csv itself is not edited here.
-BAD_TONIC_VIDEOS = {"NMHoLg5PxRM": "Bhairav; Neeraja: 'wrong tonic!!' (2026-09-28); +100 cents fits better"}
+# Recordings whose tonic in the dataset's tonics.csv is wrong (flagged by Neeraja). Excluded
+# EVERYWHERE (audit rule R7): notation, judgments, test2 pooling, insight clips. tonics.csv itself
+# is not edited here.
+BAD_TONIC_VIDEOS = {
+    "NMHoLg5PxRM": "Bhairav; Neeraja: 'wrong tonic!!' (2026-09-28); +100 cents fits better",
+    "HWukj_DQ8W8": "Multani; Neeraja flagged its insight clip (2026-10-03) and confirmed after "
+                   "listening to the whole recording: wrong tonic. tonics.csv says 165.27 Hz (E3 +5c)",
+}
+
+# ---- notes from a pitch track (notes.py): one definition for test2, insights and the reader.
+# The "next note" rule is Neeraja's (2026-10-03): skip kan, never judge across a breath.
+NOTES = dict(
+    breath_s=0.25,            # an unvoiced run this long is a breath: no move is judged across it
+    min_phrase_s=0.5,         # voiced blips shorter than this between breaths are noise
+    kan_max_s=0.08,           # notes shorter than this are kan / pass-through: never "the next note"
+)                             # (0.08 s = what the insight train clips preferred, I3)
 
 # ---- matcher (S1). Costs are per frame at the downsampled rate.
 # Values marked (tuned) were fitted to the 168 annotations by coordinate ascent on per-phrase
@@ -92,9 +95,9 @@ CANDIDATE_POOL = 20           # distinct regions re-scored before taking the top
 CANDIDATES_PER_MIN = 8        # ... and this many per minute of audio: a 30-min recording needs
                               # far more than a 20-s clip, or the re-score never sees the winners
 NMS_IOU = 0.3                 # overlapping candidates above this IoU are suppressed
-PLOT_PAD_S = 1.5              # context shown either side of a candidate
+PLOT_PAD_S = 1.5              # context shown either side of a candidate (archive/plot.py)
 
-# ---- S1 run outputs
+# ---- S1 run outputs (used only by archive/ scripts)
 S1_DIR = RESULTS_DIR / "s1"
 S1_PLOT_TOP = 6               # best candidates plotted per phrase ...
 S1_PLOT_MID = 2               # ... plus this many from the median band, for contrast
@@ -102,14 +105,14 @@ S1_MAX_PER_VIDEO = 2          # diversity cap on plotted candidates
 S1_AUDIO_TOP = 3              # audio snippets written per phrase
 S1_COST_BANDS = (0.2, 0.4)    # prevalence reported as #clips with best cost below these
 
-# ---- plot style (dataviz reference palette, light)
+# ---- plot style (dataviz reference palette, light; archive/plot.py)
 STYLE = dict(
     surface="#fcfcfb", ink="#0b0b0b", ink2="#52514e", grid="#e6e5e0", context="#b9b7af",
     note="#2a78d6", orn="#eb6834", band="#2a78d6", band_alpha=0.06,
     font="DejaVu Sans", row_h=1.9, width=9.0, dpi=130,
 )
 
-# ---- S2: negative control (fixed before looking at results)
+# ---- S2: negative control (fixed before looking at results; archive/run_s2.py)
 S2_DIR = RESULTS_DIR / "s2"          # a run writes to S2_DIR / <tag>
 S2_N_SHUFFLES = 5             # distinct re-orderings of each phrase, scored on its own raag
 S2_ILLEGAL_SAMPLE = 100       # clips sampled from raags lacking one of the phrase's swars
@@ -119,7 +122,8 @@ S2_GATE_AUC_NULL = 0.70       # own raag vs "legal" raags (all phrase swars in s
 S2_GATE_AUC_SHUFFLE = 0.60    # phrase vs its shuffles, on own-raag clips
 S2_FPR = 0.10                 # hit rate reported at this false-positive rate of the legal null
 
-# ---- S3: annotation (own raag only; see plan.md "what counts as a positive")
+# ---- S3: annotation (own raag only). The S3_* pool settings below are archive/s3.py's (pool v1);
+# S3_DIR, S3_SEED and MATCHER_VERSION are live
 S3_DIR = HERE / "annotations"
 S3_POOL_PER_PHRASE = 12       # candidates offered per phrase ...
 S3_BANDS = (("strong", 0.0, 0.30, 5),    # (name, cost lo, hi, how many) -- absolute cost,
@@ -149,7 +153,7 @@ CTX_MAX_S = 5.0               # ... but never show more than this either side
 CTX_MIN_S = 1.5               # ... nor less than this
 APP_PORT = 8765
 
-# ---- S4: features fitted to the annotations
+# ---- S4: features fitted to the annotations (archive/s4.py, archive/features.py)
 LOCAL_CONTEXT_S = 10.0        # window for "loud/fast *compared with what?*" features
 FEATURES = ["pitch_cost", "orn_frac", "gap_frac", "leaps", "register",
             "salience_rel", "salience_min", "tempo_ratio", "held_extra"]
@@ -161,7 +165,6 @@ CHUNK_ALAP_S = 20.0           # a slow stretch gets 20 s ...
 CHUNK_TAAN_S = 15.0           # ... a dense one 15 s: about as much as anyone can hold by ear
 CHUNK_MADHYA_S = 15.0         # ... and a typical-density one 15 s (the recording's median density)
 CHUNK_MADHYA_PER_RAAG = 2     # chunks.py --madhya: recordings per notated raag
-CHUNKS_PER_RECORDING = 2
 CHUNK_RECORDINGS_PER_RAAG = 2
 CHUNK_MIN_VOICED = 0.7        # skip stretches that are mostly silence
 # The matcher's costs are tuned for *phrase matching* -- strict intonation, because there a near
@@ -178,12 +181,8 @@ NOTATE_COVER_WEIGHT = 0.4     # a selection asserts "the sequence is here", so c
 NOTATE_HELD_WEIGHT = 0.2      # ... but the notes should land on the notes: reward alignments whose
                               # note frames sit on held pitch rather than on the way to it. Small,
                               # because a quick dip that only touches a swar is still that swar
-NOTATE_SLACK = 0.5            # when aligning a typed sequence in a selected stretch, prefer the
-                              # *fullest* alignment among those costing within this of the best:
-                              # free ends are for silence and drone at the edges, not an excuse
-                              # to explain a 6 s selection with 0.2 s of it
 
-# ---- S12: learned reader (ctc_reader.py) -- a small network trained on the notation corpus
+# ---- S12: learned reader (archive/ctc_reader.py) -- a small network trained on the notation corpus
 CTC = dict(
     pc_bins=24, pc_sigma=30.0,        # pitch class as soft bins over the octave (cents)
     hidden=64, layers=2, dropout=0.2,
@@ -199,23 +198,18 @@ CTC = dict(
 CTC_DIR = RESULTS_DIR / "ctc_reader"
 
 # ---- Insights (insights/): per-clip aarohi/avarohi swars and nyas swars
-INSIGHTS = dict(
-    phrase_gap_s=0.25,        # a silence this long always breaks the reading (and is a pause)
-    min_phrase_s=0.5,         # shorter voiced blips are noise
+INSIGHTS = dict(               # the threshold heuristics (not raag rules); notes come from NOTES
     # aarohi / avarohi
-    dir_min_note_s=0.08,      # only notes this long count as a move (I3: tuned on train clips)
-    dir_ratio=3.0,            # aarohi: up >= dir_ratio x down (I6: retuned on train, audio only; her
-                              # ~10x holds for true counts, machine counts are noisier)
+    dir_ratio=2.0,            # aarohi: up >= dir_ratio x down. Values here mirror the frozen
+                              # choice (results/insights/choice.json "heuristics", fitted on train +
+                              # validation clips, 2026-10-03), which is what actually runs
     dir_min_count=2,          # ... with at least this many moves in the winning direction (I3)
     # nyas = the swar a breath or pause follows
-    pause_min_s=0.25,         # shorter unvoiced runs are not pauses (I3: tuned; was 0.06)
-    pause_rel=2.0,            # ... and >= this x the local median note length (I6: audio only)
+    pause_min_s=0.06,         # a pause: an unvoiced run of at least this (shorter = tracker dropout)
+    pause_rel=4.0,            # ... and at least this x the local median note length ("small,
+                              # relative to the pace" -- Neeraja) ...
+    pause_abs_s=0.25,         # ... or any unvoiced run of at least this, whatever the pace
     pace_window_s=3.0,        # "local": notes within this many seconds
-    pause_drop_db=None,       # if set: also this many dB quieter than just before (I3: hurt -- the
-                              # tanpura keeps the level up through a breath)
-    tail_trim_s=0.0,          # ignore this much voiced contour before the pause (fit: 0)
-    skip_short_s=0.0,         # skip a final note shorter than this (notation fit 0.1; I3 clips 0)
-    droop_only=False,         # True = only when it sits below the note before (fit: no difference)
     nyas_min_count=2,         # a nyas swar precedes at least this many pauses ...
     nyas_min_share=0.15,      # ... and at least this share of all pauses
 )
@@ -242,9 +236,9 @@ INSIGHT_VOICE = dict(         # insights/voice.py: loudness above the drone's st
     range_db=50.0,            # floor of the scale, below the clip's loud end
 )
 INSIGHT_DETECT = dict(        # insights/detect.py: learned nyas / direction detectors
-    pace_window_s=3.0,
     nms_s=1.0,                # two nyas events closer than this: keep the likelier
-    dir_min_notes=(0.0, 0.08, 0.16),   # direction counts at these minimum note lengths
+    dir_min_notes=(0.08, 0.16, 0.3),   # direction counts at these minimum note lengths (all
+                                       # >= NOTES.kan_max_s: kan never count, Neeraja 2026-10-03)
     l2_C=0.5,                 # logistic regression: inverse L2 strength (small data)
     thresholds=(0.3, 0.4, 0.5, 0.6, 0.7, 0.8),   # nyas probability cut, picked on train
 )

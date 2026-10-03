@@ -32,7 +32,7 @@ import _bootstrap  # noqa: F401
 import config as C
 import corpus
 import decode
-from s6 import edit_ops
+from metrics import edit_ops
 
 P = C.CTC
 N_CLS = 12 * P["octaves"]       # swar (+ 12 * (octave + 1) when octaves are classes)

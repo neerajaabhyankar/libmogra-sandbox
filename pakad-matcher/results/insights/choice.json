@@ -8,41 +8,28 @@
   "detectors": "detectors_nyas.json"
  },
  "heuristics": {
-  "phrase_gap_s": 0.25,
-  "min_phrase_s": 0.5,
-  "dir_min_note_s": 0.08,
-  "dir_ratio": 3.0,
+  "dir_ratio": 2.0,
   "dir_min_count": 2,
-  "pause_min_s": 0.25,
-  "pause_rel": 2.0,
+  "pause_min_s": 0.06,
+  "pause_rel": 4.0,
+  "pause_abs_s": 0.25,
   "pace_window_s": 3.0,
-  "pause_drop_db": null,
-  "tail_trim_s": 0.0,
-  "skip_short_s": 0.0,
-  "droop_only": false,
   "nyas_min_count": 2,
   "nyas_min_share": 0.15
  },
+ "splits_manifest": "5a93826ee65c",
  "cv": {
   "threshold heuristics": {
-   "directions": 0.5629713423831071,
-   "nyas_f1": 0.34328358208955223
+   "directions": 0.5188536953242836,
+   "nyas_f1": 0.3026315789473684
   },
   "learned": {
-   "directions": 0.5961957432545668,
+   "directions": 0.5678733031674209,
    "nyas_f1": 0.4090909090909091
   },
   "learned + notation": {
-   "directions": 0.6388050946874476,
+   "directions": 0.6279118485000839,
    "nyas_f1": 0.4090909090909091
-  },
-  "learned, nyas C 0.1": {
-   "directions": 0.5961957432545668,
-   "nyas_f1": 0.40625
-  },
-  "learned, nyas C 2": {
-   "directions": 0.5961957432545668,
-   "nyas_f1": 0.3851851851851852
   }
  }
 }

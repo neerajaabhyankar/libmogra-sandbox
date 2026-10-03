@@ -1,8 +1,9 @@
 {
- "w": -1.326828891015847,
- "b": 2.0388616300290328,
- "n": 168,
- "brier_lopo": 0.207987669664907,
- "matcher": "v7",
- "pool": "v2-full"
+ "w": -1.2113773844451279,
+ "b": 1.4929004768866425,
+ "n": 207,
+ "brier_lopo": 0.1842835519511652,
+ "fitted_on": "validation",
+ "method": "val-tuned (leave-one-samooha-out)",
+ "params_hash": "bb4d687567b7"
 }

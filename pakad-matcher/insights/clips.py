@@ -126,7 +126,8 @@ def report(split="test"):
     for ch in [c for c in registry() if c["split"] == split]:
         ctr = fullaudio.contour(ch["video"])
         a, b = int(round(ch["t0"] / ctr.hop)), int(round(ch["t1"] / ctr.hop))
-        ins, db = core.insights(ctr.cents[a:b], ctr.hop), db_row(ch["raag"])
+        ins = core.insights(ctr.cents[a:b], ctr.hop, wav=C.INSIGHT_CLIP_DIR / f"{ch['id']}.wav")
+        db = db_row(ch["raag"])
         mv = "  ".join(f"{s} {m['up']}↑{m['down']}↓" for s, m in ins["moves"].items())
         pa = "  ".join(f"{s} {c}" for s, c in ins["pauses_after"].items())
         lines += [f"## {ch['raag']} -- `{ch['id']}.wav`",

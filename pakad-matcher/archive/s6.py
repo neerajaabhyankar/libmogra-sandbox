@@ -15,6 +15,8 @@ from collections import Counter
 
 import numpy as np
 
+from metrics import edit_ops  # moved to metrics.py 2026-10-03
+
 import _bootstrap  # noqa: F401
 import config as C
 import decode
@@ -37,26 +39,6 @@ def notations(chunk_ids=None):
 def human_swars(text):
     swars, _oct = raagdb.parse_phrase(text.split())
     return [s % 12 for s in swars]
-
-
-def edit_ops(a, b):
-    """Levenshtein between swar sequences; returns (substitutions, deletions, insertions)."""
-    n, m = len(a), len(b)
-    d = np.zeros((n + 1, m + 1), int)
-    d[:, 0] = np.arange(n + 1)
-    d[0, :] = np.arange(m + 1)
-    for i in range(1, n + 1):
-        for j in range(1, m + 1):
-            d[i, j] = min(d[i - 1, j] + 1, d[i, j - 1] + 1, d[i - 1, j - 1] + (a[i - 1] != b[j - 1]))
-    i, j, sub, dele, ins = n, m, 0, 0, 0
-    while i or j:
-        if i and j and d[i, j] == d[i - 1, j - 1] + (a[i - 1] != b[j - 1]):
-            sub += a[i - 1] != b[j - 1]; i -= 1; j -= 1
-        elif i and d[i, j] == d[i - 1, j] + 1:
-            dele += 1; i -= 1                      # in the notation, missing from the reading
-        else:
-            ins += 1; j -= 1                       # in the reading, not in the notation
-    return sub, dele, ins
 
 
 def read_stretch(ch, s, params=None):
