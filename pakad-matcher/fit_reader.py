@@ -32,7 +32,8 @@ import config as C
 import corpus
 import decode
 import matcher
-from s6 import edit_ops
+import notes
+from metrics import edit_ops
 
 SHRINK_N = 10                        # an offset from n notes is scaled by n / (n + SHRINK_N)
 FAST_NOTES_PER_S = 1.0               # held-note rate above which a stretch reads as fast
@@ -49,15 +50,16 @@ CONST_ROUNDS = 3
 
 
 def load():
-    """(params, (onset_slow, onset_fast)) of the saved reader."""
+    """(params, (onset_slow, onset_fast)) of the saved reader. `params` holds *every* constant the
+    reader uses (since 2026-10-03), so editing config.MATCH no longer changes the reader silently."""
     r = json.loads(READER_JSON.read_text())
     params = r.get("params") or dict(C.READ_MATCH, swar_offsets=r["swar_offsets"])
-    return params, (r["onset_slow"], r["onset_fast"])
+    return {**C.MATCH, **params}, (r["onset_slow"], r["onset_fast"])
 
 
-def density(cents, hop):
+def density(cents, hop, params=None):
     """Held notes per second: the tempo of a stretch, from its contour alone."""
-    held = matcher._held(cents, hop, C.MATCH)
+    held = matcher._held(cents, hop, {**C.MATCH, **(params or {})})
     onsets = int(np.sum(held[1:] & ~held[:-1]) + (1 if len(held) and held[0] else 0))
     return onsets / max(len(cents) * hop, 1e-6)
 
@@ -82,7 +84,7 @@ def read(st, params, onsets=None):
     """The reader's swar sequence for one stretch; `onsets` = (slow, fast) makes it tempo-aware."""
     p = dict(params)
     if onsets is not None:
-        p["onset_cost"] = onsets[1] if density(st["cents"], st["hop"]) >= FAST_NOTES_PER_S else onsets[0]
+        p["onset_cost"] = notes.onset_cost(st["cents"], st["hop"], params, onsets)
     seq, _ = decode.free_read(st["cents"], st["hop"], params=p)
     return seq
 
@@ -99,8 +101,8 @@ def misread(stretches, params, onsets=None):
 
 def fit_onsets(stretches, params):
     """Best onset cost for slow and for fast stretches, each by its own misread rate."""
-    slow = [s for s in stretches if density(s["cents"], s["hop"]) < FAST_NOTES_PER_S]
-    fast = [s for s in stretches if density(s["cents"], s["hop"]) >= FAST_NOTES_PER_S]
+    slow = [s for s in stretches if density(s["cents"], s["hop"], params) < FAST_NOTES_PER_S]
+    fast = [s for s in stretches if density(s["cents"], s["hop"], params) >= FAST_NOTES_PER_S]
     best = []
     for group in (slow, fast):
         scores = []
@@ -191,7 +193,7 @@ def save(cv):
     READER_JSON.parent.mkdir(exist_ok=True)
     READER_JSON.write_text(json.dumps(dict(
         variant=choice, cv_misread=round(cv[choice], 4),
-        params={k: v for k, v in params.items()},
+        params={**C.MATCH, **params},                       # every constant, frozen
         swar_offsets=params.get("swar_offsets", offsets), onset_slow=onsets[0], onset_fast=onsets[1],
         fast_notes_per_s=FAST_NOTES_PER_S, fitted_on="notation corpus, all stretches",
         n_stretches=len(st), n_swars=sum(len(s["swars"]) for s in st)), indent=1))

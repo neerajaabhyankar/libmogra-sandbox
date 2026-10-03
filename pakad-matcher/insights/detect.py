@@ -21,6 +21,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 
 import config as C
+import notes
 from insights import core
 from utils import raagdb
 
@@ -49,7 +50,7 @@ def nyas_candidates(cents, hop, read_, loud, voice):
         if u >= len(cents):
             continue                                    # the clip is cut here: no evidence after
         gap = (u - e) * hop
-        near = [m[3] - m[2] for m, _ in ns_all if abs((m[2] + m[3]) / 2 - t1) <= D["pace_window_s"]]
+        near = [m[3] - m[2] for m, _ in ns_all if abs((m[2] + m[3]) / 2 - t1) <= C.INSIGHTS["pace_window_s"]]
         pace = float(np.median(near)) if near else 0.2
         a0 = int(round(t0 / hop))
         after = slice(max(e - int(0.2 / hop), a0), min(len(cents), e + int(0.8 / hop)))
@@ -88,7 +89,12 @@ def nms(events):
 # ---------------------------------------------------------------- direction
 def dir_features(read_):
     """{swar: feature vector} for every swar with at least one move."""
-    per = [core.moves(read_, dict(dir_min_note_s=m)) for m in D["dir_min_notes"]]
+    per = []
+    for m in D["dir_min_notes"]:
+        counts = {}
+        for _, _, ns in read_:
+            notes.directions(ns, counts, kan_max_s=m)
+        per.append(counts)
     dwell = {}
     for _, _, ns in read_:
         for s, _, t0, t1 in ns:
@@ -119,10 +125,10 @@ def notation_items(reader=None):
         c = ch[cid]
         if c["video"] in C.BAD_TONIC_VIDEOS:
             continue
-        counts = {}
+        counts = {}                           # notated swars: every one was sung, none is skipped
         for seg in rec["segments"]:
             sw, oc = raagdb.parse_phrase(seg["swars"].split())
-            core.directions([(x % 12, 100 * (x % 12) + 1200 * o, 0, 0) for x, o in zip(sw, oc)], counts)
+            notes.directions([(x % 12, 100 * (x % 12) + 1200 * o) for x, o in zip(sw, oc)], counts)
         labels = {}
         for x, (u, d) in counts.items():
             if u + d < D["proxy_min"]:
@@ -137,7 +143,7 @@ def notation_items(reader=None):
         ctr = fullaudio.contour(c["video"])
         a, b = int(round(c["t0"] / ctr.hop)), int(round(c["t1"] / ctr.hop))
         out.append(dict(clip=dict(video=c["video"], id=cid),
-                        read=core.read(ctr.cents[a:b], ctr.hop, reader),
+                        read=notes.read(ctr.cents[a:b], ctr.hop, reader),
                         lab=dict(directions=labels, nyas=[])))
     return out
 
@@ -215,7 +221,38 @@ def load(path):
     return dict(nyas=lr(d["nyas"]), nyas_threshold=d["nyas_threshold"], direction=lr(d["direction"]))
 
 
-def load_choice(task):
-    """Frozen detectors for 'directions' or 'nyas', as chosen by insights/evaluate.py --val."""
-    choice = json.loads((C.INSIGHTS_DIR / "choice.json").read_text())[task]
-    return load(C.INSIGHTS_DIR / choice["detectors"])
+CHOICE_JSON = C.INSIGHTS_DIR / "choice.json"
+
+
+def rule_direction(p):
+    return lambda it: {s: k for k, ss in core.unidirectional(
+        core.moves(it["read"]), p["dir_ratio"], p["dir_min_count"]).items() for s in ss}
+
+
+def rule_nyas(p):
+    return lambda it: core.nyas_events(it["cents"], it["hop"], it["read"], p)
+
+
+def learned_direction(m):
+    return lambda it: direction_predict(it, m["direction"])
+
+
+def learned_nyas(m):
+    return lambda it: nyas_predict(it, m["nyas"], m["nyas_threshold"])
+
+
+def frozen(task, audio=True):
+    """The predictor frozen for `task` ('directions' or 'nyas') by insights/evaluate.py --val:
+    item -> {swar: 'aarohi'|'avarohi'} or [(swar, time)]. A learned nyas detector needs audio;
+    without it the frozen threshold heuristics answer. `.method` names what answered."""
+    choice = json.loads(CHOICE_JSON.read_text())
+    entry = choice[task]
+    if "detectors" in entry and (audio or task == "directions"):
+        m = load(C.INSIGHTS_DIR / entry["detectors"])
+        f, name = (learned_direction(m) if task == "directions" else learned_nyas(m)), entry["choice"]
+    else:
+        rules = choice["heuristics"]
+        f = rule_direction(rules) if task == "directions" else rule_nyas(rules)
+        name = "threshold heuristics" + ("" if "rules" in entry else " (no audio given)")
+    f.method = name
+    return f

@@ -19,6 +19,7 @@ import numpy as np
 import _bootstrap  # noqa: F401
 import config as C
 import corpus
+import metrics
 
 OUT = C.RESULTS_DIR / "roc"
 COLOURS = ["#5b6c8f", "#b0706a", "#6f9a7a", "#8c7aa8", "#c29a5b", "#7a8c8c"]
@@ -61,7 +62,7 @@ def test1(split):
         fpr, tpr = roc(within_rank(s, items), y)
         bold = name == choice["chosen"].replace(" (leave-one-samooha-out)", "")
         ax.plot(fpr, tpr, color=col, lw=2.2 if bold else 1.2,
-                label=f"{name.split(' (')[0]}  {corpus.per_samooha_auc(s, items):.3f}"
+                label=f"{name.split(' (')[0]}  {metrics.per_samooha_auc(s, items):.3f}"
                       + ("  (chosen)" if bold else ""))
     _axes(ax, f"{'test1' if split == 'test' else split}: is this the samooha?  {len(items)} spans, "
               f"{len({it['pid'] for it in items})} samoohas")
@@ -80,7 +81,8 @@ def _kind(r):
 
 def test2():
     """Two figures: the ROC, and per swar the up-fraction each method measured."""
-    rows = json.loads((C.RESULTS_DIR / "test2.json").read_text())
+    d = json.loads((C.RESULTS_DIR / "test2.json").read_text())
+    rows = d["rows"] if isinstance(d, dict) else d
     methods = [k for k in rows[0] if isinstance(rows[0][k], dict)]
 
     fig, ax = plt.subplots(figsize=(6.5, 6.5))

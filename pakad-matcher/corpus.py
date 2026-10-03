@@ -8,6 +8,7 @@ Splits come from `audit.splits()` -- this module never decides what is test.
                      (python corpus.py --notes -> annotations/notation_notes.jsonl)
     folds(k)         recording-grouped folds over those stretches, for cross-validation
     spans(split)     judged candidate spans for 'validation' or 'test', with their contour
+    (scores and intervals: metrics.py)
 
 Terms: [DATA.md § Glossary](DATA.md#glossary).
 """
@@ -75,28 +76,6 @@ def spans(split):
                         swars=tuple(p.swars), octaves=tuple(p.octaves), hop=ctr.hop,
                         cents=ctr.cents[a:b]))
     return out
-
-
-def per_samooha_auc(score, items):
-    """Does a 'yes' outrank a 'no' within each samooha? Higher score = more likely the phrase."""
-    score = np.asarray(score)
-    pid = np.array([it["pid"] for it in items])
-    y = np.array([it["y"] for it in items])
-    aucs = []
-    for p in sorted(set(pid)):
-        m = pid == p
-        a, b = score[m][y[m] == 1], score[m][y[m] == 0]
-        if len(a) and len(b):
-            aucs.append(np.mean((a[:, None] > b[None, :]) + 0.5 * (a[:, None] == b[None, :])))
-    return float(np.mean(aucs)) if aucs else np.nan
-
-
-def precision_at(score, items, k):
-    score = np.asarray(score)
-    pid = np.array([it["pid"] for it in items])
-    y = np.array([it["y"] for it in items])
-    return float(np.mean([y[pid == p][np.argsort(-score[pid == p])[:k]].mean()
-                          for p in sorted(set(pid))]))
 
 
 NOTE_TABLE = C.S3_DIR / "notation_notes.jsonl"

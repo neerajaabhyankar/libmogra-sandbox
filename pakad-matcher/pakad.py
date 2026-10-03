@@ -7,8 +7,9 @@
     poetry run python pakad.py raga.mp3 --samooha ",n S m" --tonic 155.06 --top 5
 
 Deliberately small surface: everything a caller needs is the samooha as text, the tonic, and a
-threshold. The tonic is required and never guessed -- it is the one input that changes every
-answer (see plan.md).
+threshold. The tonic is required and never guessed (Neeraja, 2026-10-03: Sa is given). No raag.
+The matcher runs the method chosen on validation (`s7.frozen_params()`), and `probability` comes
+from calibrate.py, fitted on validation under that same method.
 
 Terms: [DATA.md § Glossary](DATA.md#glossary).
 """
@@ -72,7 +73,11 @@ def find(source, samooha, tonic_hz=None, top_k=C.TOP_K, min_probability=0.0, par
     """
     swars, octaves = parse_samooha(samooha)
     ctr = contour_of(source, tonic_hz)
+    import s7
+    params = params or s7.frozen_params()
     model = json.loads(calibrate.MODEL_JSON.read_text()) if calibrate.MODEL_JSON.exists() else None
+    if model and model.get("params_hash") != calibrate.params_hash(params):
+        model = None                      # calibrated for other parameters: no probability, not a wrong one
     out = []
     for c in matcher.match(ctr, swars, top_k=top_k, params=params, octaves=octaves):
         p = float(calibrate.probability(c.cost, model)) if model else float("nan")

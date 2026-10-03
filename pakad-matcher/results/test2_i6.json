@@ -1,0 +1,434 @@
+[
+ {
+  "raag": "Multani",
+  "swar": "r",
+  "aaroh": false,
+  "avaroh": true,
+  "control": false,
+  "recordings": 6,
+  "held-notes only (untuned)": {
+   "up": 89,
+   "down": 101,
+   "up_frac": 0.46842105263157896
+  },
+  "tuned heuristic notes": {
+   "up": 272,
+   "down": 814,
+   "up_frac": 0.2504604051565378
+  }
+ },
+ {
+  "raag": "Multani",
+  "swar": "d",
+  "aaroh": false,
+  "avaroh": true,
+  "control": false,
+  "recordings": 6,
+  "held-notes only (untuned)": {
+   "up": 22,
+   "down": 51,
+   "up_frac": 0.3013698630136986
+  },
+  "tuned heuristic notes": {
+   "up": 59,
+   "down": 478,
+   "up_frac": 0.10986964618249534
+  }
+ },
+ {
+  "raag": "Multani",
+  "swar": "g",
+  "aaroh": true,
+  "avaroh": true,
+  "control": true,
+  "recordings": 6,
+  "held-notes only (untuned)": {
+   "up": 629,
+   "down": 376,
+   "up_frac": 0.6258706467661691
+  },
+  "tuned heuristic notes": {
+   "up": 1501,
+   "down": 960,
+   "up_frac": 0.6099146688338074
+  }
+ },
+ {
+  "raag": "Multani",
+  "swar": "M",
+  "aaroh": true,
+  "avaroh": true,
+  "control": true,
+  "recordings": 6,
+  "held-notes only (untuned)": {
+   "up": 340,
+   "down": 490,
+   "up_frac": 0.40963855421686746
+  },
+  "tuned heuristic notes": {
+   "up": 1489,
+   "down": 1378,
+   "up_frac": 0.519358214161144
+  }
+ },
+ {
+  "raag": "Madhuvanti",
+  "swar": "R",
+  "aaroh": false,
+  "avaroh": true,
+  "control": false,
+  "recordings": 10,
+  "held-notes only (untuned)": {
+   "up": 301,
+   "down": 433,
+   "up_frac": 0.4100817438692098
+  },
+  "tuned heuristic notes": {
+   "up": 906,
+   "down": 1523,
+   "up_frac": 0.37299300123507617
+  }
+ },
+ {
+  "raag": "Madhuvanti",
+  "swar": "D",
+  "aaroh": false,
+  "avaroh": true,
+  "control": false,
+  "recordings": 10,
+  "held-notes only (untuned)": {
+   "up": 74,
+   "down": 340,
+   "up_frac": 0.178743961352657
+  },
+  "tuned heuristic notes": {
+   "up": 348,
+   "down": 1241,
+   "up_frac": 0.21900566393958465
+  }
+ },
+ {
+  "raag": "Madhuvanti",
+  "swar": "g",
+  "aaroh": true,
+  "avaroh": true,
+  "control": true,
+  "recordings": 10,
+  "held-notes only (untuned)": {
+   "up": 934,
+   "down": 541,
+   "up_frac": 0.6332203389830509
+  },
+  "tuned heuristic notes": {
+   "up": 1652,
+   "down": 1541,
+   "up_frac": 0.517381772627623
+  }
+ },
+ {
+  "raag": "Madhuvanti",
+  "swar": "M",
+  "aaroh": true,
+  "avaroh": true,
+  "control": true,
+  "recordings": 10,
+  "held-notes only (untuned)": {
+   "up": 711,
+   "down": 907,
+   "up_frac": 0.4394313967861557
+  },
+  "tuned heuristic notes": {
+   "up": 2643,
+   "down": 2099,
+   "up_frac": 0.5573597638127372
+  }
+ },
+ {
+  "raag": "Tilang",
+  "swar": "n",
+  "aaroh": false,
+  "avaroh": true,
+  "control": false,
+  "recordings": 4,
+  "held-notes only (untuned)": {
+   "up": 38,
+   "down": 211,
+   "up_frac": 0.15261044176706828
+  },
+  "tuned heuristic notes": {
+   "up": 248,
+   "down": 486,
+   "up_frac": 0.33787465940054495
+  }
+ },
+ {
+  "raag": "Tilang",
+  "swar": "N",
+  "aaroh": true,
+  "avaroh": false,
+  "control": false,
+  "recordings": 4,
+  "held-notes only (untuned)": {
+   "up": 129,
+   "down": 157,
+   "up_frac": 0.45104895104895104
+  },
+  "tuned heuristic notes": {
+   "up": 490,
+   "down": 285,
+   "up_frac": 0.632258064516129
+  }
+ },
+ {
+  "raag": "Tilang",
+  "swar": "G",
+  "aaroh": true,
+  "avaroh": true,
+  "control": true,
+  "recordings": 4,
+  "held-notes only (untuned)": {
+   "up": 280,
+   "down": 164,
+   "up_frac": 0.6306306306306306
+  },
+  "tuned heuristic notes": {
+   "up": 846,
+   "down": 333,
+   "up_frac": 0.7175572519083969
+  }
+ },
+ {
+  "raag": "Tilang",
+  "swar": "m",
+  "aaroh": true,
+  "avaroh": true,
+  "control": true,
+  "recordings": 4,
+  "held-notes only (untuned)": {
+   "up": 197,
+   "down": 121,
+   "up_frac": 0.6194968553459119
+  },
+  "tuned heuristic notes": {
+   "up": 561,
+   "down": 612,
+   "up_frac": 0.4782608695652174
+  }
+ },
+ {
+  "raag": "Sarang",
+  "swar": "n",
+  "aaroh": false,
+  "avaroh": true,
+  "control": false,
+  "recordings": 10,
+  "held-notes only (untuned)": {
+   "up": 210,
+   "down": 430,
+   "up_frac": 0.328125
+  },
+  "tuned heuristic notes": {
+   "up": 869,
+   "down": 1226,
+   "up_frac": 0.41479713603818613
+  }
+ },
+ {
+  "raag": "Sarang",
+  "swar": "N",
+  "aaroh": true,
+  "avaroh": false,
+  "control": false,
+  "recordings": 10,
+  "held-notes only (untuned)": {
+   "up": 746,
+   "down": 309,
+   "up_frac": 0.7071090047393365
+  },
+  "tuned heuristic notes": {
+   "up": 3251,
+   "down": 747,
+   "up_frac": 0.8131565782891446
+  }
+ },
+ {
+  "raag": "Sarang",
+  "swar": "R",
+  "aaroh": true,
+  "avaroh": true,
+  "control": true,
+  "recordings": 10,
+  "held-notes only (untuned)": {
+   "up": 940,
+   "down": 1106,
+   "up_frac": 0.45943304007820135
+  },
+  "tuned heuristic notes": {
+   "up": 2446,
+   "down": 3078,
+   "up_frac": 0.44279507603186097
+  }
+ },
+ {
+  "raag": "Sarang",
+  "swar": "m",
+  "aaroh": true,
+  "avaroh": true,
+  "control": true,
+  "recordings": 10,
+  "held-notes only (untuned)": {
+   "up": 594,
+   "down": 729,
+   "up_frac": 0.4489795918367347
+  },
+  "tuned heuristic notes": {
+   "up": 1626,
+   "down": 2003,
+   "up_frac": 0.4480573160650317
+  }
+ },
+ {
+  "raag": "Jog",
+  "swar": "g",
+  "aaroh": false,
+  "avaroh": true,
+  "control": false,
+  "recordings": 6,
+  "held-notes only (untuned)": {
+   "up": 108,
+   "down": 346,
+   "up_frac": 0.23788546255506607
+  },
+  "tuned heuristic notes": {
+   "up": 486,
+   "down": 853,
+   "up_frac": 0.36295743091859595
+  }
+ },
+ {
+  "raag": "Jog",
+  "swar": "G",
+  "aaroh": true,
+  "avaroh": false,
+  "control": false,
+  "recordings": 6,
+  "held-notes only (untuned)": {
+   "up": 512,
+   "down": 432,
+   "up_frac": 0.5423728813559322
+  },
+  "tuned heuristic notes": {
+   "up": 1439,
+   "down": 806,
+   "up_frac": 0.6409799554565702
+  }
+ },
+ {
+  "raag": "Jog",
+  "swar": "m",
+  "aaroh": true,
+  "avaroh": true,
+  "control": true,
+  "recordings": 6,
+  "held-notes only (untuned)": {
+   "up": 280,
+   "down": 329,
+   "up_frac": 0.45977011494252873
+  },
+  "tuned heuristic notes": {
+   "up": 840,
+   "down": 1290,
+   "up_frac": 0.39436619718309857
+  }
+ },
+ {
+  "raag": "Jog",
+  "swar": "n",
+  "aaroh": true,
+  "avaroh": true,
+  "control": true,
+  "recordings": 6,
+  "held-notes only (untuned)": {
+   "up": 258,
+   "down": 215,
+   "up_frac": 0.5454545454545454
+  },
+  "tuned heuristic notes": {
+   "up": 1325,
+   "down": 646,
+   "up_frac": 0.6722475900558093
+  }
+ },
+ {
+  "raag": "Basant",
+  "swar": "r",
+  "aaroh": false,
+  "avaroh": true,
+  "control": false,
+  "recordings": 5,
+  "held-notes only (untuned)": {
+   "up": 59,
+   "down": 153,
+   "up_frac": 0.2783018867924528
+  },
+  "tuned heuristic notes": {
+   "up": 179,
+   "down": 793,
+   "up_frac": 0.18415637860082304
+  }
+ },
+ {
+  "raag": "Basant",
+  "swar": "P",
+  "aaroh": false,
+  "avaroh": true,
+  "control": false,
+  "recordings": 5,
+  "held-notes only (untuned)": {
+   "up": 241,
+   "down": 318,
+   "up_frac": 0.43112701252236135
+  },
+  "tuned heuristic notes": {
+   "up": 422,
+   "down": 932,
+   "up_frac": 0.31166912850812406
+  }
+ },
+ {
+  "raag": "Basant",
+  "swar": "G",
+  "aaroh": true,
+  "avaroh": true,
+  "control": true,
+  "recordings": 5,
+  "held-notes only (untuned)": {
+   "up": 263,
+   "down": 161,
+   "up_frac": 0.6202830188679245
+  },
+  "tuned heuristic notes": {
+   "up": 811,
+   "down": 353,
+   "up_frac": 0.6967353951890034
+  }
+ },
+ {
+  "raag": "Basant",
+  "swar": "M",
+  "aaroh": true,
+  "avaroh": true,
+  "control": true,
+  "recordings": 5,
+  "held-notes only (untuned)": {
+   "up": 259,
+   "down": 217,
+   "up_frac": 0.5441176470588235
+  },
+  "tuned heuristic notes": {
+   "up": 857,
+   "down": 604,
+   "up_frac": 0.5865845311430528
+  }
+ }
+]

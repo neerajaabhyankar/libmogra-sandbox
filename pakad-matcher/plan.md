@@ -9,6 +9,8 @@ Raags often have "pakad"s or phrases that belong to the mukhyanga -- that charac
 
 ## Problem formalization
 
+> ⚠️ **Review 2026-10-03:** superseded in part. The input is **audio plus its Sa, never the raag** (Neeraja, 2026-10-03); the samooha is the query, not taken from a known raag's mukhyanga. See [DATA.md](DATA.md) for the owner's rules.
+
 - Given an audio clip (known to be from some raag, for now) --> inferred Essentia pitch track (let's try to do this given only the pitch track)
 - Given a phrase from its mukhyanga (e.g. "m, D, n, D" if the raag is Bageshree)
 - Find time intervals where this is sung/played.
@@ -35,20 +37,25 @@ not systematically biased.
 
 ---
 
-## Where it stands
+## Where it stands (2026-10-03, after the Review)
+
+Inference input: **audio + its Sa**, never the raag (Neeraja). Every number below was scored
+**once**, after splits, choices and models were frozen on train/validation (§ Review). Earlier
+test looks are listed there.
 
 | | |
 |---|---|
-| Training data | notation: **2284 swars**, 228 stretches, 12 raags, 28 recordings |
-| Test set | **243 judged spans, 22 samoohas**, 11 raags -- frozen, scored once (S7) |
-| Validation set | 58 judged spans, 12 samoohas |
-| Ranking on the test | per-samooha AUC **0.716**, P@1 **0.91**, P@3 **0.85** with the method chosen on validation (read-then-match), against a baseline of 0.676 / 0.86 / 0.76. **Not a significant gain**: interval [-0.075, +0.159] over 22 samoohas |
-| What the test does separate | the reader helps on raags covered by notation (+0.115) and hurts elsewhere (-0.049); tuned matcher costs transfer to unseen raags (0.838 vs 0.779) |
-| Reading a contour unaided | misread rate **0.582**, recordings held out; still under-reads |
+| Training data | notation: **3529 swars**, 366 stretches, 16 raags, 44 recordings |
+| Reading a contour unaided | misread rate **0.559**, recordings held out (S11) |
+| **test1** -- "is this the samooha?" (245 spans, 17 samoohas, unseen raags) | method chosen on validation: **val-tuned**, per-samooha AUC **0.796** (P@1 0.85, P@3 0.87) vs hand-set baseline 0.653: **+0.143 [+0.074, +0.203]**. read-then-match 0.708: +0.055 [−0.015, +0.115] |
+| **test2** -- aaroh/avaroh use of 24 swars | tuned heuristic notes AUC **0.961** [0.909, 0.998]; held notes only 0.859 [0.708, 0.965] |
+| **insights** -- 14 test clips | directions (balanced acc.): learned 0.556 vs heuristics 0.565; nyas F1: learned 0.437 vs heuristics 0.432 -- **no difference** (intervals span 0). Nyas: when a pause is found where one was marked, its swar is right ~80% |
+| The tool | `pakad.find(audio, samooha, tonic_hz)` runs val-tuned; probability calibrated on validation (Brier 0.184 vs 0.214 base rate) |
 
-Terms are defined in [`DATA.md`](DATA.md). Live data state: `poetry run python audit.py`.
-
----
+Caveats (Neeraja, 2026-10-03): test1's pools were shortlisted by the S4b matcher -- fine, they
+are candidates, and the judgments are what count. She labelled the insight test clips without
+seeing the machine's output (the reviewers assumed otherwise). The test sets are small (intervals
+resample 17 samoohas / 24 swars / 14 clips); she plans to expand them.
 
 ## Data and representation
 
@@ -210,6 +217,8 @@ these recordings, and the negatives are themselves signal.
 
 ## The task, stated so it can be scored
 
+> ⚠️ **Review 2026-10-03:** IoU, recall targets and the 0.669 headline below were never implemented as written, and 0.669 was fitted on what is now validation. Current numbers: "Where it stands" and § Review.
+
 **Input** a pitch track (or audio plus its tonic in Hz) · a **samooha**: 2-8 swars, optional saptak
 marks, e.g. `,n S m`. **Output** ranked time intervals, each with a cost and a calibrated
 probability. **Out of scope, deliberately**: rhythm, raag identification, and whether the samooha is
@@ -248,6 +257,10 @@ same from a shell. It takes audio, a `Contour`, or a raw `(f0, hop)` pair, so a 
 has a pitch track never re-tracks. **The tonic is required and never guessed** -- it is the one
 input that changes every answer.
 
+> ⚠️ **Review 2026-10-03:** the tool now runs the method chosen on validation (`s7.frozen_params()`),
+> and `calibrate.py` is refit on validation under it; the paragraph below describes the old
+> calibration (kept as `results/calibration_s4b.json`).
+
 `probability` comes from `calibrate.py`: Platt scaling of the cost on the 168 judgments, validated
 leave-one-phrase-out (Brier **0.208** against a 0.228 base rate). It is honest but coarse -- 
 reliability by band is 0.00 / 0.62 / 0.47 / 0.69 / 0.80 -- so treat it as "roughly how sure", not a
@@ -256,6 +269,8 @@ probability to do arithmetic with. It will sharpen when the corpus grows.
 ---
 
 ## Data discipline
+
+> ⚠️ **Review 2026-10-03:** the table and paragraphs below are the 2026-09-24 state, superseded by the raag split (S9) and R6/R7. The 168 judgments S4b and the old calibration were fitted on are **validation** under today's split, not test: "tuned on what is now the test set" below is wrong. Current state: [DATA.md](DATA.md) § Inventory.
 
 **See [`DATA.md`](DATA.md)** for the glossary (judgment, notation, chunk, stretch, candidate, pool,
 misread rate, ...) and the full rules, and run **`poetry run python audit.py`** for the live state:
@@ -417,6 +432,8 @@ swars, which is why `m` and `r` are the two that disagree most.
 
 ### ✅ S7 -- fitted on notation, chosen on validation, tested once (`fit_reader.py`, `s7.py`)
 
+> ⚠️ **Review 2026-10-03:** "tested once" held for this run only; test1 was scored again in S8, S10, S11.
+
 **Data used.** Training: 228 notated stretches, 2284 swars, 28 recordings, 12 raags. Validation:
 58 judgments, 12 samoohas. Test: 243 judgments, 22 samoohas. Splits from `audit.py`.
 
@@ -558,7 +575,7 @@ val-tuned − read-then-match +0.048 [−0.021, +0.113].
   shortest held run 0.578, ornament fraction 0.453 per-samooha AUC on test (hand-set cost 0.631).
   **Duration alone does not capture intent**; see memory `intent-not-duration`.
 
-### 🟨 S9 -- the split, redrawn by raag (2026-09-27)
+### ✅ S9 -- the split, redrawn by raag (2026-09-27)
 
 Neeraja's scheme, now in `audit.py` (R1/R2 changed):
 
@@ -581,10 +598,10 @@ The method choice is made on validation alone, by the S7 rule.
   absolute pitch, within a phrase). Two label-free methods: held notes snapped to the scale, and
   the reader.
 - **Deeper pools** (`pool.py --extend`): Kedar#2 and Marwa#1 came back all-yes; +10 lower-ranked
-  candidates each, appended (the 14 judged are byte-identical). 🟨 to judge.
+  candidates each, appended (the 14 judged are byte-identical). ✅ judged (S11).
 - **Notation**: new raags Charukeshi, Hindol, Ahir Bhairav, Durga (alap + madhya + taan per
   recording); plus madhya-lay chunks in six notated raags, since alap/taan chunks miss the middle
-  tempo where most phrases are sung (`chunks.py --madhya`). 🟨 to notate.
+  tempo where most phrases are sung (`chunks.py --madhya`). ✅ notated (S11).
 - **ROC curves** (`roc.py`) -> `results/roc/`: test1 and validation (scores ranked within each
   samooha, then pooled), test2.
 
@@ -599,6 +616,10 @@ The method choice is made on validation alone, by the S7 rule.
 val-tuned − baseline on test1: **+0.118 [+0.041, +0.203]**, 10 better / 3 worse of 15 samoohas
 with an AUC. The first pre-registered gain whose interval excludes zero. With un-notated raags in
 validation, the choice went to the method that transfers.
+
+> ⚠️ **Review 2026-10-03:** "pre-registered" overstates it. R6 (un-notated raags in validation) and the
+> raag re-split (S9) were drawn after test1 had been scored (S7, S8), and the re-split moved the choice
+> to the method those test runs favoured. The interval came from an unsaved script. See § Review.
 
 test2 (48 questions, AUC). **Definition (Neeraja, 2026-09-27): the note *after* X decides it** --
 avarohi means only lower notes follow X, aarohi only higher; what comes before does not matter
@@ -618,7 +639,8 @@ Tilang G (0.81) and Jog m (0.36) are controls pushed toward one side.
 
 **How much of the reader is learned (Neeraja asked, 2026-09-27):** only the onset cost (slow and
 fast) and the 12 swar offsets are fitted to notation; its other constants are hand-set, and its
-held-out misread rate is 0.58. 🟨 Next, once the round-4 notation is in: fit the rest of its
+held-out misread rate is 0.58. *(Review 2026-10-03: wrong -- `held_slope` and `note_cap` came from
+S4b, fitted on judgments, not set by hand.)* ✅ Done in S11: once the round-4 notation is in: fit the rest of its
 constants to notation (minimise misread rate, recordings held out), then rescore test2. A check
 that needs no new labels: count departures in Neeraja's *own notation* of Jog and compare with the
 reader's counts on the same stretches.
@@ -688,6 +710,8 @@ Its per-frame targets also come from the heuristic aligner, so it learns that al
 
 ### What I need from Neeraja
 
+> ⚠️ **Review 2026-10-03:** superseded (2026-09-26/27: R6 and the raag split did 1–2). Neeraja will not be asked for fresh test sets; the existing ones are scored once after freezing.
+
 1. **More samoohas, especially in raags with no notation.** The test's uncertainty comes from having
    22 samoohas; a 0.04 AUC difference is invisible at that size. Roughly doubling it would make
    the comparisons in S7 decidable.
@@ -698,6 +722,8 @@ Its per-frame targets also come from the heuristic aligner, so it learns that al
    neither addresses what S7 found. (More notation in *new* raags would help the reader transfer.)
 
 ### Annotation, in priority order
+
+> ⚠️ **Review 2026-10-03:** superseded; the priorities below predate the raag split.
 
 1. **More phrase judgments, on reserved test recordings** -- the test set is 12 samoohas and 168
    calls, and it is now the only thing standing between us and a self-graded model. Neeraja has
@@ -711,9 +737,9 @@ Its per-frame targets also come from the heuristic aligner, so it learns that al
 ## Insights (`insights/`) -- auxiliary per-clip measurements
 
 Separate from the samooha matcher. Built on the tuned heuristic notes. Terms:
-[DATA.md § Insight functions](DATA.md#insight-functions-insights). Usage (the app knows Sa and a pitch
-track, not the raag, so `raag` is optional): `insights.core.insights(cents, hop, raag=None)` →
-aarohi / avarohi / nyas swar names plus the counts behind them.
+[DATA.md § Glossary](DATA.md#glossary). Usage (audio + Sa, no raag):
+`insights.core.insights(cents, hop, wav=None)` → aarohi / avarohi / nyas swar names plus the counts
+behind them, using the choice frozen in `results/insights/choice.json`.
 
 ### ✅ I1 -- aarohi / avarohi swars (2026-10-01)
 Moves of X, judged by the next note; a swar is reported if ups ≥ 10× downs (≥ 3 ups), or the reverse.
@@ -724,6 +750,8 @@ reports a swar only when the pattern is strong. Jog `g` and Malhar `n` are one-d
 DB but sung with G→g / N→n meends as artistic liberty: the DB is a hint, not the truth.
 
 ### ✅ I2 -- nyas swars (2026-10-01)
+
+> ⚠️ **Review 2026-10-03:** the adopted rule "skip a final note < 0.1 s" contradicts Neeraja's definition (a short final Re can be the nyas) and was later set to 0, then removed (2026-10-03). This tuning used notated *segment* ends and gaps, which Neeraja corrected: nyas is the note a breath follows, not a phrase end. Script archived (`archive/insights_fit.py`).
 The swar a pause follows (see the glossary for what counts as a pause). On 195 notated pauses
 (38 recordings), the swar before the pause, scored on held-out recordings:
 
@@ -777,6 +805,8 @@ tanpura. Pauses come from the pitch track, which also drops out when the voice t
 the next fix is a voice-only loudness (or a spectrogram model), not a threshold.
 
 ### ✅ I4 -- learned direction and nyas detectors (`insights/detect.py`, `voice.py`, 2026-10-03)
+
+> ⚠️ **Review 2026-10-03:** the "DB nyas" and "aaroha-only / avaroha-only" features below used the raag DB at inference and were removed in I6. Test was looked at here and in I3, I5, I6 (§ Review).
 Small logistic models on cues from the tuned heuristic notes; coefficients frozen as numbers
 (`results/insights/detectors_*.json`) so they can be ported.
 - **nyas:** every note end is a candidate. That reaches 95% of marked nyas; pitch-track gaps alone
@@ -813,6 +843,8 @@ binding constraint: more labelled clips would decide more than more features.
 `insights(..., learned=True, wav=...)` uses the frozen detectors; default stays the rules.
 
 ### ✅ I5 -- best effort without new labels (2026-10-03)
+
+> ⚠️ **Review 2026-10-03:** the defaults below were set partly *because* of the test score -- that is test steering a choice. Undone in the Review: choices are now made on train + validation only. The DB-prior variants were removed in I6.
 No new annotation. Extra signal from data already here; phrase matching untouched (every matcher,
 reader and s7 file and setting identical to commit 41dc56b -- checked).
 - **Direction, notation as proxy labels** (`detect.notation_items`): in each notated chunk, a swar
@@ -841,7 +873,7 @@ them, and needs audio). Direction is ahead of the rules in both selection and te
 significantly on 14 clips; nyas detection (P ~0.5, R ~0.55) is where more labels would pay most.
 
 ### ✅ I6 -- audio only: no raag at inference (2026-10-03)
-Neeraja: test audio comes with no raag label (only Sa) -- for phrase matching, direction and nyas
+Neeraja: test audio comes with no raag label -- for phrase matching, direction and nyas
 alike. "Rules" in I3–I5 meant my threshold heuristics, not raag rules. Audit of where the raag
 reached inference:
 - **phrase matching: clean.** The matcher and read-then-match see the contour and the samooha
@@ -872,7 +904,9 @@ removed; notation proxies read without a scale; `unidir.py` reads all 12 swars. 
 Defaults (`insights.core.insights`): direction = learned + notation; nyas = learned when the
 clip's audio is given, else the heuristics (`config.INSIGHTS`, retuned audio-only: `dir_ratio` 3,
 `pause_rel` 2). Without the raag the heuristics lose most (nyas 0.446 -> 0.359 on test); the learned
-nyas detector barely does (0.425 -> 0.437). The scale was a crutch the learned models don't need.
+nyas detector barely does (0.425 -> 0.437). *(Review 2026-10-03: "the scale was a crutch the
+learned models don't need" holds for nyas only -- learned directions fell 0.636 -> 0.574 and lost to
+the heuristics on test. That Sa is given was assumed here; Neeraja confirmed it the same day.)*
 
 ### ✅ N1 -- notation beyond the pitch track (2026-10-03)
 Neeraja notates what she hears, including notes the pitch track misses (tanpura Sa on top, a
@@ -886,33 +920,73 @@ re-derived from the pitch track. Now:
 Not yet done: pitch-based fits (swar centres in `fit_reader`) still use every note; they should
 skip `f0_agrees = False`.
 
+## Review (2026-10-03) -- an impartial audit, and a principled re-score
+
+Neeraja asked for a second pair of eyes after finding the DB shortcut (I6). Two reviewers (A: docs
+vs her requirements; B: code) and a meta-reviewer (C: verified every claim against the files)
+ran with no stake in the work. What C confirmed, and what was done:
+
+| finding | fix |
+|---|---|
+| test2 pooled 3 notated Jog recordings (training) -- breaks "never straddles" | test2 leaves notated and wrong-tonic recordings out (`unidir.excluded_recordings`) |
+| the tool (`pakad.py`) ran S4b settings + a 168-judgment calibration, not the validation choice | `pakad` runs `s7.frozen_params()`; `calibrate.py` refit on validation (old: `calibration_s4b.json`) |
+| test sets steered choices (below); "pre-registered", "scored once" overstated | splits frozen (`audit.py --freeze`), every choice redone on train/val only, each test scored once |
+| CIs came from unsaved scripts | `metrics.bootstrap`, called by the scripts that report them |
+| wrong-tonic Multani recording (`HWukj_DQ8W8`) still in test1 and test2 | R7: excluded everywhere (Neeraja confirmed by ear) |
+| "only Sa" written as her rule without her saying so | she confirmed it 2026-10-03: Sa is given |
+| reader silently inherited `held_slope`/`note_cap` from `config.MATCH` (S4b) | `reader.json` stores all 19 constants (readings identical) |
+| test2 and insights used different "next note" rules (0.35 vs 0.25 s breaths; kan or not) | one rule in `notes.py`: next *sung* note, kan skipped, never across a breath (Neeraja) |
+| nyas: the "short pause relative to pace" branch was dead; "skip a final short note" contradicted her | pause = ≥ pause_min and ≥ pause_rel × pace, **or** ≥ pause_abs; skip rule removed |
+| insight heuristics were scored in-sample in the leave-one-clip-out table | every variant refitted inside each fold |
+| P@k broke ties by pool order | tie-aware P@k (`metrics.precision_at`) |
+| scripts reading raw labels (tune, s4, s5a) | archived with a warning; `audit.judgments()` is the only reader |
+| glossary stale / missing terms; S4b called test-contaminated (it is validation) | DATA.md rewritten; superseded plan sections marked, not deleted |
+
+Rejected by C: "test labels inside the tool" (the 168 judgments are all validation); deleting
+`test2_withscale.json` / `s7_choice_s10.json` (they back plan entries).
+
+**Test looks before this review** (each a scoring of a test set; all superseded by the once-only
+scores in "Where it stands"):
+- test1: S7, S8, S10, S11. R6 came after S7; the raag re-split (S9, Neeraja's call) after S8; 20
+  judgments were added after S10. Re-running validation today picked the *same* frozen settings as
+  S11, so the choice itself was not flipped by test.
+- test2: S10 (two scoring rules replaced by Neeraja's definition, then 0.921), S11 (0.931), I6 (0.947).
+- insight test: I3, I4, I5, I6 -- I4 switched selection to leave-one-clip-out after I3's test; I5 set
+  defaults partly from the test score. Today's choice is from train + validation only.
+
+**Re-scored once, everything frozen first** (manifest `5a93826ee65c`):
+- choices on validation / train+val: phrase = val-tuned (identical to S11); insights = learned +
+  notation (directions, leave-one-clip-out 0.628 vs heuristics 0.519), learned (nyas, 0.409 vs 0.303).
+- test1 0.796 vs 0.653 baseline, +0.143 [+0.074, +0.203]. test2 0.961 [0.909, 0.998] (was 0.947
+  before the shared next-note rule and the exclusions). Insight test: learned = heuristics on both
+  questions. The leave-one-clip-out gaps did not carry to test.
+
+Results kept under their stage names: `s7_choice_s11`, `s7_test_s11`, `test2_i6`,
+`insights/*_i6`. Open: pitch-based fits still use notes the pitch track misses (`f0_agrees`).
+
 ## Files
+
+Live code (what runs today). Superseded scripts are in `archive/` (see `archive/README.md`).
 
 | file | what |
 |---|---|
 | `config.py` | every constant, including which ones were tuned and on what |
-| `contour.py` | f0 cache for the pinned clips; `contour()` -> tonic-relative cents at ~56 fps |
-| `fullaudio.py` | the full recordings: index by video id, inherit the annotated tonic, f0 + salience cache |
-| `phrases.py` / `mukhyangas.py` | the DB catalogue with tiering / Neeraja's hand-picked phrases |
-| `matcher.py` | the model: `match()` and `score_path()` |
-| `pool.py` | annotation pools from full audio, with sentence-length context |
-| `annotate_app.py` + `.html` | the local annotation app (playhead, zoom, comments) |
-| `s3.py` | the earlier terminal annotation loop (pool v1) |
-| `features.py` / `s4.py` | features from the comments, and their evaluation |
-| `decode.py` | phrase-constrained and free decodes of a span; `align()` for notation |
-| `calibrate.py` | cost -> probability (Platt, leave-one-phrase-out) |
-| `pakad.py` | **the tool**: `find(audio, samooha, tonic_hz)`, plus a CLI |
-| `chunks.py` / `notate_app.html` | notation chunks and the notation view (see `notator.md`) |
-| `s5a.py` | the likelihood-ratio evaluation |
-| `tune.py` | coordinate ascent over the costs on the labels |
-| `audit.py` | **the data discipline, executable**: computes the splits, checks the rules |
-| `corpus.py` | notation stretches and judged spans as training / validation / test data |
-| `fit_reader.py` | fits the reader on notation (pitch centres, onset by tempo), cross-validated by recording |
-| `insights/` | insight functions: `core.py` (rules + `insights()`), `detect.py` (learned detectors), `voice.py` (voice-above-drone loudness), `fit.py` (tuning on notation), `clips.py` (clip registry), `evaluate.py` (selection + test) |
-| `ctc_reader.py` | S12: the learned reader (GRU on the contour), cross-validated by recording; not adopted |
-| `s7.py` | ranks judged spans with every method; `--val` chooses and freezes, `--test` scores once |
+| `audit.py` | **the data discipline, executable**: the only reader of judgments, the split rules R1–R7, the frozen manifest (`--freeze`) |
+| `contour.py` / `fullaudio.py` | pitch tracks: the pinned clips / the full recordings (with the annotated tonic) |
+| `phrases.py` / `mukhyangas.py` | the DB catalogue with tiering / Neeraja's hand-picked samoohas |
+| `matcher.py` / `decode.py` | the phrase model (`match`, `score_path`) / phrase-constrained and free decodes, `align()` |
+| `notes.py` | **notes from a pitch track, one definition**: breath spans, the reader's notes, the next-note rule |
+| `metrics.py` | every score and interval: edit ops, per-samooha AUC, tie-aware P@k, `bootstrap` |
+| `fit_reader.py` | fits the reader on notation, cross-validated by recording -> `results/reader.json` (all constants) |
+| `corpus.py` | notation stretches and judged spans as data; `--notes` writes the per-note table |
+| `s7.py` | phrase methods: `--val` chooses and freezes, `--test` scores once (with intervals) |
+| `calibrate.py` / `pakad.py` | cost -> probability on validation / **the tool**: `find(audio, samooha, tonic_hz)` |
+| `unidir.py` | test2: aaroh/avaroh use of swars, from whole recordings |
+| `roc.py` | ROC figures for test1, validation, test2 -> `results/roc/` |
+| `pool.py` / `chunks.py` | annotation pools (phrase judgments) / notation chunks |
+| `annotate_app.py` + `*_app.html` | the local annotation apps: `/phrases`, `/notate`, `/insights` (see `notator.md`) |
+| `insights/` | `core.py` (threshold heuristics, `insights()`), `detect.py` (learned detectors, frozen loader), `voice.py` (voice-above-drone loudness), `clips.py` (clip registry), `evaluate.py` (selection + test) |
 | `DATA.md` | the glossary and the rules in prose |
-| `run_s1.py` / `run_s2.py` / `plot.py` | the eyeball run, the null-control run, plotting |
 
 Reused from `../raag-identifier/`: `utils.config`, `utils.dataset`, `utils.raagdb`,
 `utils.extract._essentia` (settings; `fullaudio._melodia` re-implements it to keep salience),
@@ -935,15 +1009,18 @@ deliberately. Nothing outside `../raag-identifier/` is imported.
   review; pool v2 built from 20.3 h of full recordings with a visual annotation app. Bugs found:
   octave-blind matching, tempo-skewed candidates, candidate pool far too small for long recordings,
   tritone steps penalised, audio served without byte ranges.
-- **2026-09-25** -- Annotation done: 2284 notated swars over 12 raags; 304 judgments over 22
-  samoohas. **S7 run under the full discipline** -- fit on notation, choose on validation, test
-  once. Reader: onset-by-tempo improves held-out misread 0.623 -> 0.582; per-swar pitch centres do
-  not help, and pooled over 12 raags the "komal swars sit sharp" effect mostly vanishes (it was
-  raag-specific). Chosen method, read-then-match: test AUC 0.716 vs baseline 0.676, **not
-  significant** (interval [-0.075, +0.159]). It helps on raags covered by notation (+0.115) and hurts
-  on raags that are not (-0.049). S4b's tuned costs, clean on the five new raags, score 0.838 vs
-  0.779 -- tuning transfers. Validation chose badly because it held only notated raags. Two
-  selection-protocol mistakes of mine caught before the test was touched.
+- **2026-09-22** -- **168 labels done.** S4: every feature invented from the comments lands at
+  0.53-0.55 per-phrase AUC; salience cannot tell drone from voice, and HPSS separation destroys
+  genuine notes as fast as spurious ones (both measured). S4b: **tuning the five existing costs
+  reaches 0.669 / P@3 0.86**, adopted. Goal clarified -- statistical queries over a pitch track, with
+  phrase-finding as the proof-of-concept -- and the roadmap rewritten around a notation corpus.
+- **2026-09-23** -- S5a likelihood ratio: **negative** (0.644-0.702 vs 0.682 for the tuned cost),
+  with the caveat that the labelled spans are the matcher's own picks, so the comparative question
+  it was built for is untested until recall data exists. Task restated so it can be scored
+  (P@1/P@3, per-phrase AUC, one global threshold; recall pending notation). Tool shipped:
+  `pakad.py` + calibrated probability. Notation chunks and the `/notate` view built, then reworked
+  on review: sub-range selection, free-ended alignment with coverage reported, and a `,P`-to-`` `P ``
+  swar keypad. `notator.md` opened for where the notation tool goes next.
 - **2026-09-24** -- Data discipline set: the phrase judgments become the **frozen test set**, the
   notation corpus is the **training data**. That retires S4b's tuned numbers as headlines (they were
   fitted on those judgments) and makes the untuned 0.58 / 0.58 the baseline to beat. 35 % of the
@@ -958,18 +1035,15 @@ deliberately. Nothing outside `../raag-identifier/` is imported.
   reaching misread rate 0.63, but the knob only trades insertions for deletions, so the segmentation model
   is the limit. Aggregates: "which swars" recall 0.95 / precision 0.72, histogram TV 0.24 median,
   ascent-descent agrees for dwelt-on swars only. Three empty chunks replaced from other recordings.
-- **2026-09-23** -- S5a likelihood ratio: **negative** (0.644-0.702 vs 0.682 for the tuned cost),
-  with the caveat that the labelled spans are the matcher's own picks, so the comparative question
-  it was built for is untested until recall data exists. Task restated so it can be scored
-  (P@1/P@3, per-phrase AUC, one global threshold; recall pending notation). Tool shipped:
-  `pakad.py` + calibrated probability. Notation chunks and the `/notate` view built, then reworked
-  on review: sub-range selection, free-ended alignment with coverage reported, and a `,P`-to-`` `P ``
-  swar keypad. `notator.md` opened for where the notation tool goes next.
-- **2026-09-22** -- **168 labels done.** S4: every feature invented from the comments lands at
-  0.53-0.55 per-phrase AUC; salience cannot tell drone from voice, and HPSS separation destroys
-  genuine notes as fast as spurious ones (both measured). S4b: **tuning the five existing costs
-  reaches 0.669 / P@3 0.86**, adopted. Goal clarified -- statistical queries over a pitch track, with
-  phrase-finding as the proof-of-concept -- and the roadmap rewritten around a notation corpus.
+- **2026-09-25** -- Annotation done: 2284 notated swars over 12 raags; 304 judgments over 22
+  samoohas. **S7 run under the full discipline** -- fit on notation, choose on validation, test
+  once. Reader: onset-by-tempo improves held-out misread 0.623 -> 0.582; per-swar pitch centres do
+  not help, and pooled over 12 raags the "komal swars sit sharp" effect mostly vanishes (it was
+  raag-specific). Chosen method, read-then-match: test AUC 0.716 vs baseline 0.676, **not
+  significant** (interval [-0.075, +0.159]). It helps on raags covered by notation (+0.115) and hurts
+  on raags that are not (-0.049). S4b's tuned costs, clean on the five new raags, score 0.838 vs
+  0.779 -- tuning transfers. Validation chose badly because it held only notated raags. Two
+  selection-protocol mistakes of mine caught before the test was touched.
 - **2026-09-26** -- S8 set up: 10 round-3 samoohas added (4 requested raags are not in the
   dataset and were dropped), `TEST_ONLY_RAAGS` renamed `UNNOTATED_RAAGS`, rule R6 added so
   validation holds un-notated raags too. Audit all good.
@@ -1009,3 +1083,7 @@ deliberately. Nothing outside `../raag-identifier/` is imported.
 - **2026-10-03** -- I6: audio only, no raag at inference anywhere. test2 tuned heuristic notes 0.947
   (was 0.931 with the scale); insights test directions 0.574 vs heuristics 0.602, nyas 0.437 vs
   0.359. DB-prior features removed. Phrase matching was already raag-free.
+- **2026-10-03** -- Review: impartial audit (A, B, meta-reviewer C). Fixes in § Review; Multani
+  HWukj_DQ8W8 excluded everywhere (R7); splits frozen; choices redone on train/val only; each test
+  scored once: test1 val-tuned 0.796 (+0.143 [+0.074, +0.203]), test2 0.961, insights learned =
+  heuristics. Superseded scripts to `archive/`; shared `notes.py`, `metrics.py`.
