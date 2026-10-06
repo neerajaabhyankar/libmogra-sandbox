@@ -6,6 +6,8 @@ Splits come from `audit.splits()` -- this module never decides what is test.
     stretches()      notated stretches: contour, the swars heard, the recording they came from
     note_table()     every notated note with its placement and whether the pitch track agrees
                      (python corpus.py --notes -> annotations/notation_notes.jsonl)
+    adjusted()       notations.jsonl as stored, each stretch with its aligned notes added
+                     (written by --notes too -> annotations/adjusted_notations.jsonl)
     folds(k)         recording-grouped folds over those stretches, for cross-validation
     spans(split)     judged candidate spans for 'validation' or 'test', with their contour
     (scores and intervals: metrics.py)
@@ -128,11 +130,36 @@ def note_table():
     return rows
 
 
+ADJUSTED = C.S3_DIR / "adjusted_notations.jsonl"
+
+
+def adjusted(rows=None):
+    """The notation records (last save per chunk) with `notes` added to each stretch: the
+    note_table() placement, in chunk seconds like the stretch's own t0/t1. `notes` is None for a
+    stretch note_table() skips (unparsable swars, or under 4 frames)."""
+    ch, by = audit.chunks(), {}
+    for r in rows or note_table():
+        by.setdefault((r["chunk"], r["segment"]), []).append(r)
+    out = []
+    for cid, rec in sorted(audit.notations().items()):
+        c0 = ch[cid]["t0"]
+        segs = []
+        for si, seg in enumerate(rec["segments"]):
+            ns = by.get((cid, si))
+            segs.append(dict(seg, notes=None if ns is None else [
+                dict(swar=r["swar"], t0=None if r["t0"] is None else round(r["t0"] - c0, 3),
+                     t1=None if r["t1"] is None else round(r["t1"] - c0, 3),
+                     f0_cents=r["f0_cents"], voiced=r["voiced"], f0_agrees=r["f0_agrees"]) for r in ns]))
+        out.append(dict(rec, segments=segs, bad_tonic=ch[cid]["video"] in C.BAD_TONIC_VIDEOS))
+    return out
+
+
 if __name__ == "__main__":
     import sys
     if "--notes" in sys.argv:
         rows = note_table()
         NOTE_TABLE.write_text("".join(json.dumps(r) + "\n" for r in rows))
+        ADJUSTED.write_text("".join(json.dumps(r) + "\n" for r in adjusted(rows)))
         n = sum(not r["f0_agrees"] for r in rows)
         print(f"{len(rows)} notes, {n} ({n / len(rows):.0%}) not supported by the pitch track -> {NOTE_TABLE}")
         sys.exit()

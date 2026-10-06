@@ -72,6 +72,8 @@ figure or a docstring is not here, that is a bug in this file.**
 | **stretch** | a notated sub-range of a chunk: times, the swars heard, and how they were placed |
 | **notation** | the swars a musician heard in a stretch — **including notes the pitch track misses** (tanpura Sa on top, a tapering voice). `annotations/notations.jsonl`. **Training data** |
 | **aligned / spaced by hand** | how a stretch's swars were placed in time: `align` fits them to the contour; `even` spreads them evenly because the tracker lost the voice. Hand-spaced = evidence of *what*, not *when* |
+| **stretch fields** (in `notations.jsonl`) | `swars` as typed (`` ` `` upper, `,` lower octave) · `sel0`/`sel1` = the span she drew · `t0`/`t1` = where the tool settled it (chunk seconds) · `method` = `align` (tool placed the swars on the pitch track) or `even` (spaced by hand) · `fit` = the tool's misfit score of that placement: worst note's pitch error beyond tolerance + ornament share + unvoiced share + wrong-direction steps; 0 = every note within tolerance, null = spaced by hand. Lower is better; not a probability |
+| **adjusted notation** | `annotations/adjusted_notations.jsonl` (`corpus.py --notes`): `notations.jsonl` (last save per chunk) with `notes` added to each stretch -- per note `swar`, `t0`/`t1` (chunk seconds), `f0_cents`, `voiced`, `f0_agrees`. **Use this for anything needing note times.** The placement is a re-alignment (`decode.align` over the stretch, or even spacing for `even`), not the exact one the tool showed, which was not saved before 2026-10-03 |
 | **notation_notes / f0_agrees** | `annotations/notation_notes.jsonl` (`corpus.py --notes`): every notated note with its placement. `f0_agrees` = the pitch track is within 50 cents of the swar and mostly voiced; false = heard but not seen by the pitch track. Kept, for methods that don't rely on f0. Pitch-based fits still use every note (open) |
 | **insight clip** | a 30 s madhya-lay stretch annotated for insights: per swar a **direction label** (aarohi / avarohi / both / not sung / unsure, *as sung in that clip*) and **nyas windows** (a stretch of pitch track and the swar resting there). `annotations/insight_clips.json`, labels in `annotations/insights.jsonl` |
 | **eyeball set** | the 15 clips first built to list the machine's findings (2026-10-01), then labelled as the insight test set. Neeraja labelled them without looking at those findings |
@@ -161,6 +163,7 @@ are sections of `plan.md`, in the order the work was done.
 | `annotations/pool/*.json` | the candidates offered per samooha. **Frozen once judged** | `pool.py` |
 | `annotations/chunks.json` | the chunks offered for notating | `chunks.py` |
 | `annotations/notations.jsonl` | **notations** — one line per save of a chunk, last wins | the notation app |
+| `annotations/adjusted_notations.jsonl` | **notations with per-note times** -- derived, regenerate rather than edit | `corpus.py --notes` |
 | `annotations/notation_notes.jsonl` | every notated note, placed, with `f0_agrees` | `corpus.py --notes` |
 | `annotations/insight_clips.json`, `insights.jsonl` | insight clips and their labels | `insights/clips.py`, the insight app |
 | `annotations/audio/`, `annotations/chunks/`, `annotations/insight_clips/` | the wav snippets the apps play (not committed) | `pool.py`, `chunks.py`, `insights/clips.py` |

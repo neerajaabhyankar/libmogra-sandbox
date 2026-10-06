@@ -57,6 +57,19 @@ are candidates, and the judgments are what count. She labelled the insight test 
 seeing the machine's output (the reviewers assumed otherwise). The test sets are small (intervals
 resample 17 samoohas / 24 swars / 14 clips); she plans to expand them.
 
+**To try (Neeraja, 2026-10-06)** -- choose on validation, score test once:
+- 🟨 **Reader → matcher.** Run the matcher on the reader's notes, rebuilt as a cleaned pitch track,
+  instead of on raw Melodia. This is not tried yet: read-then-match only edit-distances the
+  reader's swar string against the samooha.
+- 🟨 **Do the swar offsets help?** val-tuned uses the reader's 12 notation-fitted offsets (−6 to
+  +16 c). They were never ablated, and Neeraja did not ask for them. Rerun val-tuned with them set
+  to zero.
+- 🟨 **Breaths from the nyas detector.** Today a breath is any Melodia gap > 0.25 s
+  (`notes.breath_spans`). Instead, a breath = the pause after a detected nyas (the end of a
+  "sentence"), and directions are counted within those. Aim: the final nyas detector should not be
+  fooled by stray pitch (instrument tracks, noise), so neither are the breaths. Order when the
+  reader changes: fit reader on notation → tune nyas → tune direction thresholds.
+
 ## Data and representation
 
 | fact | value | consequence |
