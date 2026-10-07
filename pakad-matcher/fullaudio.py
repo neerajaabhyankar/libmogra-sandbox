@@ -122,10 +122,14 @@ def _cache():
 
 
 def contour(video, downsample=C.DOWNSAMPLE):
-    """Same Contour type the clip path uses, so the matcher does not care which it gets."""
+    """Same Contour type the clip path uses, so the matcher does not care which it gets.
+    The pitch comes from config.PITCH_SOURCE, on Melodia's frame grid either way."""
     z, fa = _cache(), index()[video]
-    return clip_contour.contour_from_f0(z[f"{video}|f0"], float(z[f"{video}|hop"]),
-                                        fa.tonic_hz, video, downsample)
+    f0, hop = z[f"{video}|f0"], float(z[f"{video}|hop"])
+    if C.PITCH_SOURCE != "melodia":
+        from transcribers import source
+        f0 = source.on_grid(video, len(f0), hop)
+    return clip_contour.contour_from_f0(f0, hop, fa.tonic_hz, video, downsample)
 
 
 def salience(video, downsample=C.DOWNSAMPLE):

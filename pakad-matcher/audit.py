@@ -36,7 +36,7 @@ import _bootstrap  # noqa: F401
 import config as C
 
 GUARD_S = 5.0       # a judgment this close to a notated stretch is not treated as unseen
-MANIFEST = C.RESULTS_DIR / "splits_manifest.json"
+MANIFEST = C.SHARED_RESULTS_DIR / "splits_manifest.json"
 
 
 def _last(path, key):

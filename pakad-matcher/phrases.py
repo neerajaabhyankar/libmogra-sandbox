@@ -88,7 +88,7 @@ if __name__ == "__main__":
     import contour
     names = sorted({c.raag for c in contour.clips().values()})
     cat = catalogue(names)
-    C.RESULTS_DIR.mkdir(exist_ok=True)
+    C.SHARED_RESULTS_DIR.mkdir(exist_ok=True)
     with open(C.PHRASES_CSV, "w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["id", "raag", "phrase", "len", "df", "idf", "turns", "kept"])

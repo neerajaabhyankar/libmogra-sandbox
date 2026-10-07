@@ -1,0 +1,29 @@
+{
+ "Melodia breaths": {
+  "balanced": 0.5188536953242836,
+  "recall": {
+   "aarohi": 0.6153846153846154,
+   "avarohi": 0.5,
+   "both": 0.4411764705882353
+  },
+  "sentences": 105
+ },
+ "detected nyas": {
+  "balanced": 0.5139517345399699,
+  "recall": {
+   "aarohi": 0.6153846153846154,
+   "avarohi": 0.5,
+   "both": 0.4264705882352941
+  },
+  "sentences": 73
+ },
+ "marked nyas (oracle)": {
+  "balanced": 0.5139517345399699,
+  "recall": {
+   "aarohi": 0.6153846153846154,
+   "avarohi": 0.5,
+   "both": 0.4264705882352941
+  },
+  "sentences": 86
+ }
+}

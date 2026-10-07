@@ -58,17 +58,46 @@ seeing the machine's output (the reviewers assumed otherwise). The test sets are
 resample 17 samoohas / 24 swars / 14 clips); she plans to expand them.
 
 **To try (Neeraja, 2026-10-06)** -- choose on validation, score test once:
-- 🟨 **Reader → matcher.** Run the matcher on the reader's notes, rebuilt as a cleaned pitch track,
+- ✅ **Reader → matcher** (S13, `s13.py`, 2026-10-06): negative, test not touched. Validation
+  AUC (val-tuned = leave-one-samooha-out): raw Melodia hand-set 0.518 · reader notes only:
+  hand-set 0.593, val-tuned 0.625 · notes + transitions: hand-set 0.526, val-tuned 0.574 · frozen
+  val-tuned on raw Melodia **0.744** stays. Cleaning helps the untuned matcher, but tuning on the
+  raw track helps far more -- the reader's misreads (0.559) cost more than the noise they remove.
+  Original note: Run the matcher on the reader's notes, rebuilt as a cleaned pitch track,
   instead of on raw Melodia. This is not tried yet: read-then-match only edit-distances the
   reader's swar string against the samooha.
-- 🟨 **Do the swar offsets help?** val-tuned uses the reader's 12 notation-fitted offsets (−6 to
-  +16 c). They were never ablated, and Neeraja did not ask for them. Rerun val-tuned with them set
-  to zero.
-- 🟨 **Breaths from the nyas detector.** Today a breath is any Melodia gap > 0.25 s
+- ✅ **Do the swar offsets help?** Correction: val-tuned does *not* use them (only notation-set
+  does). In the reader they were ablated in S11: misread 0.602 → 0.603 alone, 0.589 → 0.584 with
+  tempo onsets -- no real effect.
+- ✅ **Breaths from the nyas detector** (I7, `insights/sentences.py`, 2026-10-06): no effect.
+  Direction rule, leave-one-clip-out on train + val: Melodia breaths 0.519, detected-nyas
+  sentences 0.514, *her marked nyas* (oracle) 0.514. Where moves are cut is not what limits
+  directions; test not touched. Original note: Today a breath is any Melodia gap > 0.25 s
   (`notes.breath_spans`). Instead, a breath = the pause after a detected nyas (the end of a
   "sentence"), and directions are counted within those. Aim: the final nyas detector should not be
   fooled by stray pitch (instrument tracks, noise), so neither are the breaths. Order when the
   reader changes: fit reader on notation → tune nyas → tune direction thresholds.
+
+**Metrics to revisit (Neeraja, 2026-10-07)** -- to be taken up together with the other metrics:
+- 🟥 **Weighted misread rate.** Today every edit costs 1 (DATA.md § Metrics). Wanted:
+  - an extra or missing *short* note (kan) costs less;
+  - a missing *long* note, or a wrong swar, costs more;
+  - errors in alap and on held notes cost more.
+
+  The weights would need choosing (tuned or set with Neeraja), and the reader would then be refit
+  against the new metric. Not started.
+
+## Transcribers (T) -- other pitch sources (2026-10-07)
+
+Models live in `../transcriber` (own `plan.md`); their evaluation here lives in `transcribers/`
+(README there). `PAKAD_PITCH_SOURCE=<model>` swaps the pitch track every script reads; results go
+to `transcribers/<model>/results/`. Per model: reader refit on notation → phrase val → insight val,
+compared with Melodia; only the final pick is scored on test, once.
+
+- ✅ T0 -- the switch (`config.PITCH_SOURCE`, `fullaudio.contour`), `transcribers/{source,segments,run}.py`.
+  Choosing needs 85 min of audio (notation 36, validation 36, insight clips 12); test adds 52.
+- 🟨 T1 -- CREPE (no download): smoke test on one range OK; full run waiting for Neeraja's go.
+- 🟥 T2 -- Basic Pitch, YourMT3+, separation front-end: waiting on download approval.
 
 ## Data and representation
 

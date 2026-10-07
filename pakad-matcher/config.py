@@ -1,10 +1,20 @@
 """Every constant in pakad-matcher. Scripts import from here; nothing is hard-coded elsewhere."""
 
+import os
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 CACHE_DIR = HERE / "cache"
-RESULTS_DIR = HERE / "results"
+SHARED_RESULTS_DIR = HERE / "results"          # source-independent: phrase catalogue, splits manifest
+
+# ---- pitch source (transcribers/README.md): which pitch track every script reads.
+# melodia = Essentia Melodia (results/); any other = a model in ../transcriber, whose numbers go
+# to transcribers/<source>/results/. Set per run: PAKAD_PITCH_SOURCE=crepe poetry run python ...
+PITCH_SOURCE = os.environ.get("PAKAD_PITCH_SOURCE", "melodia")
+TRANSCRIBERS_DIR = HERE / "transcribers"
+RESULTS_DIR = (SHARED_RESULTS_DIR if PITCH_SOURCE == "melodia"
+               else TRANSCRIBERS_DIR / PITCH_SOURCE / "results")
+SEGMENT_PAD_S = 5.0           # context transcribed either side of every range a source must cover
 
 # ---- data (pinned; see CLAUDE.md). Paths themselves come from raag-identifier/utils/config.py
 DATASET_REPO_ID = "neerajaabhyankar/hindustani-raag-small"
@@ -26,7 +36,7 @@ DOWNSAMPLE = 4                # 225 fps -> ~56 fps (~18 ms/frame); kan swars are
 MIN_PHRASE_LEN = 3            # after collapsing repeats; 2-swar entries dropped
 MAX_PHRASE_DF = 9             # drop phrases whose full n-gram occurs in >= 10 DB raags
 NGRAM_RANGE = (2, 3)          # sub-n-grams whose IDF defines "idiosyncrasy"
-PHRASES_CSV = RESULTS_DIR / "phrases.csv"
+PHRASES_CSV = SHARED_RESULTS_DIR / "phrases.csv"
 MUKHYANGAS_JSON = HERE / "neeraja_mukhyangas.json"   # hand-picked phrases; beats the DB
 
 # first-loop raags (plan.md Q2)

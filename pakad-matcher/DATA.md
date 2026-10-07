@@ -97,6 +97,13 @@ figure or a docstring is not here, that is a bug in this file.**
 | **wrong-tonic recording** | a recording whose `tonics.csv` Sa is wrong (`config.BAD_TONIC_VIDEOS`); excluded **everywhere** (R7) |
 | **S4b-tuned / "contaminated"** | `config.MATCH`'s "(tuned)" values were fitted on the first 168 judgments (S4b). Under today's split those are **validation** (167) and set aside (1) — none is test. So they are validation-fitted, not test-contaminated (earlier text said "test"; that was wrong) |
 
+### Pitch sources
+
+| term | meaning |
+|---|---|
+| **pitch source** | which pitch track every script reads: `melodia` (Essentia, the default; results in `results/`) or a model from `../transcriber` (results in `transcribers/<model>/results/`). Set with `PAKAD_PITCH_SOURCE`. See `transcribers/README.md` |
+| **covered ranges** | the stretches of each recording a non-Melodia source has transcribed (`transcribers/segments.py`); outside them the source reads as silence |
+
 ### The models
 
 | term | meaning |
@@ -126,7 +133,7 @@ figure or a docstring is not here, that is a bug in this file.**
 | **notation-set** | hand-set, with tolerance and dwell taken from the notation, and the reader's swar offsets |
 | **read-then-match** | the reader transcribes the span; the score is how few edits turn the samooha into some stretch of that transcription |
 | **combined** | notation-set cost + a weight × read-then-match; the weight chosen on validation |
-| **val-tuned** | hand-set constants re-tuned on validation judgments (coordinate ascent on per-samooha AUC). The tool (`pakad.py`) runs whichever method `s7_choice.json` holds |
+| **val-tuned** | hand-set constants re-tuned on validation judgments (each setting tried over a few values in turn, keeping any value that raises the per-samooha ranking score). The tool (`pakad.py`) runs whichever method `s7_choice.json` holds |
 | **leave-one-samooha-out** | how a method tuned on validation is scored *on* validation: tune on all samoohas but one, score that one, repeat |
 | **leave-one-clip-out** | the same for insight variants, over train + validation clips; every variant (heuristics included) is refitted inside each fold |
 | **held-notes only (untuned)** | test2 method: held notes snapped to the nearest of the 12 swars. "Untuned" = not fitted to notation; its held threshold is S4b's |
@@ -134,17 +141,38 @@ figure or a docstring is not here, that is a bug in this file.**
 
 ### Metrics
 
-| term | meaning |
-|---|---|
-| **misread rate** | `(substitutions + deletions + insertions) / notated swars` between the reader and the notation, like word error rate. 0 is perfect |
-| **per-samooha AUC** | the chance that a "yes" candidate outscores a "no" *of the same samooha*, averaged over samoohas. 0.5 is chance. All-yes or all-no samoohas have none |
-| **P@1, P@3** | of the 1 or 3 candidates ranked highest for a samooha, the share judged "yes", averaged over samoohas. **Ties at the cut are shared fairly** (expected value over tie orders) since 2026-10-03; before, pool order broke them |
-| **ROC curve** | true-positive rate against false-positive rate as the threshold moves; area under it = AUC. In `results/roc/`. For test1, scores are first converted to their rank within their samooha |
-| **test2 AUC** | pooled over the 48 questions (up-fractions compare across swars); its interval resamples the 24 swars |
-| **Brier score** | mean squared error of a probability against 0/1 outcomes; lower is better |
-| **balanced accuracy** | (insight directions) the mean of the recalls for aarohi, avarohi and both — so saying "both" for everything scores only 1/3 |
-| **nyas F1** | each machine pause event (swar, time) is matched one-to-one to a marked nyas window if it starts within [window start − 0.3 s, window end + 0.6 s]; F1 of matched events whose swar (pitch class) is right. **Set F1**: the clip's nyas list against the swars marked |
-| **paired difference, interval** | method A − method B on the same items; the 95% interval resamples whole units (samoohas, clips or swars) with replacement (`metrics.bootstrap`, 2000 resamples). Intervals reported before 2026-10-03 came from scripts that were not saved and cannot be reproduced |
+Notation used below. `[x]` is 1 if statement x is true, else 0. `|A|` is the number of elements of
+set A. A **pitch class** is a swar with its octave ignored (12 possible: S r R g G m M P d D n N).
+
+**Pairwise ranking score** (used by two metrics). Given a score `s` for each item, a set Y of items
+whose true answer is yes and a set N whose answer is no:
+
+    rank(Y, N) = (1 / (|Y|·|N|)) · Σ over a in Y, b in N of ( [s_a > s_b] + ½·[s_a = s_b] )
+
+It is the probability that a randomly picked yes-item outscores a randomly picked no-item (ties
+count half). 1 = every yes above every no; 0.5 = no better than a coin. (Literature name: AUC,
+area under the ROC curve.)
+
+| task | metric | definition |
+|---|---|---|
+| reading (the reader vs the notation) | **misread rate** | For each notated stretch, line up the notated pitch classes h₁…hₙ with the reader's pitch classes r₁…rₘ using the fewest edits, where an edit is a substitution (wrong swar), a deletion (notated, not read) or an insertion (read, not notated). `misread = Σ edits / Σ n`, summed over all held-out stretches. 0 = perfect; can exceed 1. Held out = the reader was fitted without that stretch's recording (4 groups of recordings, each held out once) |
+| phrase (test1, validation) | **per-samooha ranking score** | For samooha j, Yⱼ and Nⱼ are its candidate spans judged yes and no; `s` = the method's score (higher = more likely the samooha). `score = mean over j of rank(Yⱼ, Nⱼ)`. Samoohas with no yes or no no are skipped. Comparing only within a samooha removes differences in how easy each samooha is |
+| phrase | **top-k yes share** (k = 1, 3) | For samooha j, take its k best-scored candidates; `topₖ(j)` = the share of them judged yes. Report the mean over samoohas. If candidates tie for the k-th place, the tied ones each count with weight (places left)/(number tied) — the expected value over a random order of the ties |
+| phrase (the tool's probability) | **Brier score** | For each validation span i with outcome yᵢ ∈ {0, 1} (no/yes) and predicted probability pᵢ: `Brier = (1/n) Σ (pᵢ − yᵢ)²`. 0 = perfect. pᵢ = 1 / (1 + e^−(w·costᵢ + b)), with w, b fitted on every samooha except span i's own. Reference: predicting the overall yes-share for every span |
+| directions within one raag (test2) | **test2 ranking score** | For each of the 24 tested (raag, swar) pairs, pool all usable recordings of that raag: u = times the next note after the swar was higher, d = times it was lower; up-share f = u/(u+d). Two yes/no questions per pair, answered from the raag DB: "is the swar used going up?" scored by f, and "used going down?" scored by 1 − f. `score = rank(Y, N)` over those 48 questions together |
+| insight directions | **balanced accuracy** | Each labelled (clip, swar) has truth t ∈ {aarohi, avarohi, both}; the machine says aarohi, avarohi, or nothing (= both). For each class c, `recall(c) = #{truth c, said c} / #{truth c}`. `balanced accuracy = mean of recall(c)` over the classes that occur. Saying "both" for everything scores 1/3 |
+| insight nyas | **nyas event F1** | The machine outputs events (swar, time t); she marked windows (swar, start t₀, end t₁). Taking events in time order, an event is matched to an unmatched window with t₀ − 0.3 s ≤ t ≤ t₁ + 0.6 s (if several, the one whose end is nearest t); it is **correct** if its pitch class equals the window's. With C = correct events summed over clips, P = all machine events, M = all marked windows: `F1 = 2C / (P + M)` (= the harmonic mean of C/P and C/M). 0 to 1, higher is better |
+| insight nyas | **nyas set F1** | Per clip, A = the swars the machine calls nyas, B = the swars she marked. `set F1 = 2 Σ|A ∩ B| / (Σ|A| + Σ|B|)`, sums over clips |
+| all | **difference and its 95% interval** | `difference = metric(method A) − metric(method B)` on the same items. Interval: draw G units with replacement from the G units (samoohas for test1, (raag, swar) pairs for test2, clips for insights), recompute the difference on that draw; repeat 2000 times; the interval runs from the 2.5th to the 97.5th percentile of the 2000 values. If it excludes 0, the difference is unlikely to be luck of which units were in the test. Intervals before 2026-10-03 came from unsaved scripts |
+| choosing a method | **held-out estimate** | When a method's settings are fitted on the same validation data used to choose, its validation metric is computed from predictions where each unit (a samooha, or a clip) is scored by settings fitted without that unit, then the metric is taken over all units at once |
+
+ROC curves (`results/roc/`) plot, as a yes/no cut-off on the score moves, the share of yes-items
+above the cut-off against the share of no-items above it; the area under that curve equals
+rank(Y, N). For test1 each score is first replaced by its rank within its samooha.
+
+Names in `plan.md`, logs and results files: **AUC** = a ranking score above (per-samooha for
+test1/validation, pooled for test2); **P@1, P@3** = top-1 / top-3 yes share; "LOSO" / "leave-one-
+samooha-out" and "leave-one-clip-out" = the held-out estimate.
 
 ### Stage names
 
