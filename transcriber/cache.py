@@ -5,9 +5,14 @@
 
 `key` names the recording (pakad-matcher passes its video id); `segments` are (t0, t1) in seconds.
 Audio files are only read, never written. Cache: config.CACHE_DIR/<model>/<key>.npz.
+
+`model` may carry a separation front-end: "<adapter>+<backend>", e.g. "basic_pitch+demucs" runs
+`../raag-identifier/source-separation` (backend "demucs") first and transcribes its melody stem.
+Backends: separation.BACKENDS (none, hpss, hpss+drone, demucs, demucs+drone).
 """
 
 import importlib
+import sys
 
 import librosa
 import numpy as np
@@ -17,7 +22,18 @@ from .contract import Track
 
 
 def adapter(model):
-    return importlib.import_module(f"transcriber.models.{model}.adapter")
+    return importlib.import_module(f"transcriber.models.{model.partition('+')[0]}.adapter")
+
+
+def front_end(model, audio, sr):
+    """The audio the adapter sees: the melody stem when `model` names a separation backend."""
+    backend = model.partition("+")[2]
+    if not backend:
+        return audio
+    if str(C.SOURCE_SEPARATION) not in sys.path:
+        sys.path.append(str(C.SOURCE_SEPARATION))   # ../raag-identifier/source-separation
+    from separation import separate
+    return separate(audio, sr, backend=backend).melody
 
 
 def _path(model, key):
@@ -51,7 +67,7 @@ def transcribe(model, key, path, segments):
         if f"{seg}|f0" in z:
             continue
         audio, sr = librosa.load(path, sr=ad.SR, mono=True, offset=t0, duration=t1 - t0)
-        tr = ad.transcribe(audio, sr)
+        tr = ad.transcribe(front_end(model, audio, sr), sr)
         z[f"{seg}|f0"], z[f"{seg}|hop"] = tr.f0_hz.astype(np.float32), np.float64(tr.hop_s)
         if tr.confidence is not None:
             z[f"{seg}|conf"] = tr.confidence.astype(np.float32)

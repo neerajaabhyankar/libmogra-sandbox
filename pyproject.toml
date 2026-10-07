@@ -51,6 +51,10 @@ umap-learn = "^0.5.6"
 numpy = "^1.24.4"
 pyo = "^1.0.5"
 libmogra = "0.4.3"
+basic-pitch = {version = "^0.4.0", extras = ["onnx"], markers = "platform_system == 'Darwin'"}
+lightning = "^2.2.1"
+einops = "^0.8.0"
+deprecated = "^1.2.14"
 
 [build-system]
 requires = ["poetry-core"]

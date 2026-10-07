@@ -1,0 +1,35 @@
+{
+ "directions": {
+  "choice": "learned",
+  "detectors": "detectors_directions.json"
+ },
+ "nyas": {
+  "choice": "learned",
+  "detectors": "detectors_nyas.json"
+ },
+ "heuristics": {
+  "dir_ratio": 5.0,
+  "dir_min_count": 2,
+  "pause_min_s": 0.06,
+  "pause_rel": 1.0,
+  "pause_abs_s": 0.25,
+  "pace_window_s": 3.0,
+  "nyas_min_count": 2,
+  "nyas_min_share": 0.15
+ },
+ "splits_manifest": "5a93826ee65c",
+ "cv": {
+  "threshold heuristics": {
+   "directions": 0.465225406401877,
+   "nyas_f1": 0.10526315789473684
+  },
+  "learned": {
+   "directions": 0.5852605999664823,
+   "nyas_f1": 0.20689655172413793
+  },
+  "learned + notation": {
+   "directions": 0.5607507960449137,
+   "nyas_f1": 0.20689655172413793
+  }
+ }
+}

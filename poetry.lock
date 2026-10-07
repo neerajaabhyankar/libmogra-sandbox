@@ -484,6 +484,40 @@ files = [
 dev = ["freezegun (>=1.0,<2.0)", "pytest (>=6.0)", "pytest-cov"]
 
 [[package]]
+name = "basic-pitch"
+version = "0.4.0"
+description = "Basic Pitch, a lightweight yet powerful audio-to-MIDI converter with pitch bend detection."
+optional = false
+python-versions = "*"
+groups = ["main"]
+markers = "platform_system == \"Darwin\""
+files = [
+    {file = "basic_pitch-0.4.0-py2.py3-none-any.whl", hash = "sha256:738adb503aae7fdfc7d1e1511aa0ce35052315f260a19531ef4c356708425db0"},
+    {file = "basic_pitch-0.4.0.tar.gz", hash = "sha256:6f48ac4b909c990fd59460622137a03b857c829bb1f3e65c71708da576ab68e5"},
+]
+
+[package.dependencies]
+coremltools = {version = "*", markers = "platform_system == \"Darwin\""}
+librosa = ">=0.8.0"
+mir-eval = ">=0.6"
+numpy = ">=1.18"
+onnxruntime = {version = "*", optional = true, markers = "extra == \"onnx\""}
+pretty-midi = ">=0.2.9"
+resampy = ">=0.2.2,<0.4.3"
+scikit-learn = "*"
+scipy = ">=1.4.1"
+typing-extensions = "*"
+
+[package.extras]
+coreml = ["coremltools"]
+data = ["apache-beam", "basic-pitch[test,tf]", "ffmpeg-python", "mirdata", "smart-open", "sox"]
+dev = ["basic-pitch[coreml,data,docs,onnx,test,tf]", "mypy", "tox"]
+docs = ["mkdocs (>=1.0.4)"]
+onnx = ["onnxruntime"]
+test = ["basic-pitch[data]", "coverage (>=5.0.2)", "mido", "pytest (>=6.1.1)", "pytest-mock", "wave"]
+tf = ["tensorflow (>=2.4.1,<2.15.1) ; platform_system != \"Darwin\"", "tensorflow-macos (>=2.4.1,<2.15.1) ; platform_system == \"Darwin\" and python_version > \"3.7\""]
+
+[[package]]
 name = "beautifulsoup4"
 version = "4.12.3"
 description = "Screen-scraping library"
@@ -583,6 +617,32 @@ files = [
 
 [package.dependencies]
 beautifulsoup4 = "*"
+
+[[package]]
+name = "cattrs"
+version = "24.1.3"
+description = "Composable complex class support for attrs and dataclasses."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+markers = "platform_system == \"Darwin\""
+files = [
+    {file = "cattrs-24.1.3-py3-none-any.whl", hash = "sha256:adf957dddd26840f27ffbd060a6c4dd3b2192c5b7c2c0525ef1bd8131d8a83f5"},
+    {file = "cattrs-24.1.3.tar.gz", hash = "sha256:981a6ef05875b5bb0c7fb68885546186d306f10f0f6718fe9b96c226e68821ff"},
+]
+
+[package.dependencies]
+attrs = ">=23.1.0"
+
+[package.extras]
+bson = ["pymongo (>=4.4.0)"]
+cbor2 = ["cbor2 (>=5.4.6)"]
+msgpack = ["msgpack (>=1.0.5)"]
+msgspec = ["msgspec (>=0.18.5) ; implementation_name == \"cpython\""]
+orjson = ["orjson (>=3.9.2) ; implementation_name == \"cpython\""]
+pyyaml = ["pyyaml (>=6.0)"]
+tomlkit = ["tomlkit (>=0.11.8)"]
+ujson = ["ujson (>=5.7.0)"]
 
 [[package]]
 name = "certifi"
@@ -888,6 +948,48 @@ test = ["Pillow", "contourpy[test-no-images]", "matplotlib"]
 test-no-images = ["pytest", "pytest-cov", "pytest-xdist", "wurlitzer"]
 
 [[package]]
+name = "coremltools"
+version = "9.0"
+description = "Community Tools for Core ML"
+optional = false
+python-versions = "*"
+groups = ["main"]
+markers = "platform_system == \"Darwin\""
+files = [
+    {file = "coremltools-9.0-cp310-none-macosx_10_15_x86_64.whl", hash = "sha256:f3247ec310eb13ce3f0e98ff76747a238ff1bde31835a2a289c84e95fe93f6a9"},
+    {file = "coremltools-9.0-cp310-none-macosx_11_0_arm64.whl", hash = "sha256:e9692a53b8a18891c1a54e8871de4c59ed435c5016e734c8989298b03bdb50de"},
+    {file = "coremltools-9.0-cp310-none-manylinux1_x86_64.whl", hash = "sha256:8e6765539e0c830ac39755e80cef9f8ff323a46c54dda051a0562a622931094b"},
+    {file = "coremltools-9.0-cp311-none-macosx_10_15_x86_64.whl", hash = "sha256:e6e58143c5270c1a37872fef41f8c18c042d22fa38f0ad33b33250007d9e1186"},
+    {file = "coremltools-9.0-cp311-none-macosx_11_0_arm64.whl", hash = "sha256:0e079fea3f13f96a30587c9f7375796ff61cad53f703bde53c56fbf1374813ed"},
+    {file = "coremltools-9.0-cp311-none-manylinux1_x86_64.whl", hash = "sha256:e9080254a4b9d286e168f3b1bc8616edd5d48ab664c17870b85e496629a00e81"},
+    {file = "coremltools-9.0-cp312-none-macosx_10_15_x86_64.whl", hash = "sha256:35d6e972e254081e364e6c7763eae89df8cc775dbf53756ba1ca08a2bc22f018"},
+    {file = "coremltools-9.0-cp312-none-macosx_11_0_arm64.whl", hash = "sha256:7079e8b6ff5a63f0e2c08eeeb8673e4eab8ca231d4b2eae4f7fb005e0d08a8cd"},
+    {file = "coremltools-9.0-cp312-none-manylinux1_x86_64.whl", hash = "sha256:99a101085a7919de9f1c18e514c17d2b3e6a06ad4f7a35aae9515ad47f5a843f"},
+    {file = "coremltools-9.0-cp313-none-macosx_10_15_x86_64.whl", hash = "sha256:c3965805df319d5f2755d0adfb8e28312db655be09be87bd00fad097b104be57"},
+    {file = "coremltools-9.0-cp313-none-macosx_11_0_arm64.whl", hash = "sha256:9f2f858beec7f5d486cd1a59aefb452d59347e236670b67db325795bf692f480"},
+    {file = "coremltools-9.0-cp313-none-manylinux1_x86_64.whl", hash = "sha256:0af02216767232ece83bc4ec5035d7bba3c53c27de11be1a32e8461b4025d866"},
+    {file = "coremltools-9.0-cp37-none-macosx_10_15_x86_64.whl", hash = "sha256:37375d48a4081a01d1659e090e2e1968e222ea7c5894d17739ffe59db62dd98d"},
+    {file = "coremltools-9.0-cp37-none-manylinux1_x86_64.whl", hash = "sha256:8fb0dcbcf8d3d38618c1545256f3ba01632cd3d8f3d8fd7a839aa7cfe85f5c1e"},
+    {file = "coremltools-9.0-cp38-none-macosx_10_15_x86_64.whl", hash = "sha256:36c0040e23b7d5e0d3efb7daf6a80d63ce27aa73634e579f66bfbb7c59be4cd5"},
+    {file = "coremltools-9.0-cp38-none-macosx_11_0_arm64.whl", hash = "sha256:9adc304c5a891d366e513a01d5d34e43c6803511b031a3e5eba10e662d27eca0"},
+    {file = "coremltools-9.0-cp38-none-manylinux1_x86_64.whl", hash = "sha256:0151445cad6119eabb4f218f1c4918aef7265f71fb34a186b2ac379fa2ad6afe"},
+    {file = "coremltools-9.0-cp39-none-macosx_10_15_x86_64.whl", hash = "sha256:0717c0bf556be69e862fd512ba323448ecb59d770dcbbcd029ba3583e7236685"},
+    {file = "coremltools-9.0-cp39-none-macosx_11_0_arm64.whl", hash = "sha256:89f80d93a71954525f42e59a4f6464b3fb9641ff51cd1b710d10e94f4fecab18"},
+    {file = "coremltools-9.0-cp39-none-manylinux1_x86_64.whl", hash = "sha256:0b8c907301e8896b4adadc3727bd56d81a02670cd4f845a1a3e6160c39969fc4"},
+    {file = "coremltools-9.0.tar.gz", hash = "sha256:4ff346b29c31c4b45acd19a20e0f0a1ac65180a96776e62f15bd5c46f4926687"},
+]
+
+[package.dependencies]
+attrs = ">=21.3.0"
+cattrs = "*"
+numpy = ">=1.14.5"
+packaging = "*"
+protobuf = ">=3.1.0"
+pyaml = "*"
+sympy = "*"
+tqdm = "*"
+
+[[package]]
 name = "cuda-bindings"
 version = "13.4.2"
 description = "Python bindings for CUDA"
@@ -1161,21 +1263,21 @@ files = [
 
 [[package]]
 name = "deprecated"
-version = "1.2.14"
+version = "1.3.1"
 description = "Python @deprecated decorator to deprecate old python classes, functions or methods."
 optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,>=2.7"
 groups = ["main"]
 files = [
-    {file = "Deprecated-1.2.14-py2.py3-none-any.whl", hash = "sha256:6fac8b097794a90302bdbb17b9b815e732d3c4720583ff1b198499d78470466c"},
-    {file = "Deprecated-1.2.14.tar.gz", hash = "sha256:e5323eb936458dccc2582dc6f9c322c852a775a27065ff2b0c4970b9d53d01b3"},
+    {file = "deprecated-1.3.1-py2.py3-none-any.whl", hash = "sha256:597bfef186b6f60181535a29fbe44865ce137a5079f295b479886c82729d5f3f"},
+    {file = "deprecated-1.3.1.tar.gz", hash = "sha256:b1b50e0ff0c1fddaa5708a2c6b0a6588bb09b892825ab2b214ac9ea9d92a5223"},
 ]
 
 [package.dependencies]
-wrapt = ">=1.10,<2"
+wrapt = ">=1.10,<3"
 
 [package.extras]
-dev = ["PyTest", "PyTest-Cov", "bump2version (<1)", "sphinx (<2)", "tox"]
+dev = ["PyTest", "PyTest-Cov", "bump2version (<1)", "setuptools ; python_version >= \"3.12\"", "tox"]
 
 [[package]]
 name = "dill"
@@ -1203,6 +1305,18 @@ groups = ["main"]
 files = [
     {file = "diskcache-5.6.3-py3-none-any.whl", hash = "sha256:5e31b2d5fbad117cc363ebaf6b689474db18a1f6438bc82358b024abd4c2ca19"},
     {file = "diskcache-5.6.3.tar.gz", hash = "sha256:2c3a3fa2743d8535d832ec61c2054a1641f41775aa7c556758a109941e33e4fc"},
+]
+
+[[package]]
+name = "einops"
+version = "0.8.2"
+description = "A new flavour of deep learning operations"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "einops-0.8.2-py3-none-any.whl", hash = "sha256:54058201ac7087911181bfec4af6091bb59380360f069276601256a76af08193"},
+    {file = "einops-0.8.2.tar.gz", hash = "sha256:609da665570e5e265e27283aab09e7f279ade90c4f01bcfca111f3d3e13f2827"},
 ]
 
 [[package]]
@@ -2856,6 +2970,73 @@ docs = ["ipython (>=7.0)", "matplotlib (>=3.3.0)", "mir-eval (>=0.5)", "numba (>
 tests = ["matplotlib (>=3.3.0)", "packaging (>=20.0)", "pytest", "pytest-cov", "pytest-mpl", "resampy (>=0.2.2)", "samplerate", "types-decorator"]
 
 [[package]]
+name = "lightning"
+version = "2.6.6"
+description = "The Deep Learning framework to train, deploy, and ship AI products Lightning fast."
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "lightning-2.6.6-py3-none-any.whl", hash = "sha256:2bcbd6ee840071cd076c7dc9953d7ac1040df92f1c5fa76583aae644f037ab85"},
+    {file = "lightning-2.6.6.tar.gz", hash = "sha256:1c6329e241f8a85f29fedead89c1ee138b36caa08de60c260c6a7eaee81c8295"},
+]
+
+[package.dependencies]
+fsspec = {version = ">=2022.5.0,<2028.0", extras = ["http"]}
+lightning-utilities = ">=0.10.0,<2.0"
+packaging = ">=23.0,<27.0"
+pytorch-lightning = "*"
+PyYAML = ">5.4,<8.0"
+torch = ">=2.1.0,<4.0"
+torchmetrics = ">0.7.0,<3.0"
+tqdm = ">=4.57.0,<6.0"
+typing-extensions = ">4.5.0,<6.0"
+
+[package.extras]
+all = ["bitsandbytes (>=0.45.2,<1.0) ; platform_system != \"Darwin\"", "deepspeed (>=0.15.0,<0.17.0) ; platform_system != \"Windows\" and platform_system != \"Darwin\"", "hydra-core (>=1.2.0,<2.0)", "ipython[all] (>=8.0.0,<11.0)", "jsonargparse[jsonnet,signatures] (>=4.39.0,<5.0)", "matplotlib (>3.1,<4.0)", "omegaconf (>=2.2.3,<3.0)", "requests (<3.0)", "rich (>=12.3.0,<15.0)", "tensorboardX (>=2.2,<3.0)", "torchmetrics (>=0.10.0,<2.0)", "torchvision (>=0.16.0,<1.0)"]
+data = ["litdata (>=0.2.0rc,<1.0)"]
+dev = ["bitsandbytes (>=0.45.2,<1.0) ; platform_system != \"Darwin\"", "click (==8.1.8) ; python_version < \"3.11\"", "click (==8.3.1) ; python_version > \"3.10\"", "cloudpickle (>=1.3,<4.0)", "coverage (==7.10.7) ; python_version < \"3.10\"", "coverage (==7.13.4) ; python_version >= \"3.10\"", "deepspeed (>=0.15.0,<0.17.0) ; platform_system != \"Windows\" and platform_system != \"Darwin\"", "fastapi", "huggingface-hub", "hydra-core (>=1.2.0,<2.0)", "ipython[all] (>=8.0.0,<11.0)", "jsonargparse[jsonnet,signatures] (>=4.39.0,<5.0)", "matplotlib (>3.1,<4.0)", "numpy (>1.21.0,<2.0) ; python_version < \"3.12\"", "numpy (>2.1.0,<3.0) ; python_version >= \"3.12\"", "omegaconf (>=2.2.3,<3.0)", "onnx (>1.12.0,<2.0)", "onnx-ir (<1.0)", "onnxruntime (>=1.12.0,<2.0)", "onnxscript (>=0.1.0,<1.0)", "pandas (>2.0,<4.0)", "psutil (<8.0)", "pytest (==9.0.2)", "pytest-cov (==7.0.0)", "pytest-random-order (==1.2.0)", "pytest-rerunfailures (==16.0.1) ; python_version < \"3.10\"", "pytest-rerunfailures (==16.1) ; python_version >= \"3.10\"", "pytest-timeout (==2.4.0)", "requests (<3.0)", "rich (>=12.3.0,<15.0)", "scikit-learn (>0.22.1,<2.0)", "tensorboard (>=2.11,<3.0)", "tensorboardX (>=2.2,<3.0)", "tensorboardX (>=2.6,<3.0)", "torchmetrics (>=0.10.0,<2.0)", "torchvision (>=0.16.0,<1.0)", "uvicorn"]
+examples = ["ipython[all] (>=8.0.0,<11.0)", "requests (<3.0)", "torchmetrics (>=0.10.0,<2.0)", "torchvision (>=0.16.0,<1.0)"]
+extra = ["bitsandbytes (>=0.45.2,<1.0) ; platform_system != \"Darwin\"", "hydra-core (>=1.2.0,<2.0)", "jsonargparse[jsonnet,signatures] (>=4.39.0,<5.0)", "matplotlib (>3.1,<4.0)", "omegaconf (>=2.2.3,<3.0)", "rich (>=12.3.0,<15.0)", "tensorboardX (>=2.2,<3.0)"]
+fabric-all = ["bitsandbytes (>=0.45.2,<1.0) ; platform_system != \"Darwin\"", "deepspeed (>=0.15.0,<0.17.0) ; platform_system != \"Windows\" and platform_system != \"Darwin\"", "hydra-core (>=1.2.0,<2.0)", "torchmetrics (>=0.10.0,<2.0)", "torchvision (>=0.16.0,<1.0)"]
+fabric-dev = ["bitsandbytes (>=0.45.2,<1.0) ; platform_system != \"Darwin\"", "click (==8.1.8) ; python_version < \"3.11\"", "click (==8.3.1) ; python_version > \"3.10\"", "coverage (==7.10.7) ; python_version < \"3.10\"", "coverage (==7.13.4) ; python_version >= \"3.10\"", "deepspeed (>=0.15.0,<0.17.0) ; platform_system != \"Windows\" and platform_system != \"Darwin\"", "huggingface-hub", "hydra-core (>=1.2.0,<2.0)", "numpy (>1.21.0,<2.0) ; python_version < \"3.12\"", "numpy (>2.1.0,<3.0) ; python_version >= \"3.12\"", "pytest (==9.0.2)", "pytest-cov (==7.0.0)", "pytest-random-order (==1.2.0)", "pytest-rerunfailures (==16.0.1) ; python_version < \"3.10\"", "pytest-rerunfailures (==16.1) ; python_version >= \"3.10\"", "pytest-timeout (==2.4.0)", "tensorboardX (>=2.6,<3.0)", "torchmetrics (>=0.10.0,<2.0)", "torchvision (>=0.16.0,<1.0)"]
+fabric-examples = ["torchmetrics (>=0.10.0,<2.0)", "torchvision (>=0.16.0,<1.0)"]
+fabric-extra = ["hydra-core (>=1.2.0,<2.0)"]
+fabric-strategies = ["bitsandbytes (>=0.45.2,<1.0) ; platform_system != \"Darwin\"", "deepspeed (>=0.15.0,<0.17.0) ; platform_system != \"Windows\" and platform_system != \"Darwin\""]
+fabric-test = ["click (==8.1.8) ; python_version < \"3.11\"", "click (==8.3.1) ; python_version > \"3.10\"", "coverage (==7.10.7) ; python_version < \"3.10\"", "coverage (==7.13.4) ; python_version >= \"3.10\"", "huggingface-hub", "numpy (>1.21.0,<2.0) ; python_version < \"3.12\"", "numpy (>2.1.0,<3.0) ; python_version >= \"3.12\"", "pytest (==9.0.2)", "pytest-cov (==7.0.0)", "pytest-random-order (==1.2.0)", "pytest-rerunfailures (==16.0.1) ; python_version < \"3.10\"", "pytest-rerunfailures (==16.1) ; python_version >= \"3.10\"", "pytest-timeout (==2.4.0)", "tensorboardX (>=2.6,<3.0)"]
+pytorch-all = ["bitsandbytes (>=0.45.2,<1.0) ; platform_system != \"Darwin\"", "deepspeed (>=0.15.0,<0.17.0) ; platform_system != \"Windows\" and platform_system != \"Darwin\"", "hydra-core (>=1.2.0,<2.0)", "ipython[all] (>=8.0.0,<11.0)", "jsonargparse[jsonnet,signatures] (>=4.39.0,<5.0)", "matplotlib (>3.1,<4.0)", "omegaconf (>=2.2.3,<3.0)", "requests (<3.0)", "rich (>=12.3.0,<15.0)", "tensorboardX (>=2.2,<3.0)", "torchmetrics (>=0.10.0,<2.0)", "torchvision (>=0.16.0,<1.0)"]
+pytorch-dev = ["bitsandbytes (>=0.45.2,<1.0) ; platform_system != \"Darwin\"", "cloudpickle (>=1.3,<4.0)", "coverage (==7.10.7) ; python_version < \"3.10\"", "coverage (==7.13.4) ; python_version >= \"3.10\"", "deepspeed (>=0.15.0,<0.17.0) ; platform_system != \"Windows\" and platform_system != \"Darwin\"", "fastapi", "huggingface-hub", "hydra-core (>=1.2.0,<2.0)", "ipython[all] (>=8.0.0,<11.0)", "jsonargparse[jsonnet,signatures] (>=4.39.0,<5.0)", "matplotlib (>3.1,<4.0)", "numpy (>1.21.0,<2.0) ; python_version < \"3.12\"", "numpy (>2.1.0,<3.0) ; python_version >= \"3.12\"", "omegaconf (>=2.2.3,<3.0)", "onnx (>1.12.0,<2.0)", "onnx-ir (<1.0)", "onnxruntime (>=1.12.0,<2.0)", "onnxscript (>=0.1.0,<1.0)", "pandas (>2.0,<4.0)", "psutil (<8.0)", "pytest (==9.0.2)", "pytest-cov (==7.0.0)", "pytest-random-order (==1.2.0)", "pytest-rerunfailures (==16.0.1) ; python_version < \"3.10\"", "pytest-rerunfailures (==16.1) ; python_version >= \"3.10\"", "pytest-timeout (==2.4.0)", "requests (<3.0)", "rich (>=12.3.0,<15.0)", "scikit-learn (>0.22.1,<2.0)", "tensorboard (>=2.11,<3.0)", "tensorboardX (>=2.2,<3.0)", "torchmetrics (>=0.10.0,<2.0)", "torchvision (>=0.16.0,<1.0)", "uvicorn"]
+pytorch-examples = ["ipython[all] (>=8.0.0,<11.0)", "requests (<3.0)", "torchmetrics (>=0.10.0,<2.0)", "torchvision (>=0.16.0,<1.0)"]
+pytorch-extra = ["bitsandbytes (>=0.45.2,<1.0) ; platform_system != \"Darwin\"", "hydra-core (>=1.2.0,<2.0)", "jsonargparse[jsonnet,signatures] (>=4.39.0,<5.0)", "matplotlib (>3.1,<4.0)", "omegaconf (>=2.2.3,<3.0)", "rich (>=12.3.0,<15.0)", "tensorboardX (>=2.2,<3.0)"]
+pytorch-strategies = ["deepspeed (>=0.15.0,<0.17.0) ; platform_system != \"Windows\" and platform_system != \"Darwin\""]
+pytorch-test = ["cloudpickle (>=1.3,<4.0)", "coverage (==7.10.7) ; python_version < \"3.10\"", "coverage (==7.13.4) ; python_version >= \"3.10\"", "fastapi", "huggingface-hub", "numpy (>1.21.0,<2.0) ; python_version < \"3.12\"", "numpy (>2.1.0,<3.0) ; python_version >= \"3.12\"", "onnx (>1.12.0,<2.0)", "onnx-ir (<1.0)", "onnxruntime (>=1.12.0,<2.0)", "onnxscript (>=0.1.0,<1.0)", "pandas (>2.0,<4.0)", "psutil (<8.0)", "pytest (==9.0.2)", "pytest-cov (==7.0.0)", "pytest-random-order (==1.2.0)", "pytest-rerunfailures (==16.0.1) ; python_version < \"3.10\"", "pytest-rerunfailures (==16.1) ; python_version >= \"3.10\"", "pytest-timeout (==2.4.0)", "scikit-learn (>0.22.1,<2.0)", "tensorboard (>=2.11,<3.0)", "uvicorn"]
+pytorch-test-gpu = ["tensorrt (<11.0) ; platform_system != \"Darwin\" and python_version >= \"3.12\"", "torch-tensorrt ; platform_system != \"Darwin\" and python_version >= \"3.12\""]
+strategies = ["bitsandbytes (>=0.45.2,<1.0) ; platform_system != \"Darwin\"", "deepspeed (>=0.15.0,<0.17.0) ; platform_system != \"Windows\" and platform_system != \"Darwin\""]
+test = ["click (==8.1.8) ; python_version < \"3.11\"", "click (==8.3.1) ; python_version > \"3.10\"", "cloudpickle (>=1.3,<4.0)", "coverage (==7.10.7) ; python_version < \"3.10\"", "coverage (==7.13.4) ; python_version >= \"3.10\"", "fastapi", "huggingface-hub", "numpy (>1.21.0,<2.0) ; python_version < \"3.12\"", "numpy (>2.1.0,<3.0) ; python_version >= \"3.12\"", "onnx (>1.12.0,<2.0)", "onnx-ir (<1.0)", "onnxruntime (>=1.12.0,<2.0)", "onnxscript (>=0.1.0,<1.0)", "pandas (>2.0,<4.0)", "psutil (<8.0)", "pytest (==9.0.2)", "pytest-cov (==7.0.0)", "pytest-random-order (==1.2.0)", "pytest-rerunfailures (==16.0.1) ; python_version < \"3.10\"", "pytest-rerunfailures (==16.1) ; python_version >= \"3.10\"", "pytest-timeout (==2.4.0)", "scikit-learn (>0.22.1,<2.0)", "tensorboard (>=2.11,<3.0)", "tensorboardX (>=2.6,<3.0)", "uvicorn"]
+test-gpu = ["tensorrt (<11.0) ; platform_system != \"Darwin\" and python_version >= \"3.12\"", "torch-tensorrt ; platform_system != \"Darwin\" and python_version >= \"3.12\""]
+
+[[package]]
+name = "lightning-utilities"
+version = "0.15.3"
+description = "Lightning toolbox for across the our ecosystem."
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "lightning_utilities-0.15.3-py3-none-any.whl", hash = "sha256:6c55f1bee70084a1cbeaa41ada96e4b3a0fea5909e844dd335bd80f5a73c5f91"},
+    {file = "lightning_utilities-0.15.3.tar.gz", hash = "sha256:792ae0204c79f6859721ac7f386c237a33b0ed06ba775009cb894e010a842033"},
+]
+
+[package.dependencies]
+packaging = ">=22"
+typing_extensions = "*"
+
+[package.extras]
+cli = ["jsonargparse[signatures] (>=4.38.0)", "tomlkit"]
+docs = ["requests (>=2.0.0)"]
+typing = ["mypy (>=1.0.0)", "types-setuptools"]
+
+[[package]]
 name = "llvmlite"
 version = "0.47.0"
 description = "lightweight wrapper around basic LLVM functionality"
@@ -3158,6 +3339,29 @@ ports-rtmidi = ["python-rtmidi (>=1.5.4,<1.6.0)"]
 ports-rtmidi-python = ["rtmidi-python (>=0.2.2,<0.3.0)"]
 release = ["twine (>=4.0.2,<4.1.0)"]
 test-code = ["pytest (>=7.4.0,<7.5.0)"]
+
+[[package]]
+name = "mir-eval"
+version = "0.8.2"
+description = "Common metrics for common audio/music processing tasks."
+optional = false
+python-versions = "*"
+groups = ["main"]
+markers = "platform_system == \"Darwin\""
+files = [
+    {file = "mir_eval-0.8.2-py3-none-any.whl", hash = "sha256:114cda33d8e17408c170598e0b36ed0d71ff4a2fee8eaf9e165b58ecf1c87170"},
+    {file = "mir_eval-0.8.2.tar.gz", hash = "sha256:141a3e1193276889fc32e911547e73dcb3e829ee8cfea60f7bbcd633c0792569"},
+]
+
+[package.dependencies]
+decorator = "*"
+numpy = ">=1.15.4"
+scipy = ">=1.4.0"
+
+[package.extras]
+display = ["matplotlib (>=3.3.0)"]
+docs = ["matplotlib (>=3.3.0)", "numpydoc", "sphinx_rtd_theme"]
+tests = ["matplotlib (>=3.3.0)", "pytest", "pytest-cov", "pytest-mpl"]
 
 [[package]]
 name = "mistune"
@@ -3966,6 +4170,51 @@ files = [
 ]
 
 [[package]]
+name = "onnxruntime"
+version = "1.26.0"
+description = "ONNX Runtime is a runtime accelerator for Machine Learning models"
+optional = false
+python-versions = ">=3.11"
+groups = ["main"]
+markers = "platform_system == \"Darwin\""
+files = [
+    {file = "onnxruntime-1.26.0-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:ee1109ef4ef27cad90e823399e61e03b3c6c7bfe0fb820b4baf3678c15be8b3c"},
+    {file = "onnxruntime-1.26.0-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:35c7c7b0ac2e02001d28fab6c9fc24e9abc5e6faa35e6e19c63cecf1406ba89f"},
+    {file = "onnxruntime-1.26.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:11a8df4dcfe9ad5ff0bd71a7571dbed019fabc7594676c89fe8b86ea029c246f"},
+    {file = "onnxruntime-1.26.0-cp311-cp311-win_amd64.whl", hash = "sha256:e6456718125fd777c673f3b78d4a9ab58d6adea641e9afae85ee6444f0e0e9a9"},
+    {file = "onnxruntime-1.26.0-cp311-cp311-win_arm64.whl", hash = "sha256:cd920e45b730e4a87833e2910d8ca375aaca9da6ccc09e24bce463b3356d637f"},
+    {file = "onnxruntime-1.26.0-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:05b028781b322ad74b57ce5b50aa5280bb1fe96ceec334628ade681e0b24c1ac"},
+    {file = "onnxruntime-1.26.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:91f2bb870a4b9224eba0a6728c1fa7a9e552b8e59e1083c51fbbc3d013f2b5c0"},
+    {file = "onnxruntime-1.26.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9b6dd70599005bd1bf29779f04a91978b92b5e719c11a20068a8f8e535f725b6"},
+    {file = "onnxruntime-1.26.0-cp312-cp312-win_amd64.whl", hash = "sha256:a26374dc7fbcaae593601086b242120e13f2310558df0991da6dd8b8fac00414"},
+    {file = "onnxruntime-1.26.0-cp312-cp312-win_arm64.whl", hash = "sha256:54a8053410fd31fd66469bd754fcfe8a4df9f7eb44756b4b5479bf50c842d948"},
+    {file = "onnxruntime-1.26.0-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:ccce19c5f771b8268902f77d9fed9e88f9499465d6780808faa6611a789d33f0"},
+    {file = "onnxruntime-1.26.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:bdbed8cf3b672b66acb032f33a253bc27f42bce6ece48ae3fab4fa483a5e96e0"},
+    {file = "onnxruntime-1.26.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:c07af6fc6d5557835f2b6ee7a96d8b3235d0c57a8e230efdedaee106a8a3cbc6"},
+    {file = "onnxruntime-1.26.0-cp313-cp313-win_amd64.whl", hash = "sha256:61bec80655efa460591c2bc655392d57d2650ce85533a6b9b3b7a790d7ea7916"},
+    {file = "onnxruntime-1.26.0-cp313-cp313-win_arm64.whl", hash = "sha256:a6677545ff451e3539a02746d2f207d8c5baa4a0a818886bb9d6a6eb9511ee89"},
+    {file = "onnxruntime-1.26.0-cp313-cp313t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:5e016edc15d3c19f36807e1c6b10be5b27807688c32720f91b5ae480a95215d0"},
+    {file = "onnxruntime-1.26.0-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f5fc48a91a046a6a5c9b147f83fb41d65d24d24923373b222cdd248f0f4f4aac"},
+    {file = "onnxruntime-1.26.0-cp314-cp314-macosx_14_0_arm64.whl", hash = "sha256:33a791f31432a3af1a96db5e54818b37aba5e5eefc2e6af5794c10a9118a9993"},
+    {file = "onnxruntime-1.26.0-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e90c00732c4553618103149d93f688e8c3063017938f8983e21a71d9f3b6d22e"},
+    {file = "onnxruntime-1.26.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:01498e80ba8988428d08c2d51b1338f89e3de2a93e6ffe555f79c68f26a5c06b"},
+    {file = "onnxruntime-1.26.0-cp314-cp314-win_amd64.whl", hash = "sha256:7ead61450d8405167c87dd3a31d8da1d576b490a57dab1aa8b82a7da6825f5aa"},
+    {file = "onnxruntime-1.26.0-cp314-cp314-win_arm64.whl", hash = "sha256:31d71a53490e46910877d0902b5ad99c69a5955e5c7ea6c82863519410e1ba7c"},
+    {file = "onnxruntime-1.26.0-cp314-cp314t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d7b6d258fb78fdfcf049795bcfaa74dcb90ae7baa277afd21e6fd28b83f2c496"},
+    {file = "onnxruntime-1.26.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4eefd386a45202aefb7a5132b94f32df9d506c9edcc7faf2fc60d65183f4b183"},
+]
+
+[package.dependencies]
+flatbuffers = "*"
+numpy = ">=1.21.6"
+packaging = "*"
+protobuf = "*"
+
+[package.extras]
+quantization = ["ml_dtypes"]
+symbolic = ["sympy"]
+
+[[package]]
 name = "openl3"
 version = "0.4.2"
 description = "Deep audio and image embeddings, based on Look, Listen, and Learn approach"
@@ -4667,6 +4916,28 @@ files = [
 numpy = ">=1.7.0"
 
 [[package]]
+name = "pretty-midi"
+version = "0.2.11.post0"
+description = "Functions and classes for handling MIDI data conveniently."
+optional = false
+python-versions = "*"
+groups = ["main"]
+markers = "platform_system == \"Darwin\""
+files = [
+    {file = "pretty_midi-0.2.11.post0-py3-none-any.whl", hash = "sha256:a3e2321736245a9c92259716d85a4762f16b7bde2f591fb0dba95bdb6e793d8a"},
+    {file = "pretty_midi-0.2.11.post0.tar.gz", hash = "sha256:c91e40c9b087b0511f503c3efbba892b41e7048c831cafdccbf6ba965632a0bf"},
+]
+
+[package.dependencies]
+importlib_resources = "*"
+mido = ">=1.1.16"
+numpy = ">=1.7.0"
+six = "*"
+
+[package.extras]
+fluidsynth = ["pyfluidsynth (>=1.3.1)"]
+
+[[package]]
 name = "prettytable"
 version = "3.10.0"
 description = "A simple Python library for easily displaying tabular data in a visually appealing ASCII table format"
@@ -4821,6 +5092,25 @@ files = [
 
 [package.dependencies]
 winregistry = {version = "*", markers = "sys_platform == \"win32\""}
+
+[[package]]
+name = "pyaml"
+version = "26.7.0"
+description = "PyYAML-based module to produce a bit more pretty and readable YAML-serialized data"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+markers = "platform_system == \"Darwin\""
+files = [
+    {file = "pyaml-26.7.0-py3-none-any.whl", hash = "sha256:cfa382780c43ae660669b87d394d550a41856ef175f5749f51f753e12d7077ac"},
+    {file = "pyaml-26.7.0.tar.gz", hash = "sha256:11cda3a796efc6dbce0d56836be56cfd26289dad07bcd78e9904086729929c93"},
+]
+
+[package.dependencies]
+PyYAML = "*"
+
+[package.extras]
+anchors = ["unidecode"]
 
 [[package]]
 name = "pyarrow"
@@ -5219,6 +5509,38 @@ files = [
     {file = "python-magic-0.4.15.tar.gz", hash = "sha256:f3765c0f582d2dfc72c15f3b5a82aecfae9498bd29ca840d72f37d7bd38bfcd5"},
     {file = "python_magic-0.4.15-py2.py3-none-any.whl", hash = "sha256:f2674dcfad52ae6c49d4803fa027809540b130db1dec928cfbb9240316831375"},
 ]
+
+[[package]]
+name = "pytorch-lightning"
+version = "2.6.6"
+description = "PyTorch Lightning is the lightweight PyTorch wrapper for ML researchers. Scale your models. Write less boilerplate."
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "pytorch_lightning-2.6.6-py3-none-any.whl", hash = "sha256:71f95c7b22f25c4f91cc659e1734bcdc6c69c8b66543f2ed2d78dbe29ce2f167"},
+    {file = "pytorch_lightning-2.6.6.tar.gz", hash = "sha256:52c52b20522dd3d3feb3bb3aae2dbe3f291e8e836d4111a74cfd72e9df018834"},
+]
+
+[package.dependencies]
+fsspec = {version = ">=2022.5.0", extras = ["http"]}
+lightning-utilities = ">=0.10.0"
+packaging = ">=23.0"
+PyYAML = ">5.4"
+torch = ">=2.1.0"
+torchmetrics = ">0.7.0"
+tqdm = ">=4.57.0"
+typing-extensions = ">4.5.0"
+
+[package.extras]
+all = ["bitsandbytes (>=0.45.2) ; platform_system != \"Darwin\"", "deepspeed (>=0.15.0,<0.17.0) ; platform_system != \"Windows\" and platform_system != \"Darwin\"", "hydra-core (>=1.2.0)", "ipython[all] (>=8.0.0)", "jsonargparse[jsonnet,signatures] (>=4.39.0)", "matplotlib (>3.1)", "omegaconf (>=2.2.3)", "requests (<2.33.0)", "rich (>=12.3.0)", "tensorboardX (>=2.2)", "torchmetrics (>=0.10.0)", "torchvision (>=0.16.0)"]
+deepspeed = ["deepspeed (>=0.15.0,<0.17.0) ; platform_system != \"Windows\" and platform_system != \"Darwin\""]
+dev = ["bitsandbytes (>=0.45.2) ; platform_system != \"Darwin\"", "cloudpickle (>=1.3)", "coverage (==7.10.7) ; python_version < \"3.10\"", "coverage (==7.13.4) ; python_version >= \"3.10\"", "deepspeed (>=0.15.0,<0.17.0) ; platform_system != \"Windows\" and platform_system != \"Darwin\"", "fastapi", "huggingface-hub", "hydra-core (>=1.2.0)", "ipython[all] (>=8.0.0)", "jsonargparse[jsonnet,signatures] (>=4.39.0)", "matplotlib (>3.1)", "numpy (>1.21.0) ; python_version < \"3.12\"", "numpy (>2.1.0) ; python_version >= \"3.12\"", "omegaconf (>=2.2.3)", "onnx (>1.12.0)", "onnx-ir (<0.1.16)", "onnxruntime (>=1.12.0)", "onnxscript (>=0.1.0)", "pandas (>2.0)", "psutil (<7.3.0)", "pytest (==9.0.2)", "pytest-cov (==7.0.0)", "pytest-random-order (==1.2.0)", "pytest-rerunfailures (==16.0.1) ; python_version < \"3.10\"", "pytest-rerunfailures (==16.1) ; python_version >= \"3.10\"", "pytest-timeout (==2.4.0)", "requests (<2.33.0)", "rich (>=12.3.0)", "scikit-learn (>0.22.1)", "tensorboard (>=2.11)", "tensorboardX (>=2.2)", "torchmetrics (>=0.10.0)", "torchvision (>=0.16.0)", "uvicorn"]
+examples = ["ipython[all] (>=8.0.0)", "requests (<2.33.0)", "torchmetrics (>=0.10.0)", "torchvision (>=0.16.0)"]
+extra = ["bitsandbytes (>=0.45.2) ; platform_system != \"Darwin\"", "hydra-core (>=1.2.0)", "jsonargparse[jsonnet,signatures] (>=4.39.0)", "matplotlib (>3.1)", "omegaconf (>=2.2.3)", "rich (>=12.3.0)", "tensorboardX (>=2.2)"]
+strategies = ["deepspeed (>=0.15.0,<0.17.0) ; platform_system != \"Windows\" and platform_system != \"Darwin\""]
+test = ["cloudpickle (>=1.3)", "coverage (==7.10.7) ; python_version < \"3.10\"", "coverage (==7.13.4) ; python_version >= \"3.10\"", "fastapi", "huggingface-hub", "numpy (>1.21.0) ; python_version < \"3.12\"", "numpy (>2.1.0) ; python_version >= \"3.12\"", "onnx (>1.12.0)", "onnx-ir (<0.1.16)", "onnxruntime (>=1.12.0)", "onnxscript (>=0.1.0)", "pandas (>2.0)", "psutil (<7.3.0)", "pytest (==9.0.2)", "pytest-cov (==7.0.0)", "pytest-random-order (==1.2.0)", "pytest-rerunfailures (==16.0.1) ; python_version < \"3.10\"", "pytest-rerunfailures (==16.1) ; python_version >= \"3.10\"", "pytest-timeout (==2.4.0)", "scikit-learn (>0.22.1)", "tensorboard (>=2.11)", "uvicorn"]
+test-gpu = ["tensorrt (<10.13.1) ; platform_system != \"Darwin\" and python_version >= \"3.12\"", "torch-tensorrt ; platform_system != \"Darwin\" and python_version >= \"3.12\""]
 
 [[package]]
 name = "pytz"
@@ -7366,6 +7688,37 @@ torchaudio = "*"
 tqdm = "*"
 
 [[package]]
+name = "torchmetrics"
+version = "1.9.0"
+description = "PyTorch native Metrics"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "torchmetrics-1.9.0-py3-none-any.whl", hash = "sha256:bfdcbff3dd1d96b3374bb2496eb39f23c4b28b8a845b6a18c313688e0d2d9ca1"},
+    {file = "torchmetrics-1.9.0.tar.gz", hash = "sha256:a488609948600df52d3db4fcdab02e62aab2a85ef34da67037dc3e65b8512faa"},
+]
+
+[package.dependencies]
+lightning-utilities = ">=0.15.3"
+numpy = ">1.20.0"
+packaging = ">17.1"
+torch = ">=2.0.0"
+
+[package.extras]
+all = ["SciencePlots (>=2.0.0)", "einops (>=0.7.0)", "einops (>=0.7.0)", "gammatone (>=1.0.0)", "ipadic (>=1.0.0)", "librosa (>=0.10.0)", "matplotlib (>=3.6.0)", "mecab-python3 (>=1.0.6)", "mypy (==1.17.1)", "nltk (>3.8.1)", "onnxruntime (>=1.12.0)", "pesq (>=0.0.4)", "piq (<=0.8.0)", "pycocotools (>2.0.0)", "pystoi (>=0.4.0)", "regex (>=2021.9.24)", "requests (>=2.22.0)", "scipy (>1.0.0)", "sentencepiece (>=0.2.0)", "timm (>=0.9.0)", "torch (==2.8.0)", "torch-fidelity (<=0.4.0)", "torch_linear_assignment (>=0.0.2)", "torchaudio (>=2.0.1)", "torchvision (>=0.15.1)", "torchvision (>=0.15.1)", "tqdm (<4.68.0)", "transformers (>=4.43.0)", "transformers (>=4.43.0)", "types-PyYAML", "types-emoji", "types-protobuf", "types-requests", "types-setuptools", "types-six", "types-tabulate", "vmaf-torch (>=1.1.0)"]
+audio = ["gammatone (>=1.0.0)", "librosa (>=0.10.0)", "onnxruntime (>=1.12.0)", "pesq (>=0.0.4)", "pystoi (>=0.4.0)", "requests (>=2.22.0)", "torchaudio (>=2.0.1)"]
+clustering = ["torch_linear_assignment (>=0.0.2)"]
+detection = ["pycocotools (>2.0.0)", "torchvision (>=0.15.1)"]
+dev = ["PyTDC (==0.4.1) ; platform_system == \"Windows\" and python_version < \"3.12\"", "SciencePlots (>=2.0.0)", "aeon (>=1.0.0) ; python_version > \"3.10\"", "bert_score (==0.3.13)", "dists-pytorch (==0.1)", "dython (==0.7.9)", "einops (>=0.7.0)", "einops (>=0.7.0)", "fairlearn", "fast-bss-eval (>=0.1.0)", "faster-coco-eval (>=1.6.3)", "gammatone (>=1.0.0)", "huggingface-hub (<0.35)", "ipadic (>=1.0.0)", "jiwer (>=2.3.0)", "kornia (>=0.6.7)", "librosa (>=0.10.0)", "lpips (<=0.1.4)", "matplotlib (>=3.6.0)", "mecab-ko (>=1.0.0,<1.1.0) ; python_version < \"3.12\"", "mecab-ko-dic (>=1.0.0) ; python_version < \"3.12\"", "mecab-python3 (>=1.0.6)", "mir-eval (>=0.6)", "monai (==1.4.0)", "mypy (==1.17.1)", "netcal (>1.0.0)", "nltk (>3.8.1)", "numpy (<2.4.0)", "onnxruntime (>=1.12.0)", "pandas (>1.4.0)", "permetrics (==2.0.0)", "pesq (>=0.0.4)", "piq (<=0.8.0)", "properscoring (==0.1)", "pycocotools (>2.0.0)", "pystoi (>=0.4.0)", "pytorch-msssim (==1.0.0)", "regex (>=2021.9.24)", "requests (>=2.22.0)", "rouge-score (>0.1.0)", "sacrebleu (>=2.3.0)", "scikit-image (>=0.19.0)", "scipy (>1.0.0)", "scipy (>1.0.0)", "sentencepiece (>=0.2.0)", "setuptools (<82.0.0)", "sewar (>=0.4.4)", "statsmodels (>0.13.5)", "timm (>=0.9.0)", "torch (==2.8.0)", "torch-fidelity (<=0.4.0)", "torch_complex (<0.5.0)", "torch_linear_assignment (>=0.0.2)", "torchaudio (>=2.0.1)", "torchvision (>=0.15.1)", "torchvision (>=0.15.1)", "tqdm (<4.68.0)", "transformers (>=4.43.0)", "transformers (>=4.43.0)", "types-PyYAML", "types-emoji", "types-protobuf", "types-requests", "types-setuptools", "types-six", "types-tabulate", "vmaf-torch (>=1.1.0)"]
+image = ["scipy (>1.0.0)", "torch-fidelity (<=0.4.0)", "torchvision (>=0.15.1)"]
+multimodal = ["einops (>=0.7.0)", "piq (<=0.8.0)", "timm (>=0.9.0)", "transformers (>=4.43.0)"]
+text = ["ipadic (>=1.0.0)", "mecab-python3 (>=1.0.6)", "nltk (>3.8.1)", "regex (>=2021.9.24)", "sentencepiece (>=0.2.0)", "tqdm (<4.68.0)", "transformers (>=4.43.0)"]
+typing = ["mypy (==1.17.1)", "torch (==2.8.0)", "types-PyYAML", "types-emoji", "types-protobuf", "types-requests", "types-setuptools", "types-six", "types-tabulate"]
+video = ["einops (>=0.7.0)", "vmaf-torch (>=1.1.0)"]
+visual = ["SciencePlots (>=2.0.0)", "matplotlib (>=3.6.0)"]
+
+[[package]]
 name = "tornado"
 version = "6.4"
 description = "Tornado is a Python web framework and asynchronous networking library, originally developed at FriendFeed."
@@ -8296,4 +8649,4 @@ test = ["pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.12"
-content-hash = "e0c82b74ade5981f27bce7158c1691fb810f75e044da4b24e8f1cf4da1d77904"
+content-hash = "70b4830b5c1988f304f795299ad6606f384d1ee9cf3b5486b93b3831ae784c65"

@@ -96,8 +96,19 @@ compared with Melodia; only the final pick is scored on test, once.
 
 - ✅ T0 -- the switch (`config.PITCH_SOURCE`, `fullaudio.contour`), `transcribers/{source,segments,run}.py`.
   Choosing needs 85 min of audio (notation 36, validation 36, insight clips 12); test adds 52.
-- 🟨 T1 -- CREPE (no download): smoke test on one range OK; full run waiting for Neeraja's go.
-- 🟥 T2 -- Basic Pitch, YourMT3+, separation front-end: waiting on download approval.
+- 🟨 T1 -- CREPE (no download): adapter ready; full run skipped (Neeraja: tried elsewhere).
+- 🔄 T2 -- sources running (2026-10-07): `basic_pitch`, `yourmt3`, `ymt3plus` (MT3 stand-in), each
+  also `+demucs`. Validation only; compared with Melodia when done (`python -m transcribers.compare`
+  -> `transcribers/compare.md`).
+  - `basic_pitch` (2026-10-07): worse than Melodia on every number -- misread 0.661 vs 0.559
+    (deletions 1453 vs 941: it voices fewer frames), phrase 0.685 vs 0.744, directions 0.585 vs
+    0.628, nyas F1 0.207 vs 0.409 (pauses come from voicing gaps, and its voicing is choppier).
+    One bright spot: read-then-match is better on it (0.685) than on Melodia (0.654). Its adapter
+    settings (voicing threshold, jump cost) are untuned; tuning them on notation is allowed.
+  - `basic_pitch+demucs`: separation helps nyas (0.373) but hurts reading (misread 0.699) and phrase (0.617).
+  - `yourmt3`: worst so far -- misread 0.701, phrase 0.546, directions 0.455, nyas 0.255. Its
+    one-pitch-per-note, semitone-grid output loses what the reader and matcher rely on.
+  - `ymt3plus` (MT3 stand-in): worse still -- misread 0.776, phrase 0.498, directions 0.396, nyas 0.100.
 
 ## Data and representation
 
